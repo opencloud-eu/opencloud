@@ -136,6 +136,18 @@ handleHelloLoop:
 			response.Meta = &meta.Meta{
 				Scopes: scopes.NewScopesFromIDs(r.Scopes, i.meta.Scopes),
 			}
+			// The resource is named by the operator's registration, unlike
+			// the client, so it is what the consent screen can vouch for. An
+			// unknown one never gets here, the authorization endpoint refuses
+			// it first.
+			if r.RawResource != "" && i.resources != nil {
+				if resource, ok := i.resources.Get(r.RawResource); ok {
+					response.Resource = &ResourceDetails{
+						ID:   resource.ID,
+						Name: resource.Name,
+					}
+				}
+			}
 		}
 
 		// Add authorize endpoint URI as continue URI.

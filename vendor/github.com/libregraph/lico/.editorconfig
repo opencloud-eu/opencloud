@@ -16,13 +16,15 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-; YAML format, 2 spaces
-[*.{yaml,yml,yaml.in,json}]
+; YAML and JSON, 2 spaces
+[*.{yaml,yml,yaml.in,json,jsonc}]
 indent_style = space
 indent_size = 2
 
-; HTML, CSS and JavaScript, 4 spaces
-[*.{html,css,js,ts,tsx,jsx}]
+; HTML, CSS and JavaScript, 2 spaces. The module extensions are listed too,
+; because the section above applies to whatever the formatter is pointed at and
+; a config file left to the catch-all would be indented with tabs.
+[*.{html,css,js,mjs,cjs,ts,mts,cts,tsx,jsx}]
 charset = utf-8
 indent_size = 2
 indent_style = space

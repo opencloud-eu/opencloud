@@ -53,7 +53,7 @@ require (
 	github.com/kovidgoyal/imaging v1.9.0
 	github.com/leonelquinteros/gotext v1.7.3-0.20260422134830-b012b4ccae69
 	github.com/libregraph/idm v0.5.0
-	github.com/libregraph/lico v0.67.0
+	github.com/libregraph/lico v0.69.0
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826

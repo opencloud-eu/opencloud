@@ -4,10 +4,131 @@
 
 
 
-## v0.67.0 (2026-03-18)
+## v0.69.0 (2026-10-14)
+
+- Name the hello resource and unverified client host in Consent
+- Add --client-id-metadata-document-host for Client ID Metadata Documents
+- Add RFC 9207 iss to authorization responses, errors included
+- Look up UserInfoHandler's client by azp, not Audience[0]
+- Answer TokenHandler failures with invalid_grant and invalid_client
+- Document OAuth 2.1 behavior in libregraph-connect-api-v1.yaml 1.2.0
+- Add Check identifier step running make -C identifier check
+- Hold jsdom at ~30.0.1 until Vitest supports 30.1
+- Bump the identifier group across 1 directory with 15 updates
+- Raise i18next to ^26.4.3 to satisfy react-i18next 17
+- Bump react-i18next from 11.18.6 to 17.0.16 in /identifier
+- Bump github.com/gorilla/mux from 1.8.0 to 1.8.1
+- Bump golang.org/x/time from 0.13.0 to 0.16.0
+- Add bun to dependabot.yml and a bun audit job to build.yml
+- Bump brace-expansion, source-map-js and undici in bun.lock
+- Make the test target generate app-icon.svg through src
+- Say what a scope grants in the visitor's language
+- Answer the account chooser from the keyboard
+- Keep the page light when the OS asks for dark
+- State the consent grants rather than tick them
+- Draw the page's background from the theme
+- Give the theme two surfaces and a rem type scale
+- Raise the test wait budget for whole-app mounts
+- Hold the card's top edge across the whole flow
+- Report the wait as a strip across the top edge
+- Hold back the render on a screen being left
+- Share the busy button and the request error
+- Parse each reply as the shape its endpoint sends
+- Share the nonce check and the flow mount guard
+- Keep the credentials and the request out of Redux
+- Move the identifier frontend to react-router 8
+- Move the identifier frontend to React 19
+- Move the identifier's Redux layer to Toolkit 2
+- Drop the service worker routes and asset manifest
+- Clear identifier audit advisories
+- Preload the fonts the first screens paint with
+- Dedupe clsx and pin react-is to React's major
+- Lowercase every file name the identifier emits
+- Drop the vendor chunk group from the identifier
+- Enable Biome formatter and import sorting
+- Update the identifier to Vite 8 and Vitest 4
+- Update the identifier to TypeScript 7
+- Replace Material-UI v4 with MUI 9 and emotion
+- Update user-event to 14 in the identifier tests
+- Move ResponsiveScreen defaults off defaultProps
+- Convert identifier web app to TypeScript
+- Return login validation errors synchronously
+- Extract withSearchAndHash from six navigations
+- Replace withTranslation with useTranslation
+- Convert the identifier components to hooks
+- Export the locale list directly
+- Remove unused webpackChunkName comments
+- Add typecheck, test and check make targets
+- Minify the identifier bundle with terser
+- Resolve react-is to a single copy
+- Document the Bun toolchain and swap badges
+- Install Bun and Go 1.27 in the CI workflow
+- Bring the build container image up to date
+- Port icon generation to rsvg-convert and magick
+- Replace the test reporters and guard packaging
+- Replace Yarn with Bun for the identifier app
+- Pin [@types](https://github.com/types/)/react to a single resolution
+- Import isEmail directly and encode IDN domains
+- Replace the ESLint stack with Biome
+- Remove the dead service worker state
+- Bump i18next-resources-to-backend to 1.2.3
+- Remove redux-logger
+- Replace render-if and classnames with plain JSX
+- Replace axios with fetch
+- Complete the translations for all shipped locales
+- Declare gettext-parser as a direct dependency
+- Drop four unused packages and move glob
+- Remove leftovers from superseded tooling
+- Redirect off the consent screen without a session
+- Survive branding which enables no shipped locale
+- Match the locale against the enabled ones only
+- Stop the consent form from refusing on submit
+- Recover the goodbye screen from a refused sign out
+- Render the welcome screen without a session safely
+- Require a session, not an answer, to pass the guard
+- Report a failed sign out to the caller
+- Clear a field error without mutating the state
+- Join the claims scope without a leading space
+- Resolve the React types to a single copy
+- Cover the identifier webapp with tests
+- Type the test globals from Vitest, not Jest
+- Log the unknown logon mode as a field
+- Return after writing the params error page
+- Buffer the signal channel in the server
+- Fix non-constant format string in healthcheck
+- Keep a grant whole when a refresh asks for less of it
+- Answer a refresh request in the token endpoint's own words
+- Update README
+- Answer a registration without nulls in it
+- Stop expiring a dynamic client_id at the year one
+- Accept a client which has no secret to keep
+- Bind access tokens to the resource they are for
+- Serve the provider metadata for OAuth 2.0 clients
+- Fix incorrect paths and schemas in the API spec
+- Tell a rejected session from an unknown user
+- Store the SAML session index as an external ref
+- Carry the backend session id through refresh
+- Fix provider test key and token durations
+- Fix panic on logon without a hello object
+
+
+## v0.68.0 (2026-09-01)
+
+- Limit decompressed size of SAML logout messages
+- Fix the action logger running in production
+- Bump github.com/sirupsen/logrus from 1.9.3 to 1.9.4
+- Bump golang.org/x/crypto from 0.51.0 to 0.52.0
+- Bump github.com/go-ldap/ldap/v3 from 3.4.11 to 3.4.13
+- Bump golang.org/x/net from 0.47.0 to 0.55.0
+- Bump golang.org/x/oauth2 from 0.31.0 to 0.35.0
+- Bump github.com/go-jose/go-jose/v3 from 3.0.4 to 3.0.5
+- Bump github.com/Azure/go-ntlmssp
+
+
+## v0.67.0 (2026-03-27)
 
 - Bump github.com/russellhaering/goxmldsig from 1.5.0 to 1.6.0
-- Run npx update-browserslist-db@latest
+- Run npx update-browserslist-db[@latest](https://github.com/latest/)
 - Add signed JWT auto sign-in flow (LibreGraph.SignedLoginOK)
 - Fix Go formatting treewide
 - Add per-client external authorize redirect URIs

@@ -14,39 +14,38 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-FROM golang:1.17.2-buster
+# Matches the Go the CI workflow installs, so the image never has to download a
+# toolchain mid-build.
+FROM docker.io/library/golang:1.27.0-trixie
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# The identifier web app builds with Bun. Taking the binary from the official
+# image keeps the version pinned by tag; identifier/.bun-version records it.
+COPY --from=docker.io/oven/bun:1.4.0-debian /usr/local/bin/bun /usr/local/bin/bun
 
-ARG GOLANGCI_LINT_TAG=v1.23.8
-RUN curl -sfL \
-	https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
-	sh -s -- -b /usr/local/bin ${GOLANGCI_LINT_TAG}
+# .golangci.yaml is written against configuration schema 2, which needs
+# golangci-lint 2.x.
+COPY --from=docker.io/golangci/golangci-lint:v2.13.2 /usr/bin/golangci-lint /usr/local/bin/golangci-lint
 
-RUN GOBIN=/usr/local/bin go get -v \
-	github.com/tebeka/go2xunit \
-	github.com/axw/gocov/... \
-	github.com/AlekSi/gocov-xml \
-	github.com/wadey/gocovmerge \
-	&& go clean -cache && rm -rf /root/go
+# Test and coverage reporters the root Makefile calls by name, each pinned to a
+# version. One go install per command, because it refuses several packages at
+# differing versions at once.
+RUN export GOBIN=/usr/local/bin \
+	&& go install gotest.tools/gotestsum@v1.13.0 \
+	&& go install github.com/boumenot/gocover-cobertura@v1.5.0 \
+	&& go clean -cache -modcache \
+	&& rm -rf /root/go
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
+# magick and rsvg-convert back "make -C identifier/src/images icons". An
+# ordinary build needs neither, but the image carries them so that target is
+# runnable here too.
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		build-essential \
 		gettext-base \
 		imagemagick \
-		scour \
-		nodejs \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/*
-
-RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
-RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends \
-		yarn \
+		librsvg2-bin \
 	&& apt-get clean \
 	&& rm -rf /var/lib/apt/lists/*
 

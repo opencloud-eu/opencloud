@@ -71,6 +71,11 @@ type AccessTokenClaims struct {
 
 	TokenType TokenTypeValue `json:"lg.t"`
 
+	// AuthorizedParty is the client the token was issued to, set only when the
+	// audience is a resource rather than that client, see
+	// https://www.rfc-editor.org/rfc/rfc8707.html.
+	AuthorizedParty string `json:"azp,omitempty"`
+
 	AuthorizedClaimsRequest *payload.ClaimsRequest `json:"lg.acr,omitempty"`
 
 	AuthorizedScopesList payload.ScopesValue `json:"scp"`
@@ -79,6 +84,20 @@ type AccessTokenClaims struct {
 	IdentityProvider string        `json:"lg.p,omitempty"`
 
 	*oidc.SessionClaims
+}
+
+// AuthorizedPartyOrAudience returns the client the token was issued to. It is
+// the azp claim when the token is bound to a resource, and the single audience
+// value otherwise.
+func (c AccessTokenClaims) AuthorizedPartyOrAudience() string {
+	if c.AuthorizedParty != "" {
+		return c.AuthorizedParty
+	}
+	if len(c.Audience) == 1 {
+		return c.Audience[0]
+	}
+
+	return ""
 }
 
 // Validate implements the jwt.ClaimsValidator interface.
@@ -115,8 +134,19 @@ type RefreshTokenClaims struct {
 	ApprovedClaimsRequest *payload.ClaimsRequest `json:"lg.acr,omitempty"`
 	Ref                   string                 `json:"lg.r"`
 
+	// Resource is the resource indicator the access tokens of this grant are
+	// bound to, empty when they are bound to the client. The audience of a
+	// refresh token is always the client, see
+	// https://www.rfc-editor.org/rfc/rfc8707.html.
+	Resource string `json:"lg.res,omitempty"`
+
 	IdentityClaims   jwt.MapClaims `json:"lg.i"`
 	IdentityProvider string        `json:"lg.p,omitempty"`
+
+	// Session of the underlaying identity backend, if it provided one. This is
+	// the same value as found in access tokens and is nil for backends without
+	// sessions.
+	*oidc.SessionClaims
 }
 
 // Validate implements the jwt.ClaimsValidator interface.

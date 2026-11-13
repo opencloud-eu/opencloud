@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-jose/go-jose/v3"
@@ -32,6 +33,7 @@ import (
 	konnect "github.com/libregraph/lico"
 	"github.com/libregraph/lico/identity"
 	"github.com/libregraph/lico/identity/clients"
+	"github.com/libregraph/lico/identity/resources"
 	konnectoidc "github.com/libregraph/lico/oidc"
 	"github.com/libregraph/lico/oidc/code"
 	"github.com/libregraph/lico/oidc/payload"
@@ -44,11 +46,14 @@ const (
 
 // WellKnownHandler implements the HTTP provider configuration endpoint
 // for OpenID Connect 1.0 as specified at https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
+// and for OAuth 2.0 as specified at https://datatracker.ietf.org/doc/html/rfc8414#section-3
 func (p *Provider) WellKnownHandler(rw http.ResponseWriter, req *http.Request) {
-	// TODO(longsleep): Add caching headers.
-	wellKnown := p.metadata
+	// The document only changes when this provider is restarted, and clients
+	// which discover it on every unauthorized response depend on being able to
+	// cache it.
+	rw.Header().Set("Cache-Control", "public, max-age=3600")
 
-	err := utils.WriteJSON(rw, http.StatusOK, wellKnown, "")
+	err := utils.WriteJSON(rw, http.StatusOK, p.metadataDocument, "")
 	if err != nil {
 		p.logger.WithError(err).Errorln("well-known request failed writing response")
 	}
@@ -91,6 +96,7 @@ func (p *Provider) AuthorizeHandler(rw http.ResponseWriter, req *http.Request) {
 	var err error
 	var auth identity.AuthRecord
 	var nextManager identity.Manager
+	var resource *resources.Resource
 
 	addResponseHeaders(rw.Header())
 
@@ -158,11 +164,50 @@ func (p *Provider) AuthorizeHandler(rw http.ResponseWriter, req *http.Request) {
 		goto done
 	}
 
+	// Resource indicator policy, a token is only ever issued for a registered
+	// resource. https://www.rfc-editor.org/rfc/rfc8707.html#section-2
+	if ar.Resource != "" {
+		var found bool
+		resource, found = p.getResource(ar.Resource)
+		if !found {
+			err = ar.NewError(konnectoidc.ErrorCodeOAuth2InvalidTarget, "unknown resource")
+			goto done
+		}
+		// Use the registered form, it is what ends up in the token audience.
+		ar.Resource = resource.ID
+	}
+
 	// Inject implicit scopes set by client registration.
 	if registration, _ := p.clients.Get(ctx, ar.ClientID); registration != nil {
 		err = registration.ApplyImplicitScopes(ar.Scopes)
 		if err != nil {
 			p.logger.WithError(err).Debugln("failed to apply implicit scopes")
+		}
+	}
+
+	// A resource only ever sees the scopes it accepts, its own implicit ones
+	// included. The narrowing runs after the implicit scopes of the client
+	// registration have been added, since the audience is what bounds a token
+	// and a scope the resource never declared is one it has no way to honor. A
+	// scope which has to reach the resource regardless of what a client asks
+	// for belongs in the resource's own implicit_scopes.
+	if resource != nil {
+		resource.ApplyImplicitScopes(ar.Scopes)
+
+		for scope := range ar.Scopes {
+			switch scope {
+			case oidc.ScopeOpenID:
+				fallthrough
+			case oidc.ScopeOfflineAccess:
+				// Neither is a permission of the resource. openid selects an ID
+				// token, which is about the client, and the MCP specification
+				// keeps offline_access out of a resource's scopes since a
+				// refresh token is not a resource requirement.
+				continue
+			}
+			if !resource.AllowsScope(scope) {
+				delete(ar.Scopes, scope)
+			}
 		}
 	}
 
@@ -241,7 +286,7 @@ func (p *Provider) AuthorizeResponse(rw http.ResponseWriter, req *http.Request, 
 
 	// Create access token when requested.
 	if _, ok := ar.ResponseTypes[oidc.ResponseTypeToken]; ok {
-		accessTokenString, err = p.makeAccessToken(ctx, ar.ClientID, auth, nil, nil)
+		accessTokenString, err = p.makeAccessToken(ctx, ar.ClientID, ar.Resource, auth, nil, nil, "")
 		if err != nil {
 			goto done
 		}
@@ -301,6 +346,7 @@ done:
 	// http://openid.net/specs/openid-connect-core-1_0.html#ImplicitAuthResponse
 	response := &payload.AuthenticationSuccess{
 		State: ar.State,
+		Iss:   p.issuerIdentifier,
 		Scope: strings.Join(authorizedScopesList, " "),
 
 		SessionState: sessionState,
@@ -332,10 +378,13 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 	var accessTokenString string
 	var idTokenString string
 	var refreshTokenString string
+	var newAccessTokenID string
+	var newRefreshTokenID string
 	var refreshTokenClaims *konnect.RefreshTokenClaims
 	var approvedScopes map[string]bool
 	var authorizedScopes map[string]bool
 	var clientDetails *clients.Details
+	var lookupRedirectURI *url.URL
 	signinMethod := p.signingMethodDefault
 
 	rw.Header().Set("Cache-Control", "no-store")
@@ -374,9 +423,22 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	// Additional validations according to https://tools.ietf.org/html/rfc6749#section-4.1.3
-	clientDetails, err = p.clients.Lookup(ctx, tr.ClientID, tr.ClientSecret, tr.RedirectURI, "", false)
+	// The redirect_uri is a parameter of the authorization code grant alone.
+	// The refresh token grant of https://tools.ietf.org/html/rfc6749#section-6
+	// has none, so a client which sends one anyway must not have it validated
+	// against the registration, where it means nothing for that grant. An
+	// unparsable value is treated the same way, and fails the comparison with
+	// the one of the authorization request below.
+	lookupRedirectURI = &url.URL{}
+	if tr.GrantType == oidc.GrantTypeAuthorizationCode && tr.RedirectURI != nil {
+		lookupRedirectURI = tr.RedirectURI
+	}
+	clientDetails, err = p.clients.Lookup(ctx, tr.ClientID, tr.ClientSecret, lookupRedirectURI, "", false)
 	if err != nil {
-		err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2AccessDenied, err.Error())
+		// Unknown client and failed client authentication alike, as defined in
+		// https://datatracker.ietf.org/doc/html/rfc6749#section-5.2.
+		// access_denied belongs to the authorization endpoint.
+		err = konnectoidc.NewOAuth2Error(konnectoidc.ErrorCodeOAuth2InvalidClient, err.Error())
 		goto done
 	}
 	if clientDetails != nil && clientDetails.Registration != nil {
@@ -409,7 +471,21 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 			goto done
 		}
 
+		// Ensure that the "resource" parameter, when given, is the one the code
+		// was issued for. A token can only be bound to a single resource, so
+		// the narrowing RFC 8707 section 2 allows is an exact match here.
+		if tr.Resource != "" && tr.Resource != ar.Resource {
+			err = konnectoidc.NewOAuth2Error(konnectoidc.ErrorCodeOAuth2InvalidTarget, "resource mismatch")
+			goto done
+		}
+
 		// Validate code challenge according to https://tools.ietf.org/html/rfc7636#section-4.6
+		if p.requirePKCE || (clientDetails.Registration != nil && clientDetails.Registration.RequirePKCE) {
+			if ar.CodeChallenge == "" {
+				err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InvalidGrant, "code_challenge required")
+				goto done
+			}
+		}
 		if tr.CodeVerifier != "" || ar.CodeChallenge != "" {
 			if codeVerifierErr := oidc.ValidateCodeChallenge(ar.CodeChallenge, ar.CodeChallengeMethod, tr.CodeVerifier); codeVerifierErr != nil {
 				err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InvalidGrant, codeVerifierErr.Error())
@@ -438,7 +514,7 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 
 		// TODO(longsleep): Compare standard claims issuer.
 
-		userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.RegisteredClaims, nil, claims.IdentityClaims)
+		userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.RegisteredClaims, "", claims.SessionClaims, claims.IdentityClaims)
 		if userID == "" {
 			err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InvalidToken, "missing data in kc.identity claim")
 			goto done
@@ -465,13 +541,21 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 			}
 		}
 
+		// Ensure that the "resource" parameter, when given, is the one the
+		// grant was made for. The refresh token carries it as a claim, its own
+		// audience is always the client.
+		if tr.Resource != "" && tr.Resource != claims.Resource {
+			err = konnectoidc.NewOAuth2Error(konnectoidc.ErrorCodeOAuth2InvalidTarget, "resource mismatch")
+			goto done
+		}
+
 		if len(tr.Scopes) > 0 {
 			// Make sure all requested scopes are granted and limit authorized
 			// scopes to the requested scopes.
 			authorizedScopes = make(map[string]bool)
 			for scope := range tr.Scopes {
 				if !approvedScopes[scope] {
-					err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InsufficientScope, "insufficient scope")
+					err = konnectoidc.NewOAuth2Error(konnectoidc.ErrorCodeOAuth2InvalidScope, "requested scope exceeds the granted scope")
 					goto done
 				} else {
 					authorizedScopes[scope] = true
@@ -482,8 +566,21 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 			authorizedScopes = approvedScopes
 		}
 
+		// Pre-generate the IDs of the tokens this exchange issues, so the
+		// backend can be told about them with the lookup below. A refresh token
+		// is only issued when offline access is authorized.
+		newAccessTokenID = rndm.GenerateRandomString(24)
+		if authorizedScopes[oidc.ScopeOfflineAccess] {
+			newRefreshTokenID = rndm.GenerateRandomString(24)
+		}
+
 		// Load user record from identitymanager, without any scopes or claims.
-		auth, found, err = currentIdentityManager.Fetch(ctx, userID, sessionRef, nil, nil, authorizedScopes)
+		auth, found, err = currentIdentityManager.Fetch(ctx, userID, sessionRef, nil, nil, authorizedScopes, &identity.LookupContext{
+			Audience:          tr.ClientID,
+			RefreshTokenID:    claims.ID,
+			NewAccessTokenID:  newAccessTokenID,
+			NewRefreshTokenID: newRefreshTokenID,
+		})
 		if !found {
 			err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2InvalidGrant, "user not found")
 			goto done
@@ -499,6 +596,7 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 		// Create fake request for token generation.
 		ar = &payload.AuthenticationRequest{
 			ClientID: claims.Audience[0],
+			Resource: claims.Resource,
 		}
 
 		// Remember refresh token claims, for use in access and id token generators later on.
@@ -510,7 +608,7 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	// Create access token.
-	accessTokenString, err = p.makeAccessToken(ctx, ar.ClientID, auth, signinMethod, refreshTokenClaims)
+	accessTokenString, err = p.makeAccessToken(ctx, ar.ClientID, ar.Resource, auth, signinMethod, refreshTokenClaims, newAccessTokenID)
 	if err != nil {
 		goto done
 	}
@@ -525,9 +623,13 @@ func (p *Provider) TokenHandler(rw http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		// Create refresh token when granted.
+		// Create refresh token when granted. The new one carries the scopes of
+		// the grant, which approvedScopes holds for a refresh and which the
+		// record itself is for a fresh code: a request which asks for less than
+		// it was granted narrows its tokens, not the grant behind them, as
+		// lico keeps no record of a grant besides its refresh token.
 		if authorizedScopes[oidc.ScopeOfflineAccess] {
-			refreshTokenString, err = p.makeRefreshToken(ctx, ar.ClientID, auth, nil)
+			refreshTokenString, err = p.makeRefreshToken(ctx, ar.ClientID, ar.Resource, auth, approvedScopes, nil, newRefreshTokenID)
 			if err != nil {
 				goto done
 			}
@@ -538,7 +640,16 @@ done:
 	if err != nil {
 		switch err.(type) {
 		case *konnectoidc.OAuth2Error:
-			err = utils.WriteJSON(rw, http.StatusBadRequest, err, "")
+			status := http.StatusBadRequest
+			if tr != nil && tr.ClientAuthenticationBasic && konnectoidc.IsErrorWithID(err, konnectoidc.ErrorCodeOAuth2InvalidClient) {
+				// A client which authenticated with the Authorization header
+				// is answered with 401 and a challenge of the same scheme, as
+				// https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
+				// requires.
+				status = http.StatusUnauthorized
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf("Basic realm=%q", p.issuerIdentifier))
+			}
+			err = utils.WriteJSON(rw, status, err, "")
 			if err != nil {
 				p.logger.WithError(err).Errorln("token request failed writing response")
 				return
@@ -558,6 +669,11 @@ done:
 		response.AccessToken = accessTokenString
 		response.TokenType = oidc.TokenTypeBearer
 		response.ExpiresIn = int64(p.accessTokenDuration.Seconds())
+		// Report the granted scope, which RFC 6749 section 5.1 requires
+		// whenever it differs from the request. A client which cannot see what
+		// it got has to guess whenever a scope was dropped, and the request
+		// this answers may not have carried a scope at all.
+		response.Scope = strings.Join(makeArrayFromBoolMap(authorizedScopes), " ")
 	}
 	if idTokenString != "" {
 		response.IDToken = idTokenString
@@ -604,7 +720,11 @@ func (p *Provider) UserInfoHandler(rw http.ResponseWriter, req *http.Request) {
 	var requestedClaimsMap []*payload.ClaimsRequestMap
 	var authorizedScopes map[string]bool
 
-	userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.RegisteredClaims, claims.SessionClaims, claims.IdentityClaims)
+	// The client is azp for a token bound to a resource, whose audience is the
+	// resource rather than the client.
+	clientID := claims.AuthorizedPartyOrAudience()
+
+	userID, sessionRef := p.getUserIDAndSessionRefFromClaims(&claims.RegisteredClaims, claims.AuthorizedParty, claims.SessionClaims, claims.IdentityClaims)
 
 	ctx := konnect.NewClaimsContext(konnect.NewRequestContext(req.Context(), req), claims)
 
@@ -624,7 +744,9 @@ func (p *Provider) UserInfoHandler(rw http.ResponseWriter, req *http.Request) {
 
 	authorizedScopes = claims.AuthorizedScopes()
 
-	auth, found, err = currentIdentityManager.Fetch(ctx, userID, sessionRef, authorizedScopes, requestedClaimsMap, authorizedScopes)
+	auth, found, err = currentIdentityManager.Fetch(ctx, userID, sessionRef, authorizedScopes, requestedClaimsMap, authorizedScopes, &identity.LookupContext{
+		Audience: clientID,
+	})
 	if err != nil {
 		p.logger.WithFields(utils.ErrorAsFields(err)).Errorln("identity manager fetch failed")
 		found = false
@@ -723,7 +845,7 @@ done:
 	// Support returning signed user info if the registered client requested it
 	// as specified in https://openid.net/specs/openid-connect-core-1_0.html#UserInfoResponse and
 	// https://openid.net/specs/openid-connect-registration-1_0.html#ClientMetadata
-	registration, _ := p.clients.Get(ctx, claims.Audience[0])
+	registration, _ := p.clients.Get(ctx, clientID)
 	if registration != nil {
 		if registration.RawUserInfoSignedResponseAlg != "" {
 			// Get alg.
@@ -932,12 +1054,19 @@ done:
 		"redirect_uris":    cr.RedirectURIs,
 	}).Debugln("registered dynamic client")
 
+	// RFC 7591 section 3.2.1 states a client_secret which does not expire as 0,
+	// where the zero time would be stated as the year one.
+	var clientSecretExpiresAt int64
+	if !cr.SecretExpiresAt.IsZero() {
+		clientSecretExpiresAt = cr.SecretExpiresAt.Unix()
+	}
+
 	response := &payload.ClientRegistrationResponse{
 		ClientID:     cr.ID,
 		ClientSecret: cr.Secret,
 
 		ClientIDIssuedAt:      cr.IDIssuedAt.Unix(),
-		ClientSecretExpiresAt: cr.SecretExpiresAt.Unix(),
+		ClientSecretExpiresAt: clientSecretExpiresAt,
 
 		ClientRegistrationRequest: *crr,
 	}
