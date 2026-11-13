@@ -69,8 +69,9 @@ var _ = Describe("setting the image of a space", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	// sends a PATCH of the space with the given file as its special folder
-	patchSpecial := func(folder, fileID string) {
+	// sends a PATCH of the space with the given file as its special folder to
+	// the given handler
+	patchSpecialVia := func(update http.HandlerFunc, path, folder, fileID string) {
 		drive := libregraph.NewDriveUpdate()
 		drive.SetSpecial([]libregraph.DriveItem{{
 			Id:            libregraph.PtrString(fileID),
@@ -79,11 +80,16 @@ var _ = Describe("setting the image of a space", func() {
 		body, err := json.Marshal(drive)
 		Expect(err).ToNot(HaveOccurred())
 
-		r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/drives/{driveID}/", bytes.NewBuffer(body))
+		r := httptest.NewRequest(http.MethodPatch, path, bytes.NewBuffer(body))
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("driveID", "storageid$spaceid")
 		r = r.WithContext(context.WithValue(ctx, chi.RouteCtxKey, rctx))
-		svc.UpdateDrive(rr, r)
+		update(rr, r)
+	}
+
+	// sends a PATCH of the space with the given file as its special folder
+	patchSpecial := func(folder, fileID string) {
+		patchSpecialVia(svc.UpdateDrive, "/graph/v1.0/drives/{driveID}/", folder, fileID)
 	}
 
 	// the stat of the image file answers with the given size
@@ -144,6 +150,16 @@ var _ = Describe("setting the image of a space", func() {
 		statReturnsSize(1001)
 
 		patchSpecial("image", imageID)
+
+		Expect(rr.Code).To(Equal(http.StatusRequestEntityTooLarge))
+		expectNothingStored()
+	})
+
+	It("refuses an image above the maximum size on the v1beta1 route too", func() {
+		updateSucceeds()
+		statReturnsSize(1001)
+
+		patchSpecialVia(svc.UpdateDriveV1Beta1, "/graph/v1beta1/drives/{driveID}/", "image", imageID)
 
 		Expect(rr.Code).To(Equal(http.StatusRequestEntityTooLarge))
 		expectNothingStored()

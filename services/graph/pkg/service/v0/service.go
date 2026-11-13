@@ -96,10 +96,13 @@ type Service interface { //nolint:interfacebloat
 	GetDrivesV1(w http.ResponseWriter, r *http.Request)
 	GetDrivesV1Beta1(w http.ResponseWriter, r *http.Request)
 	GetSingleDrive(w http.ResponseWriter, r *http.Request)
+	GetSingleDriveV1Beta1(w http.ResponseWriter, r *http.Request)
 	GetAllDrivesV1(w http.ResponseWriter, r *http.Request)
 	GetAllDrivesV1Beta1(w http.ResponseWriter, r *http.Request)
 	CreateDrive(w http.ResponseWriter, r *http.Request)
+	CreateDriveV1Beta1(w http.ResponseWriter, r *http.Request)
 	UpdateDrive(w http.ResponseWriter, r *http.Request)
+	UpdateDriveV1Beta1(w http.ResponseWriter, r *http.Request)
 	DeleteDrive(w http.ResponseWriter, r *http.Request)
 
 	GetSharedByMe(w http.ResponseWriter, r *http.Request)
@@ -260,6 +263,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1_Beta_1))
+				r.Post("/", svc.CreateDriveV1Beta1)
 				r.Route("/{driveID}", func(r chi.Router) {
 					// Rewrites MS Graph colon-syntax lookups (root:/path,
 					// items/{id}:/path) to /items/{resolvedID}... before chi
@@ -267,6 +271,9 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					// /drives/{driveID} sub-router, so it can rewrite the
 					// remaining RoutePath. See graphm.ResolveGraphPath.
 					r.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
+					r.Get("/", svc.GetSingleDriveV1Beta1)
+					r.Patch("/", svc.UpdateDriveV1Beta1)
+					r.Delete("/", svc.DeleteDrive)
 					r.Route("/root", func(r chi.Router) {
 						r.Post("/children", drivesDriveItemApi.CreateDriveItem)
 						r.Post("/invite", driveItemPermissionsApi.SpaceRootInvite)
