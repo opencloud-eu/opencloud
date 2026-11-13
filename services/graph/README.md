@@ -245,6 +245,8 @@ opencloud graph list-unified-roles
 
 The output of this command includes the following information for each role:
 
+* `Label`\
+  A short, stable name of the role.
 * `UID`\
   The unique identifier of the role.
 * `Enabled`\

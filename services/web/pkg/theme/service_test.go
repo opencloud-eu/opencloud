@@ -15,6 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
+	"github.com/opencloud-eu/opencloud/services/web"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/theme"
 )
 
@@ -71,7 +72,32 @@ func TestService_Get(t *testing.T) {
 	// brandingTheme
 	assert.Equal(t, jsonData.Get("_branding").String(), "_branding")
 	// themeDefaults
-	assert.Equal(t, jsonData.Get("common.shareRoles."+unifiedrole.UnifiedRoleViewerID+".name").String(), "UnifiedRoleViewer")
+	assert.Equal(t, "Viewer", jsonData.Get("common.shareRoles."+unifiedrole.UnifiedRoleViewerID+".label").String())
+	assert.False(t, jsonData.Get("common.shareRoles."+unifiedrole.UnifiedRoleViewerID+".name").Exists())
+}
+
+func TestService_Get_BuiltInThemeShareRoleLabels(t *testing.T) {
+	service, err := theme.NewService(
+		theme.ServiceOptions{}.
+			WithThemeFS(fsx.NewFallbackFS(fsx.NewMemMapFs(), fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/themes"))).
+			WithGatewaySelector(mocks.NewSelectable[gateway.GatewayAPIClient](t)),
+	)
+	assert.NoError(t, err)
+
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.SetPathValue("id", "opencloud")
+	w := httptest.NewRecorder()
+	service.Get(w, r)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	shareRoles := gjson.Get(w.Body.String(), "common.shareRoles")
+	assert.True(t, shareRoles.IsObject())
+	shareRoles.ForEach(func(id, role gjson.Result) bool {
+		assert.NotEmpty(t, unifiedrole.GetUnifiedRoleLabel(id.String()), "unknown role %s", id.String())
+		assert.Equal(t, unifiedrole.GetUnifiedRoleLabel(id.String()), role.Get("label").String(), "label of role %s", id.String())
+		assert.False(t, role.Get("name").Exists(), "role %s has a name key", id.String())
+		return true
+	})
 }
 
 func TestService_GetConcurrent(t *testing.T) {

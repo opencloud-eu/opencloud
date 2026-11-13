@@ -16,32 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	unifiedRolesNames = map[string]string{
-		unifiedrole.UnifiedRoleViewerID:                                    "Viewer",
-		unifiedrole.UnifiedRoleViewerWithVersionsID:                        "ViewerWithVersions",
-		unifiedrole.UnifiedRoleViewerListGrantsID:                          "ViewerListGrants",
-		unifiedrole.UnifiedRoleSpaceViewerID:                               "SpaceViewer",
-		unifiedrole.UnifiedRoleSpaceViewerWithVersionsID:                   "SpaceViewerWithVersions",
-		unifiedrole.UnifiedRoleEditorID:                                    "Editor",
-		unifiedrole.UnifiedRoleEditorWithVersionsID:                        "EditorWithVersions",
-		unifiedrole.UnifiedRoleEditorListGrantsID:                          "EditorListGrants",
-		unifiedrole.UnifiedRoleEditorListGrantsWithVersionsID:              "EditorListGrantsWithVersions",
-		unifiedrole.UnifiedRoleSpaceEditorID:                               "SpaceEditor",
-		unifiedrole.UnifiedRoleSpaceEditorWithoutVersionsID:                "SpaceEditorWithoutVersions",
-		unifiedrole.UnifiedRoleSpaceEditorWithoutTrashbinID:                "SpaceEditorWithoutTrashbin",
-		unifiedrole.UnifiedRoleSpaceEditorWithoutVersionsWithoutTrashbinID: "SpaceEditorWithoutVersionsWithoutTrashbin",
-		unifiedrole.UnifiedRoleFileEditorID:                                "FileEditor",
-		unifiedrole.UnifiedRoleFileEditorWithVersionsID:                    "FileEditorWithVersions",
-		unifiedrole.UnifiedRoleFileEditorListGrantsID:                      "FileEditorListGrants",
-		unifiedrole.UnifiedRoleFileEditorListGrantsWithVersionsID:          "FileEditorListGrantsWithVersions",
-		unifiedrole.UnifiedRoleEditorLiteID:                                "EditorLite",
-		unifiedrole.UnifiedRoleManagerID:                                   "SpaceManager",
-		unifiedrole.UnifiedRoleSecureViewerID:                              "SecureViewer",
-		unifiedrole.UnifiedRoleDeniedID:                                    "Denied",
-	}
-)
-
 // UnifiedRoles bundles available commands for unified roles
 func UnifiedRoles(cfg *config.Config) []*cobra.Command {
 	cmds := []*cobra.Command{
@@ -88,7 +62,7 @@ func listUnifiedRoles(cfg *config.Config) *cobra.Command {
 			}
 			tbl := tablewriter.NewTable(os.Stdout, opt)
 
-			headers := []string{"Name", "UID", "Enabled", "Description", "Condition", "Allowed resource actions"}
+			headers := []string{"Label", "UID", "Enabled", "Description", "Condition", "Allowed resource actions"}
 			tbl.Header(headers)
 
 			for _, definition := range unifiedrole.GetRoles(unifiedrole.RoleFilterAll()) {
@@ -96,7 +70,7 @@ func listUnifiedRoles(cfg *config.Config) *cobra.Command {
 				const disabled = "disabled"
 
 				rows := [][]string{
-					{unifiedRolesNames[definition.GetId()], definition.GetId(), disabled, definition.GetDescription()},
+					{unifiedrole.GetUnifiedRoleLabel(definition.GetId()), definition.GetId(), disabled, definition.GetDescription()},
 				}
 				if slices.Contains(cfg.UnifiedRoles.AvailableRoles, definition.GetId()) {
 					rows[0][2] = enabled

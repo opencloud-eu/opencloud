@@ -294,6 +294,36 @@ func TestGetAllowedResourceActions(t *testing.T) {
 	}
 }
 
+func TestGetUnifiedRoleLabel(t *testing.T) {
+	tests := map[string]struct {
+		unifiedRoleID string
+		expectedLabel string
+	}{
+		"empty id":   {unifiedRoleID: "", expectedLabel: ""},
+		"unknown id": {unifiedRoleID: "unknown", expectedLabel: ""},
+		"viewer":     {unifiedRoleID: unifiedrole.UnifiedRoleViewerID, expectedLabel: "Viewer"},
+		"manager":    {unifiedRoleID: unifiedrole.UnifiedRoleManagerID, expectedLabel: "SpaceManager"},
+		"denied":     {unifiedRoleID: unifiedrole.UnifiedRoleDeniedID, expectedLabel: "Denied"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			NewWithT(t).Expect(unifiedrole.GetUnifiedRoleLabel(tc.unifiedRoleID)).To(Equal(tc.expectedLabel))
+		})
+	}
+}
+
+func TestGetUnifiedRoleLabel_EveryRoleHasALabel(t *testing.T) {
+	g := NewWithT(t)
+	labels := map[string]string{}
+	for _, role := range unifiedrole.GetRoles(unifiedrole.RoleFilterAll()) {
+		label := unifiedrole.GetUnifiedRoleLabel(role.GetId())
+		g.Expect(label).ToNot(BeEmpty(), "role %s has no label", role.GetId())
+		g.Expect(labels).ToNot(HaveKey(label), "label %q is used by the roles %s and %s", label, labels[label], role.GetId())
+		labels[label] = role.GetId()
+	}
+}
+
 func TestLocalizeRole_English(t *testing.T) {
 	g := NewWithT(t)
 	original := unifiedrole.RoleViewer
