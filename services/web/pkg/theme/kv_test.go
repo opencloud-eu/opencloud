@@ -2,6 +2,8 @@ package theme_test
 
 import (
 	"encoding/json"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -28,6 +30,95 @@ func TestMergeKV(t *testing.T) {
 		"right": "right",
 		"both":  "right",
 	})
+}
+
+func TestMergeKVDoesNotMutateInputs(t *testing.T) {
+	defaults := theme.KV{
+		"common": theme.KV{
+			"name": "default",
+			"shareRoles": theme.KV{
+				"viewer": theme.KV{"iconName": "eye"},
+			},
+		},
+		"list": []any{theme.KV{"a": "a"}},
+	}
+	override := theme.KV{
+		"common": map[string]any{
+			"logo": "override.svg",
+			"shareRoles": map[string]any{
+				"viewer": map[string]any{"iconName": "glasses"},
+			},
+		},
+	}
+
+	result, err := theme.MergeKV(defaults, override)
+	assert.Nil(t, err)
+	assert.Equal(t, theme.KV{
+		"common": theme.KV{
+			"name": "default",
+			"logo": "override.svg",
+			"shareRoles": theme.KV{
+				"viewer": theme.KV{"iconName": "glasses"},
+			},
+		},
+		"list": []any{theme.KV{"a": "a"}},
+	}, result)
+
+	// the inputs must be left untouched by the merge
+	assert.Equal(t, theme.KV{
+		"common": theme.KV{
+			"name": "default",
+			"shareRoles": theme.KV{
+				"viewer": theme.KV{"iconName": "eye"},
+			},
+		},
+		"list": []any{theme.KV{"a": "a"}},
+	}, defaults)
+
+	// changing the result must not leak back into the inputs
+	result["common"].(theme.KV)["name"] = "changed"
+	result["list"].([]any)[0].(theme.KV)["a"] = "changed"
+	assert.Equal(t, "default", defaults["common"].(theme.KV)["name"])
+	assert.Equal(t, "a", defaults["list"].([]any)[0].(theme.KV)["a"])
+	assert.Equal(t, "override.svg", override["common"].(map[string]any)["logo"])
+
+	// a later merge must not see values from an earlier one
+	result, err = theme.MergeKV(defaults, theme.KV{})
+	assert.Nil(t, err)
+	assert.NotContains(t, result["common"], "logo")
+}
+
+func TestMergeKVConcurrent(t *testing.T) {
+	defaults := theme.KV{
+		"common": theme.KV{
+			"name": "default",
+			"shareRoles": theme.KV{
+				"viewer": theme.KV{"iconName": "eye"},
+			},
+		},
+	}
+
+	var wg sync.WaitGroup
+	for i := range 50 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			name := strconv.Itoa(i)
+			result, err := theme.MergeKV(defaults, theme.KV{
+				"common": map[string]any{
+					"name": name,
+					"shareRoles": map[string]any{
+						"viewer": map[string]any{"iconName": name},
+					},
+				},
+			})
+			assert.Nil(t, err)
+			assert.Equal(t, name, result["common"].(theme.KV)["name"])
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, "default", defaults["common"].(theme.KV)["name"])
 }
 
 func TestPatchKV(t *testing.T) {
