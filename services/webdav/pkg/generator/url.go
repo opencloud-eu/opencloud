@@ -42,8 +42,8 @@ func operationSegment(op string) string {
 //
 // A cropping resize also asks for the smart crop, so the generator keeps the
 // region that carries the image instead of whatever sits in the middle. What a
-// generator makes of it is its own: real imagor and the libvips build crop on
-// attention, the pure Go build has no such thing and crops the centre.
+// generator makes of it is its own: real imagor crops on attention, the
+// built-in thumbnails service has no such thing and crops the centre.
 func BuildURL(baseURL string, width, height int32, operation, format string, noUpscale bool) string {
 	base := strings.TrimRight(baseURL, "/")
 

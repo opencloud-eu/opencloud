@@ -12,7 +12,7 @@ RUN --mount=type=bind,target=/build,rw \
     --mount=type=cache,target=/root/.cache \
     GOOS="${TARGETOS:-linux}" GOARCH="${TARGETARCH:-amd64}" ; \
     make -C ${SRCDIR:-.}/opencloud release-linux-docker-${TARGETARCH} \
-        ENABLE_VIPS=true DIST=/dist \
+        DIST=/dist \
         VERSION="${VERSION}" EDITION="${EDITION}" \
         ${STRING:+STRING="${STRING}"}
 
@@ -23,8 +23,7 @@ ARG TARGETOS
 ARG TARGETARCH
 
 RUN apk add --no-cache attr bash ca-certificates curl imagemagick \
-                       inotify-tools libc6-compat mailcap tree vips \
-		       vips-magick patch && \
+                       inotify-tools libc6-compat mailcap tree patch && \
     echo 'hosts: files dns' >| /etc/nsswitch.conf
 
 LABEL maintainer="openCloud GmbH <devops@opencloud.eu>" \
