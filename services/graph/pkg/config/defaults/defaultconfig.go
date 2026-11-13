@@ -132,6 +132,7 @@ func DefaultConfig() *config.Config {
 				},
 			},
 		},
+		ProfilePictureURLAllowlist: []string{},
 		Cache: &config.Cache{
 			Store:    "memory",
 			Nodes:    []string{"127.0.0.1:9233"},

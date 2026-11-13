@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	stdhttp "net/http"
@@ -10,7 +9,6 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	revaMetadata "github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/events"
 
@@ -21,7 +19,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
-	"github.com/opencloud-eu/opencloud/pkg/storage/metadata"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -130,31 +127,11 @@ func Server(identityBackend identity.Backend, eduBackend identity.EducationBacke
 
 	hClient := ehsvc.NewEventHistoryService("eu.opencloud.api.eventhistory", grpcClient)
 
-	var userProfilePhotoService svc.UsersUserProfilePhotoProvider
-	{
-		photoStorage, err := revaMetadata.NewCS3Storage(
-			options.Config.Metadata.GatewayAddress,
-			options.Config.Metadata.StorageAddress,
-			options.Config.Metadata.SystemUserID,
-			options.Config.Metadata.SystemUserIDP,
-			options.Config.Metadata.SystemUserAPIKey,
-		)
+	userProfilePhotoService := options.UserProfilePhotoService
+	if userProfilePhotoService == nil {
+		userProfilePhotoService, err = svc.NewConfiguredUserProfilePhotoService(options.Context, options.Config)
 		if err != nil {
-			return http.Service{}, fmt.Errorf("could not initialize reva metadata storage: %w", err)
-		}
-
-		photoStorage, err = metadata.NewLazyStorage(photoStorage)
-		if err != nil {
-			return http.Service{}, fmt.Errorf("could not initialize lazy metadata storage: %w", err)
-		}
-
-		if err := photoStorage.Init(context.Background(), "f2bdd61a-da7c-49fc-8203-0558109d1b4f"); err != nil {
-			return http.Service{}, fmt.Errorf("could not initialize metadata storage: %w", err)
-		}
-
-		userProfilePhotoService, err = svc.NewUsersUserProfilePhotoService(photoStorage)
-		if err != nil {
-			return http.Service{}, fmt.Errorf("could not initialize user profile photo service: %w", err)
+			return http.Service{}, err
 		}
 	}
 
