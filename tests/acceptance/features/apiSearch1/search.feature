@@ -343,12 +343,16 @@ Feature: Search
       | name:"*der2" | subFOLDER2    | pattern 'name:""' (with quotes) |
 
   @issue-7812 @issue-8442 @issue-10329
-  Scenario: try to search with invalid patterns
+  Scenario Outline: try to search with invalid patterns
     Given using spaces DAV path
     And user "Alice" has uploaded file with content "test file" to "testFile.txt"
-    When user "Alice" searches for 'AND mediatype:document' using the WebDAV API
+    When user "Alice" searches for "<pattern>" using the WebDAV API
     Then the HTTP status code should be "400"
-    And the value of the item "/d:error/s:message" in the response should be "error: bad request: the operator 'AND' is missing an operand"
+    And the value of the item "/d:error/s:message" in the response should be "error: bad request: the operator '<operator>' is missing an operand"
+    Examples:
+      | pattern                | operator |
+      | AND mediatype:document | AND      |
+      | alice NOT              | NOT      |
 
   @issue-10329
   Scenario Outline: search a file globally (in all spaces)
