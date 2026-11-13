@@ -374,7 +374,7 @@ Feature: Change data of space
 
   @env-config
   Scenario: user cannot set an image file larger than the maximum size as space image of the space via the Graph API
-    Given the config "GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" has been set to "10"
+    Given the config "OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" has been set to "10"
     And user "Alice" has created a folder ".space" in space "Project Jupiter"
     And user "Alice" has uploaded a file inside space "Project Jupiter" with content "nineteen bytes long" to ".space/spaceImage.jpg"
     When user "Alice" sets the file ".space/spaceImage.jpg" as a space image in a special section of the "Project Jupiter" space

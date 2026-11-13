@@ -91,7 +91,7 @@ func DefaultConfig() *config.Config {
 			UsersCacheTTL: 60,
 		},
 		Thumbnails: config.Thumbnails{
-			MaxInputImageFileSize: ocdefaults.ThumbnailsMaxInputImageFileSize,
+			SpaceImageMaxInputImageFileSize: ocdefaults.ThumbnailsMaxInputImageFileSize,
 		},
 		Identity: config.Identity{
 			Backend: "ldap",
