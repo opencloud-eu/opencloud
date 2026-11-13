@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -458,10 +459,10 @@ func (s *service) ListPublicShares(ctx context.Context, req *link.ListPublicShar
 	user, _ := ctxpkg.ContextGetUser(ctx)
 
 	shares, err := s.sm.ListPublicShares(ctx, user, req.Filters, req.GetSign())
-	if err != nil {
-		log.Err(err).Msg("error listing shares")
+	if err != nil && !strings.Contains(err.Error(), errtypes.ERR_ALREADY_EXISTS) {
+		log.Err(err).Str("user", user.GetId().GetOpaqueId()).Msg("error listing shares")
 		return &link.ListPublicSharesResponse{
-			Status: status.NewInternal(ctx, "error listing public shares"),
+			Status: status.NewInternal(ctx, err.Error()),
 		}, nil
 	}
 

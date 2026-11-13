@@ -2926,3 +2926,60 @@ Feature: List a sharing permissions
         }
       }
       """
+
+
+  Scenario: user gets a single link permission of a project space using root endpoint
+    Given using spaces DAV path
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Alice" has created the following space link share:
+      | space           | new-space |
+      | permissionsRole | view      |
+      | password        | %public%  |
+    When user "Alice" gets the last link permission of space "new-space" using root endpoint of the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["createdDateTime", "hasPassword", "id", "link"],
+        "properties": {
+          "createdDateTime": {
+            "format": "date-time"
+          },
+          "hasPassword": {
+            "const": true
+          },
+          "id": {
+            "pattern": "^[a-zA-Z]{15}$"
+          },
+          "link": {
+            "type": "object",
+            "required": [
+              "@libre.graph.displayName",
+              "@libre.graph.quickLink",
+              "preventsDownload",
+              "type",
+              "webUrl"
+            ],
+            "properties": {
+              "@libre.graph.displayName": {
+                "const": ""
+              },
+              "@libre.graph.quickLink": {
+                "const": false
+              },
+              "preventsDownload": {
+                "const": false
+              },
+              "type": {
+                "const": "view"
+              },
+              "webUrl": {
+                "pattern": "^%base_url%/s/[a-zA-Z]{15}$"
+              }
+            }
+          }
+        }
+      }
+      """

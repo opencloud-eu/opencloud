@@ -3378,7 +3378,7 @@ Feature: resources shared by user
       }
       """
 
-  @issue-8355
+
   Scenario: sharer lists the link share of a project space
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
@@ -3413,7 +3413,7 @@ Feature: resources shared by user
               ],
               "properties": {
                 "name": {
-                  "const": "."
+                  "const": "NewSpace"
                 },
                 "root": {
                   "const": {}

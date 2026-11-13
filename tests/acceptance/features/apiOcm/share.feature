@@ -1136,7 +1136,7 @@ Feature: an user shares resources using ScienceMesh application
       | resource           | textfile.txt             |
     And using server "REMOTE"
     When user "Brian" updates the content of federated share "textfile.txt" with "this is a new content" using the WebDAV API
-    Then the HTTP status code should be "500"
+    Then the HTTP status code should be "403"
     And using server "LOCAL"
     And the content of file "textfile.txt" for user "Alice" should be "ocm test"
 

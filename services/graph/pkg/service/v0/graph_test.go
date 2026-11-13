@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -28,6 +29,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"google.golang.org/grpc"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -38,6 +41,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
@@ -50,6 +55,7 @@ var _ = Describe("Graph", func() {
 		gatewaySelector   pool.Selectable[gateway.GatewayAPIClient]
 		eventsPublisher   mocks.Publisher
 		permissionService mocks.Permissions
+		identityBackend   *identitymocks.Backend
 		ctx               context.Context
 		cfg               *config.Config
 		rr                *httptest.ResponseRecorder
@@ -86,6 +92,7 @@ var _ = Describe("Graph", func() {
 
 		eventsPublisher = mocks.Publisher{}
 		permissionService = mocks.Permissions{}
+		identityBackend = &identitymocks.Backend{}
 
 		var err error
 		svc, err = service.NewService(
@@ -94,6 +101,7 @@ var _ = Describe("Graph", func() {
 			service.WithGatewaySelector(gatewaySelector),
 			service.EventsPublisher(&eventsPublisher),
 			service.PermissionService(&permissionService),
+			service.WithIdentityBackend(identityBackend),
 		)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -101,6 +109,48 @@ var _ = Describe("Graph", func() {
 	Describe("NewService", func() {
 		It("returns a service", func() {
 			Expect(svc).ToNot(BeNil())
+		})
+	})
+
+	Describe("permissions tracing", func() {
+		It("records a span for the permissions service when a TraceProvider is configured", func() {
+			sr := tracetest.NewSpanRecorder()
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+			DeferCleanup(func() {
+				Expect(tp.Shutdown(context.Background())).To(Succeed())
+			})
+
+			logger := log.NewLogger()
+			m, err := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+			Expect(err).ToNot(HaveOccurred())
+			tracedSvc, err := service.NewService(
+				service.Config(cfg),
+				service.Metrics(m),
+				service.WithGatewaySelector(gatewaySelector),
+				service.EventsPublisher(&eventsPublisher),
+				service.PermissionService(&permissionService),
+				service.TraceProvider(tp),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status: status.NewOK(ctx),
+			}, nil)
+
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1beta1/drives/1$2/root/permissions", nil).WithContext(ctx)
+			tracedSvc.ServeHTTP(rr, r)
+
+			// the request was routed to the permissions service, which looked up the space
+			Expect(rr.Code).To(Equal(http.StatusNotFound))
+			gatewayClient.AssertCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything)
+			// http tracing works with this provider
+			Expect(sr.Ended()).ToNot(BeEmpty())
+
+			var names []string
+			for _, s := range sr.Ended() {
+				names = append(names, s.Name())
+			}
+			Expect(names).To(ContainElement("ListSpaceRootPermissions"))
 		})
 	})
 
@@ -843,6 +893,156 @@ var _ = Describe("Graph", func() {
 				Expect(*response.Description).To(Equal("This space is for testing"))
 				Expect(*response.LibreGraphContentType).To(Equal("application/vnd.opencloud.test"))
 			})
+			Context("drive id handling", func() {
+				const spaceID = "0b9a7b84-3e71-4a4e-9c34-0e6a4c3f5f21"
+
+				// csr captures the request the handler sends to the gateway
+				var csr *provider.CreateStorageSpaceRequest
+				mockSuccessfulCreate := func(createdSpaceID string) {
+					gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+						csr = args.Get(1).(*provider.CreateStorageSpaceRequest)
+					}).Return(&provider.CreateStorageSpaceResponse{
+						Status: status.NewOK(ctx),
+						StorageSpace: &provider.StorageSpace{
+							Id:        &provider.StorageSpaceId{OpaqueId: "pro-1$" + createdSpaceID},
+							Name:      "Test Space",
+							SpaceType: "project",
+							Root:      &provider.ResourceId{StorageId: "pro-1", SpaceId: createdSpaceID, OpaqueId: createdSpaceID},
+						},
+					}, nil)
+					gatewayClient.On("GetQuota", mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+						Status:     status.NewOK(ctx),
+						TotalBytes: 500,
+					}, nil)
+				}
+
+				BeforeEach(func() {
+					csr = nil
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settingssvc.GetPermissionByIDResponse{
+						Permission: &v0.Permission{
+							Operation:  v0.Permission_OPERATION_READWRITE,
+							Constraint: v0.Permission_CONSTRAINT_ALL,
+						},
+					}, nil)
+				})
+
+				DescribeTable("lets the storage provider generate the id when none is supplied, without looking up users",
+					func(jsonBody string) {
+						mockSuccessfulCreate("generated-id")
+
+						r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBufferString(jsonBody)).WithContext(ctx)
+						rr := httptest.NewRecorder()
+						svc.CreateDrive(rr, r)
+						Expect(rr.Code).To(Equal(http.StatusCreated))
+						Expect(csr).ToNot(BeNil())
+						Expect(csr.GetOpaque().GetMap()).ToNot(HaveKey("spaceid"))
+						identityBackend.AssertNotCalled(GinkgoT(), "GetUser", mock.Anything, mock.Anything, mock.Anything)
+					},
+					Entry("absent id", `{"name": "Test Space"}`),
+					Entry("empty id", `{"name": "Test Space", "id": ""}`),
+				)
+
+				It("forwards the id to the storage provider when it does not belong to a user", func() {
+					identityBackend.On("GetUser", mock.Anything, spaceID, mock.Anything).Return(nil, identity.ErrNotFound)
+					mockSuccessfulCreate(spaceID)
+
+					jsonBody := []byte(`{"name": "Test Space", "id": "` + spaceID + `"}`)
+					r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+					rr := httptest.NewRecorder()
+					svc.CreateDrive(rr, r)
+					Expect(rr.Code).To(Equal(http.StatusCreated))
+					Expect(utils.ReadPlainFromOpaque(csr.GetOpaque(), "spaceid")).To(Equal(spaceID))
+
+					var response libregraph.Drive
+					Expect(json.Unmarshal(rr.Body.Bytes(), &response)).To(Succeed())
+					Expect(response.GetId()).To(Equal("pro-1$" + spaceID))
+					identityBackend.AssertCalled(GinkgoT(), "GetUser", mock.Anything, spaceID, mock.Anything)
+				})
+
+				// In the next two tests a successful CreateStorageSpace is mocked on purpose: a handler that
+				// skips the user lookup then fails on the status and AssertNotCalled checks, not on an
+				// unexpected mock call.
+				It("returns 409 Conflict without creating the space when the id belongs to a user", func() {
+					identityBackend.On("GetUser", mock.Anything, spaceID, mock.Anything).Return(&libregraph.User{Id: libregraph.PtrString(spaceID)}, nil)
+					mockSuccessfulCreate(spaceID)
+
+					jsonBody := []byte(`{"name": "Test Space", "id": "` + spaceID + `"}`)
+					r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+					rr := httptest.NewRecorder()
+					svc.CreateDrive(rr, r)
+					Expect(rr.Code).To(Equal(http.StatusConflict))
+
+					var libreError libregraph.OdataError
+					Expect(json.Unmarshal(rr.Body.Bytes(), &libreError)).To(Succeed())
+					Expect(libreError.Error.Code).To(Equal(errorcode.NameAlreadyExists.String()))
+					Expect(libreError.Error.Message).To(Equal("drive already exists"))
+					gatewayClient.AssertNotCalled(GinkgoT(), "CreateStorageSpace", mock.Anything, mock.Anything)
+				})
+
+				It("does not create the space when the identity backend fails to look up the id", func() {
+					identityBackend.On("GetUser", mock.Anything, spaceID, mock.Anything).Return(nil, errorcode.New(errorcode.ServiceNotAvailable, "identity backend unavailable"))
+					mockSuccessfulCreate(spaceID)
+
+					jsonBody := []byte(`{"name": "Test Space", "id": "` + spaceID + `"}`)
+					r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+					rr := httptest.NewRecorder()
+					svc.CreateDrive(rr, r)
+					Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+
+					var libreError libregraph.OdataError
+					Expect(json.Unmarshal(rr.Body.Bytes(), &libreError)).To(Succeed())
+					Expect(libreError.Error.Code).To(Equal(errorcode.ServiceNotAvailable.String()))
+					gatewayClient.AssertNotCalled(GinkgoT(), "CreateStorageSpace", mock.Anything, mock.Anything)
+				})
+
+				DescribeTable("rejects ids that are not canonical UUIDs before looking up users or calling the storage provider",
+					func(id string) {
+						gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
+							Status: status.NewInternal(ctx, "storage provider must not be called"),
+						}, nil).Maybe()
+
+						body, err := json.Marshal(map[string]string{"name": "Test Space", "id": id})
+						Expect(err).ToNot(HaveOccurred())
+						r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(body)).WithContext(ctx)
+						rr := httptest.NewRecorder()
+						svc.CreateDrive(rr, r)
+						Expect(rr.Code).To(Equal(http.StatusBadRequest))
+
+						var libreError libregraph.OdataError
+						Expect(json.Unmarshal(rr.Body.Bytes(), &libreError)).To(Succeed())
+						Expect(libreError.Error.Code).To(Equal(errorcode.InvalidRequest.String()))
+						Expect(libreError.Error.Message).To(Equal("invalid drive id: must be a canonical UUID"))
+						identityBackend.AssertNotCalled(GinkgoT(), "GetUser", mock.Anything, mock.Anything, mock.Anything)
+						gatewayClient.AssertNotCalled(GinkgoT(), "CreateStorageSpace", mock.Anything, mock.Anything)
+					},
+					Entry("path traversal", "../../x"),
+					Entry("storage id delimiter", "pro-1$"+spaceID),
+					Entry("opaque id delimiter", spaceID+"!"+spaceID),
+					Entry("arbitrary string", "not-a-uuid"),
+					Entry("uppercase", strings.ToUpper(spaceID)),
+					Entry("braces", "{"+spaceID+"}"),
+					Entry("urn", "urn:uuid:"+spaceID),
+					Entry("no hyphens", strings.ReplaceAll(spaceID, "-", "")),
+				)
+
+				It("returns 409 Conflict when the storage provider reports that the space already exists", func() {
+					identityBackend.On("GetUser", mock.Anything, spaceID, mock.Anything).Return(nil, identity.ErrNotFound)
+					gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
+						Status: status.NewAlreadyExists(ctx, nil, "decomposedfs: spaces: space already exists"),
+					}, nil)
+
+					jsonBody := []byte(`{"name": "Test Space", "id": "` + spaceID + `"}`)
+					r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+					rr := httptest.NewRecorder()
+					svc.CreateDrive(rr, r)
+					Expect(rr.Code).To(Equal(http.StatusConflict))
+
+					var libreError libregraph.OdataError
+					Expect(json.Unmarshal(rr.Body.Bytes(), &libreError)).To(Succeed())
+					Expect(libreError.Error.Code).To(Equal(errorcode.NameAlreadyExists.String()))
+					Expect(libreError.Error.Message).To(Equal("drive already exists"))
+				})
+			})
 			It("Incomplete space", func() {
 				gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
 					Status: status.NewOK(ctx),
@@ -1176,6 +1376,67 @@ var _ = Describe("Graph", func() {
 					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "contentType") == drive.GetLibreGraphContentType()
 			}))
 		})
+
+		DescribeTable("rejects an invalid name without updating the space",
+			func(name string) {
+				body, err := json.Marshal(map[string]string{"name": name})
+				Expect(err).ToNot(HaveOccurred())
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/drives/{driveID}/", bytes.NewBuffer(body))
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "spaceid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, nil), chi.RouteCtxKey, rctx))
+				svc.UpdateDrive(rr, r)
+				Expect(rr.Code).To(Equal(http.StatusBadRequest))
+
+				gatewayClient.AssertNotCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.Anything)
+			},
+			// the names are written as escape sequences on purpose: written directly, these
+			// characters would be invisible or look like ordinary spaces in the source code
+			Entry("empty name", ""),
+			Entry("name of only spaces", "   "),
+			Entry("name of only tabs and line breaks", "\t\n\r"),
+			// U+00A0 no-break space, U+202F narrow no-break space
+			Entry("name of only no-break spaces", "\u00a0\u202f"),
+			// U+2003 em space, U+2009 thin space, U+3000 ideographic space
+			Entry("name of only wide spaces", "\u2003\u2009\u3000"),
+			// U+200B zero-width space: invisible, but not whitespace in Unicode
+			Entry("name of only zero-width spaces", "\u200b\u200b"),
+			// U+200C zero-width non-joiner, U+200D zero-width joiner
+			Entry("name of only zero-width joiners", "\u200c\u200d"),
+			// U+2060 word joiner, U+FEFF byte order mark (zero-width no-break space)
+			Entry("name of only a word joiner and a byte order mark", "\u2060\ufeff"),
+			// space, U+200B zero-width space, U+00A0 no-break space, U+FEFF byte order mark, space
+			Entry("name of mixed invisible characters", " \u200b\u00a0\ufeff "),
+		)
+
+		DescribeTable("keeps the name when the request doesn't set one",
+			func(jsonBody string) {
+				gatewayClient.On("UpdateStorageSpace", mock.Anything, mock.Anything).Return(func(_ context.Context, req *provider.UpdateStorageSpaceRequest, _ ...grpc.CallOption) *provider.UpdateStorageSpaceResponse {
+					return &provider.UpdateStorageSpaceResponse{
+						Status:       status.NewOK(ctx),
+						StorageSpace: req.StorageSpace,
+					}
+				}, nil)
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+					Status: status.NewNotFound(ctx, "no special files found"),
+				}, nil).Maybe()
+
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/drives/{driveID}/", bytes.NewBufferString(jsonBody))
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "spaceid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, nil), chi.RouteCtxKey, rctx))
+				svc.UpdateDrive(rr, r)
+				Expect(rr.Code).To(Equal(http.StatusOK))
+
+				gatewayClient.AssertCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.MatchedBy(func(req *provider.UpdateStorageSpaceRequest) bool {
+					return req.StorageSpace.Id.OpaqueId == "spaceid" &&
+						req.StorageSpace.Name == "" &&
+						utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "description") == "thedescription"
+				}))
+			},
+			Entry("no name", `{"description": "thedescription"}`),
+			Entry("null name", `{"name": null, "description": "thedescription"}`),
+		)
 
 		It("restores", func() {
 			drive := libregraph.NewDrive("thename")
