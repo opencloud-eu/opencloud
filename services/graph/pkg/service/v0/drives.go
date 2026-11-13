@@ -438,6 +438,17 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid drive id: must be a canonical UUID")
 			return
 		}
+		// personal spaces may use their owner's user id as space id, so an id that belongs to a user
+		// must not be taken by another space, or that user's personal space could not be created anymore
+		if _, err := g.identityBackend.GetUser(r.Context(), id, &godata.GoDataRequest{}); err == nil {
+			log.Debug().Str("id", id).Msg("could not create drive: id belongs to a user")
+			errorcode.NameAlreadyExists.Render(w, r, http.StatusConflict, "drive already exists")
+			return
+		} else if !errorcode.IsErrorCode(err, errorcode.ItemNotFound) {
+			log.Error().Err(err).Str("id", id).Msg("could not create drive: could not check whether the id belongs to a user")
+			errorcode.RenderError(w, r, err)
+			return
+		}
 		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "spaceid", id)
 	}
 
