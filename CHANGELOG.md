@@ -1,5 +1,35 @@
 # Changelog
 
+## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-13
+
+### ❤️ Thanks to all contributors! ❤️
+
+@Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc
+
+### 🐛 Bug Fixes
+
+- fix(graph): name the space image size limit after space images [[#3993](https://github.com/opencloud-eu/opencloud/pull/3993)]
+- fix(graph): succeed when unassigning tags a resource doesn't have [[#3950](https://github.com/opencloud-eu/opencloud/pull/3950)]
+- fix(graph): port share permission and link fixes [[#3944](https://github.com/opencloud-eu/opencloud/pull/3944)]
+- fix(graph): refuse space images too large for a thumbnail [[#3986](https://github.com/opencloud-eu/opencloud/pull/3986)]
+- Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
+- fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
+- fix(search): honor the gRPC client TLS mode in the index command [[#3620](https://github.com/opencloud-eu/opencloud/pull/3620)]
+- fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
+
+### 📈 Enhancement
+
+- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
+- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
+- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
+- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
+- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
+- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
+
+### ✅ Tests
+
+- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
+
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
