@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
 - feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
 - feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
 - feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
