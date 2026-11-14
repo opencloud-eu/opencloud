@@ -197,4 +197,34 @@ var _ = Describe("PostprocessingService", func() {
 			Expect(errors.Is(err, ErrFatal)).To(BeFalse())
 		})
 	})
+
+	Describe("handling UploadReady", func() {
+		uploadReady := func(uploadID string) raw.Event {
+			ev := events.UploadReady{
+				UploadID: uploadID,
+				Filename: "test.txt",
+			}
+			return raw.Event{
+				Event: events.Event{
+					ID:    uuid.New().String(),
+					Type:  reflect.TypeOf(ev).String(),
+					Event: ev,
+				},
+			}
+		}
+
+		It("ignores an event that does not belong to an upload", func() {
+			pps = newService()
+
+			Expect(pps.processEvent(uploadReady(""))).To(Succeed())
+		})
+
+		It("fails for an upload it does not know", func() {
+			pps = newService()
+
+			err := pps.processEvent(uploadReady("upload-" + uuid.New().String()))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrEvent)).To(BeTrue())
+		})
+	})
 })
