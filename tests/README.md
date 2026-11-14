@@ -367,8 +367,12 @@ Test suites that are tagged with `@tikaServiceNeeded` require tika service.
 Run the following docker command to setup tika service
 
 ```bash
-docker run -d -p 127.0.0.1:9998:9998 apache/tika
+docker run -d -p 127.0.0.1:9998:9998 -e TIKA_PRESETS=thumbnail apache/tika:4.2.0-SNAPSHOT-full
 ```
+
+The thumbnail suites ask Tika for `PUT /unpack/preset/thumbnail`, which the
+`thumbnail` catalog preset serves, so it has to be activated and Tika has to be
+4.2.0 or newer. The `-full` image carries the parsers the preset reads.
 
 #### Run OpenCloud
 
