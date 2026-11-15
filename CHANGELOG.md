@@ -1,10 +1,15 @@
 # Changelog
 
-## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-13
+## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc
+
+### ✅ Tests
+
+- fix(ci): skip the font regeneration that restarts OnlyOffice [[#3996](https://github.com/opencloud-eu/opencloud/pull/3996)]
+- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
 
 ### 🐛 Bug Fixes
 
@@ -25,10 +30,6 @@
 - feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
 - feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
 - feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
-
-### ✅ Tests
-
-- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
 
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
