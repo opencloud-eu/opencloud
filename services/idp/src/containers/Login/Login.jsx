@@ -133,11 +133,11 @@ function Login(props) {
     });
   };
 
-  const handleBackClick = (event) => {
+  function handleBackClick(event) {
     event.preventDefault();
 
     dispatch(resetMFA());
-  };
+  }
 
   if (mfaRequired) {
     // Second step for users with two-factor authentication: the password was

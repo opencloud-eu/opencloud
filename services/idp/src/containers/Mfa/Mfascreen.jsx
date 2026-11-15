@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { connect } from "react-redux";
 import axios from "axios";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -13,57 +12,60 @@ import Link from "@material-ui/core/Link";
 
 import ResponsiveScreen from "../../components/ResponsiveScreen";
 import TextInput from "../../components/TextInput";
+import { MFARoute } from "../../actions/login";
 
-const styles = (theme) => ({
-  main: {
-    width: "100%",
-  },
-  header: {
-    textAlign: "center",
-    marginTop: 0,
-    marginBottom: theme.spacing(4),
-  },
-  text: {
-    marginBottom: theme.spacing(3),
-  },
-  status: {
-    fontWeight: 700,
-    marginBottom: theme.spacing(1),
-  },
-  message: {
-    display: "block",
-    marginTop: 5,
-    marginBottom: 5,
-  },
-  qr: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: theme.spacing(3),
-  },
-  secret: {
-    fontFamily: "monospace",
-    fontSize: "1rem",
-    wordBreak: "break-all",
-    userSelect: "all",
-  },
-  codes: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: theme.spacing(1),
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-    marginBottom: theme.spacing(3),
-    fontFamily: "monospace",
-    fontSize: "1.0625rem",
-    textAlign: "center",
-  },
-  footer: {
-    display: "block",
-    textAlign: "center",
-    marginTop: theme.spacing(3),
-  },
-});
+function styles(theme) {
+  return {
+    main: {
+      width: "100%",
+    },
+    header: {
+      textAlign: "center",
+      marginTop: 0,
+      marginBottom: theme.spacing(4),
+    },
+    text: {
+      marginBottom: theme.spacing(3),
+    },
+    status: {
+      fontWeight: 700,
+      marginBottom: theme.spacing(1),
+    },
+    message: {
+      display: "block",
+      marginTop: 5,
+      marginBottom: 5,
+    },
+    qr: {
+      display: "flex",
+      justifyContent: "center",
+      marginBottom: theme.spacing(3),
+    },
+    secret: {
+      fontFamily: "monospace",
+      fontSize: "1rem",
+      wordBreak: "break-all",
+      userSelect: "all",
+    },
+    codes: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: theme.spacing(1),
+      listStyle: "none",
+      padding: 0,
+      margin: 0,
+      marginBottom: theme.spacing(3),
+      fontFamily: "monospace",
+      fontSize: "1.0625rem",
+      textAlign: "center",
+    },
+    footer: {
+      display: "block",
+      textAlign: "center",
+      marginTop: theme.spacing(3),
+    },
+  };
+}
 
 // Views of the page.
 const VIEW_LOADING = "loading";
@@ -87,7 +89,7 @@ function request(method, path, data) {
 }
 
 function Mfascreen(props) {
-  const { classes, pathPrefix } = props;
+  const { classes, history } = props;
   const { t } = useTranslation();
 
   const [view, setView] = useState(VIEW_LOADING);
@@ -99,7 +101,7 @@ function Mfascreen(props) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const errorMessage = (response) => {
+  function errorMessage(response) {
     switch (response.data && response.data.error) {
       case "invalid_password":
         return t("opencloud.mfa.error.invalidPassword", "The password is not correct.");
@@ -115,15 +117,12 @@ function Mfascreen(props) {
       default:
         return t("opencloud.mfa.error.unexpected", "Something went wrong. Please try again.");
     }
-  };
+  }
 
   const signIn = useCallback(() => {
-    // come back to this page after the login
-    const target = `${pathPrefix}/identifier?continue=${encodeURIComponent(
-      window.location.origin + pathPrefix + "/mfa"
-    )}`;
-    window.location.replace(target);
-  }, [pathPrefix]);
+    // the login page brings the user back to this page afterwards
+    history.replace("/identifier", { returnTo: MFARoute });
+  }, [history]);
 
   const loadStatus = useCallback(() => {
     return request("get", "status").then((response) => {
@@ -148,7 +147,7 @@ function Mfascreen(props) {
   }, [loadStatus]);
 
   // Runs a request and handles what all requests have in common.
-  const submit = (event, method, path, data, onSuccess) => {
+  function submit(event, method, path, data, onSuccess) {
     event.preventDefault();
     if (busy) {
       return;
@@ -173,45 +172,53 @@ function Mfascreen(props) {
     }).finally(() => {
       setBusy(false);
     });
-  };
+  }
 
-  const handleSetup = (event) => submit(event, "post", "setup", { password }, (response) => {
-    setSetup(response.data);
-    setView(VIEW_SETUP);
-  });
+  function handleSetup(event) {
+    submit(event, "post", "setup", { password }, (response) => {
+      setSetup(response.data);
+      setView(VIEW_SETUP);
+    });
+  }
 
-  const handleEnable = (event) => submit(event, "post", "enable", { code }, (response) => {
-    // state updates after a request are not batched: switch the view before
-    // dropping the data the current view renders
-    setRecoveryCodes(response.data.recoveryCodes);
-    setView(VIEW_RECOVERY_CODES);
-    setSetup(null);
-  });
+  function handleEnable(event) {
+    submit(event, "post", "enable", { code }, (response) => {
+      // state updates after a request are not batched: switch the view before
+      // dropping the data the current view renders
+      setRecoveryCodes(response.data.recoveryCodes);
+      setView(VIEW_RECOVERY_CODES);
+      setSetup(null);
+    });
+  }
 
-  const handleRecoveryCodes = (event) => submit(event, "post", "recovery-codes", { code }, (response) => {
-    setRecoveryCodes(response.data.recoveryCodes);
-    setView(VIEW_RECOVERY_CODES);
-  });
+  function handleRecoveryCodes(event) {
+    submit(event, "post", "recovery-codes", { code }, (response) => {
+      setRecoveryCodes(response.data.recoveryCodes);
+      setView(VIEW_RECOVERY_CODES);
+    });
+  }
 
-  const handleDisable = (event) => submit(event, "post", "disable", { code }, () => {
-    setView(VIEW_LOADING);
-    loadStatus();
-  });
+  function handleDisable(event) {
+    submit(event, "post", "disable", { code }, () => {
+      setView(VIEW_LOADING);
+      loadStatus();
+    });
+  }
 
-  const handleDone = (event) => {
+  function handleDone(event) {
     event.preventDefault();
     setRecoveryCodes([]);
     setView(VIEW_LOADING);
     loadStatus();
-  };
+  }
 
-  const handleCancelSetup = (event) => {
+  function handleCancelSetup(event) {
     event.preventDefault();
     setSetup(null);
     setCode("");
     setError("");
     setView(VIEW_DISABLED);
-  };
+  }
 
   const errorElement = error && (
     <Typography
@@ -440,15 +447,7 @@ function Mfascreen(props) {
 
 Mfascreen.propTypes = {
   classes: PropTypes.object.isRequired,
-  pathPrefix: PropTypes.string.isRequired,
+  history: PropTypes.object.isRequired,
 };
 
-const mapStateToProps = (state) => {
-  const { pathPrefix } = state.common;
-
-  return {
-    pathPrefix,
-  };
-};
-
-export default connect(mapStateToProps)(withStyles(styles)(Mfascreen));
+export default withStyles(styles)(Mfascreen);

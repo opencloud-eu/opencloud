@@ -22,12 +22,14 @@ import { handleAxiosError } from './utils';
 export const ModeLogonUsernameEmptyPasswordCookie = '0';
 export const ModeLogonUsernamePassword = '1';
 
-// Response header of a rejected logon that tells if and why the second factor
-// (two-factor authentication) of the user rejected it.
-const MFAResultHeader = 'opencloud-mfa';
+// Values of the response header 'opencloud-mfa' of a rejected logon. It tells if and
+// why the second factor (two-factor authentication) of the user rejected it.
 const MFAResultRequired = 'required';
 const MFAResultInvalid = 'invalid';
 const MFAResultLocked = 'locked';
+
+// Route of the page to manage the two-factor authentication.
+export const MFARoute = '/mfa';
 
 export function updateInput(name, value) {
   return {
@@ -130,7 +132,7 @@ export function executeLogon(username, password, mode=ModeLogonUsernamePassword,
           return response.data;
         case 204:
           // login failed.
-          switch (response.headers[MFAResultHeader]) {
+          switch (response.headers['opencloud-mfa']) {
             case MFAResultRequired:
               // password was correct, the second factor is missing.
               return {
@@ -332,7 +334,16 @@ export function advanceLogonFlow(success, history, done=false, extraQuery={}) {
     }
 
     // Default action.
+    if (history.location.pathname === MFARoute) {
+      // The flow is advanced by the logon and by the hello it triggers. The
+      // first one already brought the user back, see below.
+      return;
+    }
     let target = '/welcome';
+    if (history.location.state && history.location.state.returnTo === MFARoute) {
+      // The two-factor authentication page sent the user here to sign in.
+      target = MFARoute;
+    }
     if (history.action === 'REPLACE') {
       target = target + history.location.search + history.location.hash;
     }

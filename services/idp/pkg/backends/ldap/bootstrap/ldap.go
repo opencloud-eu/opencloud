@@ -105,6 +105,8 @@ func NewIdentityManager(bs bootstrap.Bootstrap, wrap BackendWrapper) (identity.M
 	// Use a clone here to avoid changing the config of other possible users of the config.
 	tlsConfig := config.TLSClientConfig.Clone()
 	if caCertFile := os.Getenv("LDAP_TLS_CACERT"); caCertFile != "" {
+		// the path is part of the configuration of the service, it is not user input
+		// nosemgrep
 		if pemBytes, err := os.ReadFile(caCertFile); err == nil {
 			rpool, _ := x509.SystemCertPool()
 			if rpool.AppendCertsFromPEM(pemBytes) {

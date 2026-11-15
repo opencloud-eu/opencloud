@@ -1,9 +1,12 @@
 package mfa
 
+// TOTP is defined on HMAC-SHA1 (RFC 6238, RFC 4226) and that is what authenticator apps
+// implement. HMAC-SHA1 is not affected by the collision attacks on SHA-1.
+// nosemgrep
 import (
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha1" // #nosec G505 -- HMAC-SHA1 is what RFC 6238 authenticator apps implement
+	"crypto/sha1" // #nosec G505 -- required by RFC 6238, see above
 	"crypto/subtle"
 	"encoding/base32"
 	"encoding/binary"
