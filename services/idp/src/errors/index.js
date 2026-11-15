@@ -4,6 +4,8 @@ import PropTypes from 'prop-types';
 export const ERROR_LOGIN_VALIDATE_MISSINGUSERNAME = 'konnect.error.login.validate.missingUsername';
 export const ERROR_LOGIN_VALIDATE_MISSINGPASSWORD = 'konnect.error.login.validate.missingPassword';
 export const ERROR_LOGIN_FAILED = 'konnect.error.login.failed';
+export const ERROR_LOGIN_MFA_INVALID = 'opencloud.error.login.mfa.invalid';
+export const ERROR_LOGIN_MFA_LOCKED = 'opencloud.error.login.mfa.locked';
 export const ERROR_HTTP_NETWORK_ERROR = 'konnect.error.http.networkError';
 export const ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS = 'konnect.error.http.unexpectedResponseStatus';
 export const ERROR_HTTP_UNEXPECTED_RESPONSE_STATE = 'konnect.error.http.unexpectedResponseState';
@@ -46,6 +48,10 @@ function ErrorMessageComponent(props) {
       return t("konnect.error.login.validate.missingPassword", "Enter your password.");
     case ERROR_LOGIN_FAILED:
       return t("konnect.error.login.failed", "Logon failed. Please verify your credentials and try again.");
+    case ERROR_LOGIN_MFA_INVALID:
+      return t("opencloud.error.login.mfa.invalid", "The code is not correct. Please try again.");
+    case ERROR_LOGIN_MFA_LOCKED:
+      return t("opencloud.error.login.mfa.locked", "Too many wrong codes. Please wait a few minutes and try again.");
     case ERROR_HTTP_NETWORK_ERROR:
       return t("konnect.error.http.networkError", "Network error. Please check your connection and try again.");
     case ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS:

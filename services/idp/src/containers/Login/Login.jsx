@@ -17,6 +17,7 @@ import {
   updateInput,
   executeLogonIfFormValid,
   advanceLogonFlow,
+  resetMFA,
 } from "../../actions/login";
 import { ErrorMessage } from "../../errors";
 
@@ -48,7 +49,14 @@ const styles = (theme) => ({
   },
   signinPageText: {
     marginBottom: 12
-  }
+  },
+  mfaText: {
+    marginBottom: theme.spacing(3),
+  },
+  mfaBack: {
+    display: "inline-block",
+    marginTop: theme.spacing(2),
+  },
 });
 
 function Login(props) {
@@ -62,6 +70,8 @@ function Login(props) {
     classes,
     username,
     password,
+    code,
+    mfaRequired,
     passwordResetLink,
     branding,
   } = props;
@@ -114,14 +124,100 @@ function Login(props) {
   const handleNextClick = (event) => {
     event.preventDefault();
 
-    dispatch(executeLogonIfFormValid(username, password, false)).then(
-      (response) => {
-        if (response.success) {
-          dispatch(advanceLogonFlow(response.success, history));
-        }
+    dispatch(
+      executeLogonIfFormValid(username, password, false, mfaRequired ? code : "")
+    ).then((response) => {
+      if (response.success) {
+        dispatch(advanceLogonFlow(response.success, history));
       }
-    );
+    });
   };
+
+  const handleBackClick = (event) => {
+    event.preventDefault();
+
+    dispatch(resetMFA());
+  };
+
+  if (mfaRequired) {
+    // Second step for users with two-factor authentication: the password was
+    // correct, now a one-time code or a recovery code is required.
+    const extraPropsCode = {
+      "aria-invalid": errors.code || errors.http ? "true" : "false",
+    };
+    if (errors.code || errors.http) {
+      extraPropsCode["extraClassName"] = "error";
+      extraPropsCode["aria-describedby"] = "oc-login-error-message";
+    }
+
+    return (
+      <div className={classes.main}>
+        <h1 className={classes.header}>
+          {t("opencloud.login.mfa.headline", "Two-factor authentication")}
+        </h1>
+        <Typography className={classes.mfaText} variant="body2">
+          {t(
+            "opencloud.login.mfa.message",
+            "Enter the code from your authenticator app or one of your recovery codes."
+          )}
+        </Typography>
+        <form
+          action=""
+          className="oc-login-form"
+          onSubmit={(event) => handleNextClick(event)}
+        >
+          <TextInput
+            autoFocus
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck="false"
+            value={code}
+            onChange={handleChange("code")}
+            autoComplete="one-time-code"
+            placeholder={t("opencloud.login.mfa.codeField.label", "Code")}
+            label={t("opencloud.login.mfa.codeField.label", "Code")}
+            id="oc-login-mfa-code"
+            {...extraPropsCode}
+          />
+          {(errors.code || errors.http) && (
+            <Typography
+              id="oc-login-error-message"
+              variant="subtitle2"
+              component="span"
+              color="error"
+              className={classes.message}
+            >
+              <ErrorMessage error={errors.code || errors.http}></ErrorMessage>
+            </Typography>
+          )}
+          <div className={classes.wrapper}>
+            <Button
+              type="submit"
+              color="primary"
+              variant="contained"
+              className="oc-button-primary oc-mt-l"
+              disabled={!!loading || !code}
+              onClick={handleNextClick}
+            >
+              {t("opencloud.login.mfa.verifyButton.label", "Verify")}
+            </Button>
+            {loading && (
+              <CircularProgress size={24} className={classes.buttonProgress} />
+            )}
+            <Link
+              id="oc-login-mfa-back"
+              href="#"
+              variant="subtitle2"
+              className={classes.mfaBack}
+              onClick={handleBackClick}
+            >
+              {t("opencloud.login.mfa.backButton.label", "Back to login")}
+            </Link>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className={classes.main}>
@@ -209,6 +305,8 @@ Login.propTypes = {
   loading: PropTypes.string.isRequired,
   username: PropTypes.string.isRequired,
   password: PropTypes.string.isRequired,
+  code: PropTypes.string.isRequired,
+  mfaRequired: PropTypes.bool.isRequired,
   passwordResetLink: PropTypes.string.isRequired,
   errors: PropTypes.object.isRequired,
   branding: PropTypes.object,
@@ -220,13 +318,15 @@ Login.propTypes = {
 };
 
 const mapStateToProps = (state) => {
-  const { loading, username, password, errors } = state.login;
+  const { loading, username, password, code, mfaRequired, errors } = state.login;
   const { branding, hello, query, passwordResetLink } = state.common;
 
   return {
     loading,
     username,
     password,
+    code,
+    mfaRequired,
     errors,
     branding,
     hello,

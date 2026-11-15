@@ -16,6 +16,7 @@ func GetCommands(cfg *config.Config) []*cobra.Command {
 		Server(cfg),
 
 		// interaction with this service
+		MFA(cfg),
 
 		// infos about this service
 		Health(cfg),

@@ -132,6 +132,15 @@ func DefaultConfig() *config.Config {
 			ObjectClass:          "inetOrgPerson",
 			UserEnabledAttribute: "openCloudUserEnabled",
 		},
+		MFA: config.MFA{
+			Enabled: true,
+			Issuer:  "OpenCloud",
+			Store: config.MFAStore{
+				Store:    "nats-js-kv",
+				Nodes:    []string{"127.0.0.1:9233"},
+				Database: "idp-mfa",
+			},
+		},
 	}
 }
 

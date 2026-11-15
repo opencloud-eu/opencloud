@@ -8,6 +8,8 @@ import {
   ERROR_LOGIN_VALIDATE_MISSINGUSERNAME,
   ERROR_LOGIN_VALIDATE_MISSINGPASSWORD,
   ERROR_LOGIN_FAILED,
+  ERROR_LOGIN_MFA_INVALID,
+  ERROR_LOGIN_MFA_LOCKED,
   ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS,
   ERROR_HTTP_UNEXPECTED_RESPONSE_STATE
 } from '../errors';
@@ -19,6 +21,13 @@ import { handleAxiosError } from './utils';
 // Modes for logon.
 export const ModeLogonUsernameEmptyPasswordCookie = '0';
 export const ModeLogonUsernamePassword = '1';
+
+// Response header of a rejected logon that tells if and why the second factor
+// (two-factor authentication) of the user rejected it.
+const MFAResultHeader = 'opencloud-mfa';
+const MFAResultRequired = 'required';
+const MFAResultInvalid = 'invalid';
+const MFAResultLocked = 'locked';
 
 export function updateInput(name, value) {
   return {
@@ -44,12 +53,20 @@ export function requestLogon(username, password) {
 }
 
 export function receiveLogon(logon) {
-  const { success, errors } = logon;
+  const { success, errors, mfaRequired } = logon;
 
   return {
     type: types.RECEIVE_LOGON,
     success,
-    errors
+    errors,
+    mfaRequired: !success && !!mfaRequired
+  };
+}
+
+// Leaves the two-factor authentication step of the login.
+export function resetMFA() {
+  return {
+    type: types.RESET_MFA
   };
 }
 
@@ -69,7 +86,7 @@ export function receiveConsent(logon) {
   };
 }
 
-export function executeLogon(username, password, mode=ModeLogonUsernamePassword) {
+export function executeLogon(username, password, mode=ModeLogonUsernamePassword, code='') {
   return function(dispatch, getState) {
     dispatch(requestLogon(username, password));
     dispatch(receiveHello({
@@ -84,6 +101,10 @@ export function executeLogon(username, password, mode=ModeLogonUsernamePassword)
       case ModeLogonUsernamePassword:
         // Username with password.
         params.push(username, password, mode);
+        if (code) {
+          // One-time code or recovery code of the two-factor authentication.
+          params.push(code);
+        }
         break;
 
       case ModeLogonUsernameEmptyPasswordCookie:
@@ -109,6 +130,35 @@ export function executeLogon(username, password, mode=ModeLogonUsernamePassword)
           return response.data;
         case 204:
           // login failed.
+          switch (response.headers[MFAResultHeader]) {
+            case MFAResultRequired:
+              // password was correct, the second factor is missing.
+              return {
+                success: false,
+                state: response.headers['kopano-konnect-state'],
+                mfaRequired: true,
+                errors: {}
+              };
+            case MFAResultInvalid:
+              return {
+                success: false,
+                state: response.headers['kopano-konnect-state'],
+                mfaRequired: true,
+                errors: {
+                  code: new Error(ERROR_LOGIN_MFA_INVALID)
+                }
+              };
+            case MFAResultLocked:
+              return {
+                success: false,
+                state: response.headers['kopano-konnect-state'],
+                mfaRequired: true,
+                errors: {
+                  code: new Error(ERROR_LOGIN_MFA_LOCKED)
+                }
+              };
+            default:
+          }
           return {
             success: false,
             state: response.headers['kopano-konnect-state'],
@@ -227,13 +277,13 @@ export function validateUsernamePassword(username, password, isSignedIn) {
   };
 }
 
-export function executeLogonIfFormValid(username, password, isSignedIn) {
+export function executeLogonIfFormValid(username, password, isSignedIn, code='') {
   return (dispatch) => {
     return dispatch(
       validateUsernamePassword(username, password, isSignedIn)
     ).then(() => {
       const mode = isSignedIn ? ModeLogonUsernameEmptyPasswordCookie : ModeLogonUsernamePassword;
-      return dispatch(executeLogon(username, password, mode));
+      return dispatch(executeLogon(username, password, mode, code));
     }).catch((errors) => {
       return {
         success: false,

@@ -17,13 +17,17 @@ import (
 	ldapBackendSupport "github.com/libregraph/lico/bootstrap/backends/ldap"
 	libreGraphBackendSupport "github.com/libregraph/lico/bootstrap/backends/libregraph"
 	licoconfig "github.com/libregraph/lico/config"
+	"github.com/libregraph/lico/identifier"
+	"github.com/libregraph/lico/identifier/backends"
 	"github.com/libregraph/lico/server"
 	"github.com/opencloud-eu/opencloud/pkg/ldap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/idp/pkg/assets"
 	cs3BackendSupport "github.com/opencloud-eu/opencloud/services/idp/pkg/backends/cs3/bootstrap"
+	wrappedLdapBackendSupport "github.com/opencloud-eu/opencloud/services/idp/pkg/backends/ldap/bootstrap"
 	"github.com/opencloud-eu/opencloud/services/idp/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/idp/pkg/mfa"
 	"github.com/opencloud-eu/opencloud/services/idp/pkg/middleware"
 	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/otel/trace"
@@ -54,9 +58,26 @@ func NewService(opts ...Option) Service {
 		logger.Fatal().Err(err).Msg("could not create default config")
 	}
 
+	// With two-factor authentication the identifier backend is wrapped to require a
+	// one-time code after the password was verified.
+	var mfaService *mfa.Service
+	var wrapBackend func(backends.Backend) backends.Backend
+	if options.Config.MFA.Enabled && !options.Config.MFAAvailable() {
+		logger.Info().Str("identity_manager", options.Config.IDP.IdentityManager).
+			Msg("two-factor authentication is not offered, it needs the identity manager 'ldap' or 'cs3' and an encryption secret file")
+	}
+	if options.Config.MFAAvailable() {
+		var err error
+		mfaService, err = mfa.NewFromConfig(options.Config, options.Logger)
+		if err != nil {
+			logger.Fatal().Err(err).Msg("could not initialize two-factor authentication")
+		}
+		wrapBackend = mfaService.WrapBackend
+	}
+
 	switch options.Config.IDP.IdentityManager {
 	case "cs3":
-		cs3BackendSupport.MustRegister()
+		cs3BackendSupport.MustRegister(wrapBackend)
 		if err := initCS3EnvVars(options.Config.Reva.Address, options.Config.MachineAuthAPIKey); err != nil {
 			logger.Fatal().Err(err).Msg("could not initialize cs3 backend env vars")
 		}
@@ -70,7 +91,11 @@ func NewService(opts ...Option) Service {
 			options.Config.Ldap.TLSCACert = ""
 		}
 
-		ldapBackendSupport.MustRegister()
+		if wrapBackend != nil {
+			wrappedLdapBackendSupport.MustRegister(wrapBackend)
+		} else {
+			ldapBackendSupport.MustRegister()
+		}
 		if err := initLicoInternalLDAPEnvVars(&options.Config.Ldap); err != nil {
 			logger.Fatal().Err(err).Msg("could not initialize ldap env vars")
 		}
@@ -131,6 +156,14 @@ func NewService(opts ...Option) Service {
 		config: options.Config,
 		assets: assetVFS,
 		tp:     options.TraceProvider,
+	}
+
+	if mfaService != nil {
+		activeIdentifier, ok := managers.Must("identifier").(*identifier.Identifier)
+		if !ok {
+			logger.Fatal().Msg("could not initialize two-factor authentication, the identifier is not available")
+		}
+		svc.mfa = mfa.NewHandler(mfaService, activeIdentifier, options.Logger)
 	}
 
 	svc.initMux(ctx, routes, handlers, options)
@@ -257,6 +290,8 @@ type IDP struct {
 	mux    *chi.Mux
 	assets http.FileSystem
 	tp     trace.TracerProvider
+	// mfa is nil when two-factor authentication is disabled
+	mfa *mfa.Handler
 }
 
 // initMux initializes the internal idp gorilla mux and mounts it in to an OpenCloud chi-router
@@ -292,10 +327,22 @@ func (idp *IDP) initMux(ctx context.Context, r []server.WithRoutes, h http.Handl
 		),
 	)
 
+	if idp.mfa != nil {
+		// hands the one-time code of logon requests to the identifier backend
+		idp.mux.Use(idp.mfa.LogonMiddleware("/signin/v1/identifier/_/logon"))
+	}
+
 	// handle / | index.html with a template that needs to have the BASE_PREFIX replaced
 	idp.mux.Get("/signin/v1/identifier", idp.Index())
 	idp.mux.Get("/signin/v1/identifier/", idp.Index())
 	idp.mux.Get("/signin/v1/identifier/index.html", idp.Index())
+
+	if idp.mfa != nil {
+		// the page where users manage their second factor and its API. The API lives below
+		// the path of the logon cookie, so the browser sends the cookie along.
+		idp.mux.Get("/signin/v1/mfa", idp.Index())
+		idp.mux.Mount("/signin/v1/identifier/_/mfa", idp.mfa.Routes())
+	}
 
 	idp.mux.Mount("/", gm)
 

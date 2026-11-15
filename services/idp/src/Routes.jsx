@@ -12,6 +12,9 @@ const AsyncWelcome = lazy(() =>
 const AsyncGoodbye = lazy(() =>
   import(/* webpackChunkName: "containers-goodbye" */ './containers/Goodbye'));
 
+const AsyncMfa = lazy(() =>
+  import(/* webpackChunkName: "containers-mfa" */ './containers/Mfa'));
+
 const Routes = ({ hello  }: {hello: PropTypes.object}): ReactElement => (
   <Switch>
     <PrivateRoute
@@ -24,6 +27,11 @@ const Routes = ({ hello  }: {hello: PropTypes.object}): ReactElement => (
       path="/goodbye"
       exact
       component={AsyncGoodbye}
+    />
+    <Route
+      path="/mfa"
+      exact
+      component={AsyncMfa}
     />
     <Route
       path="/"
