@@ -3549,6 +3549,11 @@ def onlyofficeService():
             "environment": {
                 "WOPI_ENABLED": True,
                 "USE_UNAUTHORIZED_STORAGE": True,  # self signed certificates
+                # the image comes with the fonts already generated: regenerating them
+                # restarts the document server about 30 s after it is first ready, and
+                # the collaboration service can fail to fetch the discovery during that
+                # restart (https://github.com/opencloud-eu/opencloud/issues/3994)
+                "GENERATE_FONTS": False,
             },
             "commands": [
                 "cp %s/tests/config/woodpecker/only-office.json /etc/onlyoffice/documentserver/local.json" % dirs["base"],
