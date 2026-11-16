@@ -15,7 +15,9 @@ import (
 	"time"
 
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/blobstore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/pkg/xattr"
@@ -25,6 +27,7 @@ import (
 type consistencyChecker struct {
 	cfg                  *storageUsersConfig.Config
 	ignorer              *ignore.Ignorer
+	internalDirs         []string
 	recalculateChecksums bool
 
 	restartRequired bool
@@ -34,24 +37,14 @@ type consistencyChecker struct {
 // given path determines the scope of the check: the whole storage, a single
 // space or a single entity within a space.
 func (c *consistencyChecker) Check(paths []string) error {
-	_ = processPosixFsResources(paths, true,
-		func(path string) error {
-			fmt.Println("Checking personal spaces...")
-			c.checkSpaces(path)
-			return nil
-		},
-		func(path string) error {
-			fmt.Println("Checking project spaces...")
-			c.checkSpaces(path)
-			return nil
-		},
+	_ = processPosixFsResources(paths, c.internalDirs, true,
 		func(path string) error {
 			fmt.Printf("Checking space '%s'...\n", path)
 			c.checkSpace(path)
 			return nil
 		},
 		func(path string) error {
-			if c.ignorer.IsIgnored(path) {
+			if c.isIgnored(path) {
 				return nil
 			}
 			fmt.Printf("Checking '%s'...\n", path)
@@ -65,19 +58,27 @@ func (c *consistencyChecker) Check(paths []string) error {
 	return nil
 }
 
-func (c *consistencyChecker) checkSpaces(basePath string) {
-	dirEntries, err := os.ReadDir(basePath)
-	if err != nil {
-		logFailure("Error reading spaces directory '%s': %v", basePath, err)
-		return
+// isIgnored reports whether path is internal and must not be checked.
+// The ignorer finds the internal directories of a space only where the path
+// templates put a space. The checker finds spaces by their space ID, so a space
+// can be elsewhere, e.g. after a template change. Look for them here too.
+func (c *consistencyChecker) isIgnored(path string) bool {
+	if c.ignorer.IsIgnored(path) {
+		return true
 	}
-
-	for _, entry := range dirEntries {
-		if entry.IsDir() {
-			fullPath := filepath.Join(basePath, entry.Name())
-			c.checkSpace(fullPath)
+	for p := path; p != filepath.Dir(p); p = filepath.Dir(p) {
+		switch filepath.Base(p) {
+		case lookup.TrashDir, lookup.MetadataDir, blobstore.TMPDir:
+			// directories created through the API have a space ID too, but
+			// only a space root has the space ID as its node ID
+			id, _ := xattr.Get(filepath.Dir(p), prefixes.IDAttr)
+			spaceID, _ := xattr.Get(filepath.Dir(p), prefixes.SpaceIDAttr)
+			if len(id) > 0 && string(id) == string(spaceID) {
+				return true
+			}
 		}
 	}
+	return false
 }
 
 func (c *consistencyChecker) checkSpace(spacePath string) {
@@ -157,7 +158,7 @@ func (c *consistencyChecker) walkNodes(dir string, parentID string) int {
 	for _, entry := range entries {
 		fullPath := filepath.Join(dir, entry.Name())
 
-		if c.ignorer.IsIgnored(fullPath) {
+		if c.isIgnored(fullPath) {
 			continue
 		}
 
@@ -363,7 +364,7 @@ func (c *consistencyChecker) gatherAttributes(path string) ([]EntryInfo, map[str
 
 	for _, entry := range dirEntries {
 		fullPath := filepath.Join(path, entry.Name())
-		if c.ignorer.IsIgnored(fullPath) {
+		if c.isIgnored(fullPath) {
 			continue
 		}
 		info, err := os.Stat(fullPath)
@@ -429,11 +430,17 @@ func (c *consistencyChecker) updateOwnerIndexFile(basePath string, obsoleteIDs [
 		return fmt.Errorf("could not get owner ID from oldest entry '%s' to find index: %w", basePath, err)
 	}
 
-	indexPath := filepath.Join(c.cfg.Drivers.Posix.Root, "indexes", "by-user-id", string(ownerID)+".mpk")
-	indexPath = filepath.Clean(indexPath)
+	// the owner ID comes from an xattr that the owner of the directory can
+	// set, so keep the index path inside the index directory
+	indexDir, err := os.OpenRoot(filepath.Join(c.cfg.Drivers.Posix.Root, "indexes", "by-user-id"))
+	if err != nil {
+		return fmt.Errorf("could not open the index directory: %w", err)
+	}
+	defer indexDir.Close()
+	indexName := string(ownerID) + ".mpk"
 
 	// Read the MessagePack file
-	fileData, err := os.ReadFile(indexPath)
+	fileData, err := indexDir.ReadFile(indexName)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("index file does not exist, skipping update")
@@ -466,7 +473,7 @@ func (c *consistencyChecker) updateOwnerIndexFile(basePath string, obsoleteIDs [
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated index map: %w", err)
 	}
-	if err := os.WriteFile(indexPath, updatedData, 0644); err != nil {
+	if err := indexDir.WriteFile(indexName, updatedData, 0644); err != nil {
 		return fmt.Errorf("failed to write updated index file: %w", err)
 	}
 
