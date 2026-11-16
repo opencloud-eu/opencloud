@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/url"
 	"os/signal"
-	"time"
 
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
@@ -78,25 +77,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			// and read when handling requests
 			appURLs := helpers.NewAppURLs()
 
-			ticker := time.NewTicker(cfg.CS3Api.APPRegistrationInterval)
-			defer ticker.Stop()
-			go func() {
-				for ; true; <-ticker.C {
-					// fetch and store the app URLs
-					v, err := helpers.GetAppURLs(cfg, logger)
-					if err != nil {
-						logger.Warn().Err(err).Msg("Failed to get app URLs")
-						// empty map to clear previous URLs
-						v = make(map[string]map[string]string)
-					}
-					appURLs.Store(v)
-
-					// register the app provider
-					if err := helpers.RegisterAppProvider(ctx, cfg, logger, gatewaySelector, appURLs); err != nil {
-						logger.Warn().Err(err).Msg("Failed to register app provider")
-					}
-				}
-			}()
+			go helpers.RefreshAppProvider(ctx, cfg, logger, gatewaySelector, appURLs)
 
 			st := store.Create(
 				store.Store(cfg.Store.Store),
@@ -137,6 +118,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				debug.Logger(logger),
 				debug.Context(ctx),
 				debug.Config(cfg),
+				debug.AppURLs(appURLs),
 			)
 			if err != nil {
 				logger.Error().Err(err).Str("transport", "debug").Msg("Failed to initialize server")

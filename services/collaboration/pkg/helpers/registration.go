@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"errors"
+	"time"
 
 	registryv1beta1 "github.com/cs3org/go-cs3apis/cs3/app/registry/v1beta1"
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -72,4 +73,72 @@ func RegisterAppProvider(
 	}
 
 	return nil
+}
+
+// firstRetryDelay is how long RefreshAppProvider waits before it fetches the
+// WOPI discovery again after a failed fetch. The delay doubles with every
+// further failure, up to the registration interval. It's a variable only so
+// that tests can shorten it.
+var firstRetryDelay = 1 * time.Second
+
+// RefreshAppProvider keeps the app URLs and the registration of this service
+// as app provider up to date, until ctx is done: it fetches the app URLs from
+// the WOPI app's discovery endpoint, stores them in appURLs and registers the
+// app provider with their mimetypes, right away and then every
+// cfg.CS3Api.APPRegistrationInterval.
+//
+// When a fetch fails, the fetch is retried sooner than the interval, and
+// appURLs keeps the URLs of the last successful fetch for a while: the WOPI
+// app may only be restarting, and they will most likely work again shortly.
+// Once the retries have backed off to the full interval, i.e. the WOPI app
+// has been unreachable for about one interval, the app URLs are cleared, so
+// that the app isn't offered for opening documents while it is gone. The next
+// successful fetch brings them back.
+func RefreshAppProvider(
+	ctx context.Context,
+	cfg *config.Config,
+	logger log.Logger,
+	gws pool.Selectable[gatewayv1beta1.GatewayAPIClient],
+	appURLs *AppURLs,
+) {
+	interval := cfg.CS3Api.APPRegistrationInterval
+	retryDelay := firstRetryDelay
+	cleared := false
+
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+
+		next := interval
+		if v, err := GetAppURLs(cfg, logger); err != nil {
+			next = min(retryDelay, interval)
+			retryDelay = min(2*retryDelay, interval)
+			logger.Warn().Err(err).
+				Bool("fetched_before", appURLs.Fetched()).
+				Dur("retry_in", next).
+				Msg("Failed to get app URLs")
+
+			if next == interval && appURLs.Fetched() && !cleared {
+				logger.Warn().Msg("The WOPI app has been unreachable for a while, clearing its app URLs until it answers again")
+				appURLs.Store(map[string]map[string]string{})
+				cleared = true
+			}
+		} else {
+			appURLs.Store(v)
+			retryDelay = firstRetryDelay
+			cleared = false
+		}
+
+		if err := RegisterAppProvider(ctx, cfg, logger, gws, appURLs); err != nil {
+			logger.Warn().Err(err).Msg("Failed to register app provider")
+		}
+
+		timer.Reset(next)
+	}
 }

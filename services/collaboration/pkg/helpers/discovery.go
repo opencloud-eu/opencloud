@@ -18,9 +18,12 @@ import (
 // AppURLs holds the app urls fetched from the WOPI app discovery endpoint
 // It is a type safe wrapper around an atomic pointer to a map
 type AppURLs struct {
-	urls atomic.Pointer[map[string]map[string]string]
+	urls    atomic.Pointer[map[string]map[string]string]
+	fetched atomic.Bool
 }
 
+// NewAppURLs returns an AppURLs without any app URLs, which hasn't been
+// fetched yet.
 func NewAppURLs() *AppURLs {
 	a := &AppURLs{}
 	a.urls.Store(&map[string]map[string]string{})
@@ -29,6 +32,13 @@ func NewAppURLs() *AppURLs {
 
 func (a *AppURLs) Store(urls map[string]map[string]string) {
 	a.urls.Store(&urls)
+	a.fetched.Store(true)
+}
+
+// Fetched tells whether app URLs have been stored at least once, i.e. whether
+// the WOPI discovery has been fetched successfully since the start.
+func (a *AppURLs) Fetched() bool {
+	return a.fetched.Load()
 }
 
 func (a *AppURLs) GetMimeTypes() []string {
@@ -85,6 +95,8 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 	wopiAppUrl := cfg.App.Addr + "/hosting/discovery"
 
 	httpClient := http.Client{
+		// a WOPI app that doesn't answer mustn't stop the periodic refresh
+		Timeout: cfg.App.DiscoveryTimeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion:         tls.VersionTLS12,

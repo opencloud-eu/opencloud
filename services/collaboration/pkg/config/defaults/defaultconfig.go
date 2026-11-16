@@ -26,11 +26,12 @@ func DefaultConfig() *config.Config {
 			Name: "collaboration",
 		},
 		App: config.App{
-			Name:        "Collabora",
-			Description: "Open office documents with Collabora",
-			Icon:        "image-edit",
-			Addr:        "https://127.0.0.1:9980",
-			Insecure:    false,
+			Name:             "Collabora",
+			Description:      "Open office documents with Collabora",
+			Icon:             "image-edit",
+			Addr:             "https://127.0.0.1:9980",
+			Insecure:         false,
+			DiscoveryTimeout: 10 * time.Second,
 			ProofKeys: config.ProofKeys{
 				// they'll be enabled by default
 				Duration: "12h",
