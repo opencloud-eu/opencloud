@@ -6,15 +6,9 @@
 
 @Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc, @v-scharf
 
-### ✅ Tests
-
-- test(search): cover trailing NOT operator in invalid KQL patterns [[#3982](https://github.com/opencloud-eu/opencloud/pull/3982)]
-- test(guest-link): guest session does not override other credentials [[#3877](https://github.com/opencloud-eu/opencloud/pull/3877)]
-- fix(ci): skip the font regeneration that restarts OnlyOffice [[#3996](https://github.com/opencloud-eu/opencloud/pull/3996)]
-- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
-
 ### 🐛 Bug Fixes
 
+- fix(graph): return the drive id in remoteItem.parentReference.driveId [[#4006](https://github.com/opencloud-eu/opencloud/pull/4006)]
 - fix(graph): name the space image size limit after space images [[#3993](https://github.com/opencloud-eu/opencloud/pull/3993)]
 - fix(graph): succeed when unassigning tags a resource doesn't have [[#3950](https://github.com/opencloud-eu/opencloud/pull/3950)]
 - fix(graph): port share permission and link fixes [[#3944](https://github.com/opencloud-eu/opencloud/pull/3944)]
@@ -23,6 +17,13 @@
 - fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
 - fix(search): honor the gRPC client TLS mode in the index command [[#3620](https://github.com/opencloud-eu/opencloud/pull/3620)]
 - fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
+
+### ✅ Tests
+
+- test(search): cover trailing NOT operator in invalid KQL patterns [[#3982](https://github.com/opencloud-eu/opencloud/pull/3982)]
+- test(guest-link): guest session does not override other credentials [[#3877](https://github.com/opencloud-eu/opencloud/pull/3877)]
+- fix(ci): skip the font regeneration that restarts OnlyOffice [[#3996](https://github.com/opencloud-eu/opencloud/pull/3996)]
+- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
 
 ### 📈 Enhancement
 
