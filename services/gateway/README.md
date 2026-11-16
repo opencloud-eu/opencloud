@@ -4,10 +4,11 @@ The gateway service is responsible for passing requests to the storage providers
 
 ## Caching
 
-The gateway service is using caching as it is highly frequented with the same requests. As of now it uses one cache:
-  -   the `provider cache` is caching requests to list or get storage providers.
+The gateway service is using caching as it is highly frequented with the same requests. It uses the `provider cache` to cache requests to list or get storage providers.
 
-The cache can be configured via the `OC_CACHE_*` envvars (or `GATEWAY_PROVIDER_CACHE_*`).
+The `provider cache` can be configured via the `OC_CACHE_*` envvars (or the `GATEWAY_PROVIDER_CACHE_*` envvars).
+
+Requests to create personal spaces are no longer cached by a configurable `create home cache`, the `GATEWAY_CREATE_HOME_CACHE_*` envvars have been removed. Instead, the `proxy` service remembers in memory which users already have a personal space and only sends a create request for the others.
 
 Use `OC_CACHE_STORE` (`GATEWAY_PROVIDER_CACHE_STORE`) to define the type of cache to use:
   -   `memory`: Basic in-memory store.
