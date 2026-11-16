@@ -80,10 +80,11 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			ticker := time.NewTicker(cfg.CS3Api.APPRegistrationInterval)
 			defer ticker.Stop()
+			discoveryClient := helpers.NewDiscoveryClient(cfg.App.Insecure)
 			go func() {
 				for ; true; <-ticker.C {
 					// fetch and store the app URLs
-					v, err := helpers.GetAppURLs(cfg, logger)
+					v, err := helpers.GetAppURLs(discoveryClient, cfg, logger)
 					if err != nil {
 						logger.Warn().Err(err).Msg("Failed to get app URLs")
 						// empty map to clear previous URLs
