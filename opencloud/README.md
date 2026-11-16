@@ -115,8 +115,8 @@ opencloud graph list-unified-roles
 
 The output of this command includes the following information for each role:
 
-* `Name`\
-  The human readable name of the role.
+* `Label`\
+  A short, stable name of the role.
 * `UID`\
   The unique identifier of the role.
 * `Enabled`\
@@ -130,7 +130,7 @@ The output of this command includes the following information for each role:
 
 ```bash
 +----------------------------+--------------------------------------+----------+--------------------------------+--------------------------------+------------------------------------------+
-|            NAME            |                 UID                  | ENABLED  |          DESCRIPTION           |           CONDITION            |         ALLOWED RESOURCE ACTIONS         |
+|           LABEL            |                 UID                  | ENABLED  |          DESCRIPTION           |           CONDITION            |         ALLOWED RESOURCE ACTIONS         |
 +----------------------------+--------------------------------------+----------+--------------------------------+--------------------------------+------------------------------------------+
 | Viewer                     | b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5 | enabled  | View and download.             | exists @Resource.File          | libre.graph/driveItem/path/read          |
 |                            |                                      |          |                                | exists @Resource.Folder        | libre.graph/driveItem/quota/read         |
