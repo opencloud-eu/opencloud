@@ -1,13 +1,14 @@
 # Changelog
 
-## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-15
+## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-16
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc
+@Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc, @v-scharf
 
 ### ✅ Tests
 
+- test(guest-link): guest session does not override other credentials [[#3877](https://github.com/opencloud-eu/opencloud/pull/3877)]
 - fix(ci): skip the font regeneration that restarts OnlyOffice [[#3996](https://github.com/opencloud-eu/opencloud/pull/3996)]
 - test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
 
