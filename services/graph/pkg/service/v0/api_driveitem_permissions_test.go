@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -2005,6 +2006,141 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(count).To(Equal(2)) // 1 share + 1 public share
 			Expect(len(permissions.Value)).To(Equal(count))
 		})
+		DescribeTable("returns only the selected allowedValues and does not list the shares",
+			func(selectedAttrs []string, wantActions, wantRoles bool) {
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+				gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil).Maybe()
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil).Maybe()
+
+				permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{
+					SelectedAttrs: selectedAttrs,
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				// check the keys of the JSON response, which is what clients see
+				body, err := json.Marshal(permissions)
+				Expect(err).ToNot(HaveOccurred())
+				var response map[string]any
+				Expect(json.Unmarshal(body, &response)).To(Succeed())
+
+				if wantActions {
+					Expect(response).To(HaveKeyWithValue("@libre.graph.permissions.actions.allowedValues", Not(BeEmpty())))
+				} else {
+					Expect(response).ToNot(HaveKey("@libre.graph.permissions.actions.allowedValues"))
+				}
+				if wantRoles {
+					Expect(response).To(HaveKeyWithValue("@libre.graph.permissions.roles.allowedValues", Not(BeEmpty())))
+				} else {
+					Expect(response).ToNot(HaveKey("@libre.graph.permissions.roles.allowedValues"))
+				}
+				Expect(response).ToNot(HaveKey("value"))
+
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+			},
+			Entry("only the actions",
+				[]string{"@libre.graph.permissions.actions.allowedValues"}, true, false),
+			Entry("only the roles",
+				[]string{"@libre.graph.permissions.roles.allowedValues"}, false, true),
+			Entry("the actions and the roles",
+				[]string{"@libre.graph.permissions.actions.allowedValues", "@libre.graph.permissions.roles.allowedValues"}, true, true),
+		)
+		DescribeTable("returns the same allowedValues with and without $select",
+			func(permissionSet *provider.ResourcePermissions, resourceType provider.ResourceType, spaceRoot, federatedRoles bool) {
+				statResponse.Info.PermissionSet = permissionSet
+				statResponse.Info.Type = resourceType
+				if spaceRoot {
+					statResponse.Info.Space = &provider.StorageSpace{Root: itemID}
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+				gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+
+				list := func(selectedAttrs ...string) libregraph.CollectionOfPermissionsWithAllowedValues {
+					permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{
+						FilterFederatedRoles: federatedRoles,
+						SelectedAttrs:        selectedAttrs,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					return permissions
+				}
+
+				all := list()
+				Expect(all.LibreGraphPermissionsActionsAllowedValues).ToNot(BeEmpty())
+				Expect(all.LibreGraphPermissionsRolesAllowedValues).ToNot(BeEmpty())
+
+				Expect(list("@libre.graph.permissions.actions.allowedValues").LibreGraphPermissionsActionsAllowedValues).
+					To(Equal(all.LibreGraphPermissionsActionsAllowedValues))
+				Expect(list("@libre.graph.permissions.roles.allowedValues").LibreGraphPermissionsRolesAllowedValues).
+					To(Equal(all.LibreGraphPermissionsRolesAllowedValues))
+			},
+			Entry("viewer of a file", roleconversions.NewViewerRole().CS3ResourcePermissions(), provider.ResourceType_RESOURCE_TYPE_FILE, false, false),
+			Entry("editor of a folder", roleconversions.NewEditorRole().CS3ResourcePermissions(), provider.ResourceType_RESOURCE_TYPE_CONTAINER, false, false),
+			Entry("manager of a space root", roleconversions.NewManagerRole().CS3ResourcePermissions(), provider.ResourceType_RESOURCE_TYPE_CONTAINER, true, false),
+			Entry("federated roles of a folder", roleconversions.NewEditorRole().CS3ResourcePermissions(), provider.ResourceType_RESOURCE_TYPE_CONTAINER, false, true),
+			Entry("federated roles of a file", roleconversions.NewFileEditorRole().CS3ResourcePermissions(), provider.ResourceType_RESOURCE_TYPE_FILE, false, true),
+		)
+		It("returns other roles with the federated roles filter when only the roles are selected", func() {
+			statResponse.Info.PermissionSet = roleconversions.NewEditorRole().CS3ResourcePermissions()
+			statResponse.Info.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil).Maybe()
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil).Maybe()
+
+			roleIDs := func(federatedRoles bool) []string {
+				permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{
+					FilterFederatedRoles: federatedRoles,
+					SelectedAttrs:        []string{"@libre.graph.permissions.roles.allowedValues"},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				ids := make([]string, 0, len(permissions.LibreGraphPermissionsRolesAllowedValues))
+				for _, role := range permissions.LibreGraphPermissionsRolesAllowedValues {
+					ids = append(ids, role.GetId())
+				}
+				return ids
+			}
+
+			federated := roleIDs(true)
+			Expect(federated).ToNot(BeEmpty())
+			Expect(federated).ToNot(Equal(roleIDs(false)))
+		})
+		It("does not list the OCM shares when only allowedValues are selected", func() {
+			cfg.IncludeOCMSharees = true
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil).Maybe()
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil).Maybe()
+			gatewayClient.On("ListOCMShares", mock.Anything, mock.Anything).Return(&ocm.ListOCMSharesResponse{Status: status.NewOK(ctx)}, nil).Maybe()
+
+			permissions, err := service.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{
+				SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permissions.LibreGraphPermissionsActionsAllowedValues).ToNot(BeEmpty())
+			gatewayClient.AssertNotCalled(GinkgoT(), "ListOCMShares", mock.Anything, mock.Anything)
+		})
+		DescribeTable("returns the error of the item lookup also when only allowedValues are selected",
+			func(prepare func(), expectedCode errorcode.ErrorCode) {
+				prepare()
+
+				permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{
+					SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"},
+				})
+				Expect(errorcode.IsErrorCode(err, expectedCode)).To(BeTrue(), "unexpected error: %v", err)
+				Expect(permissions.LibreGraphPermissionsActionsAllowedValues).To(BeEmpty())
+			},
+			Entry("the item does not exist", func() {
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{Status: status.NewNotFound(ctx, "not found")}, nil)
+			}, errorcode.ItemNotFound),
+			Entry("the stat request fails", func() {
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(nil, errors.New("connection refused"))
+			}, errorcode.GeneralException),
+			Entry("the item has an unsupported type", func() {
+				statResponse.Info.Type = provider.ResourceType_RESOURCE_TYPE_SYMLINK
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			}, errorcode.InvalidRequest),
+		)
 	})
 	Describe("ListSpaceRootPermissions", func() {
 		var (
@@ -2050,6 +2186,54 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
 		})
+
+		DescribeTable("returns only the selected actions of the space root and does not list the shares",
+			func(spaceType string) {
+				space := listSpacesResponse.StorageSpaces[0]
+				space.SpaceType = spaceType
+				space.Root = &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
+				statResponse.Info.Id = space.Root
+				statResponse.Info.Space = space
+				statResponse.Info.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+				statResponse.Info.PermissionSet = roleconversions.NewManagerRole().CS3ResourcePermissions()
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+				gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil).Maybe()
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil).Maybe()
+
+				permissions, err := driveItemPermissionsService.ListSpaceRootPermissions(context.Background(), driveId, svc.ListPermissionsQueryOptions{
+					SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(permissions.LibreGraphPermissionsActionsAllowedValues).ToNot(BeEmpty())
+				Expect(permissions.LibreGraphPermissionsRolesAllowedValues).To(BeEmpty())
+				Expect(permissions.Value).To(BeEmpty())
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+			},
+			Entry("project space", "project"),
+			Entry("personal space", "personal"),
+		)
+
+		DescribeTable("returns the error of the space lookup also when only the actions are selected",
+			func(prepare func(), expectedCode errorcode.ErrorCode) {
+				prepare()
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
+
+				_, err := driveItemPermissionsService.ListSpaceRootPermissions(context.Background(), driveId, svc.ListPermissionsQueryOptions{
+					SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"},
+				})
+				Expect(errorcode.IsErrorCode(err, expectedCode)).To(BeTrue(), "unexpected error: %v", err)
+				gatewayClient.AssertNotCalled(GinkgoT(), "Stat", mock.Anything, mock.Anything)
+			},
+			// a user who is not a member of the space does not find it
+			Entry("the space is not found", func() {
+				listSpacesResponse.StorageSpaces = nil
+			}, errorcode.ItemNotFound),
+			Entry("the space type has no permissions", func() {
+				listSpacesResponse.StorageSpaces[0].SpaceType = "mountpoint"
+			}, errorcode.InvalidRequest),
+		)
 
 		It("records the ListPermissions span as a child of the ListSpaceRootPermissions span", func() {
 			sr, tp := newSpanRecorder()
@@ -3816,6 +4000,116 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			httpAPI.ListPermissions(responseRecorder, request)
 
 			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+		})
+		DescribeTable("passes the $select values to the service",
+			func(spaceRoot bool, query string, wantSelectedAttrs []string) {
+				wantOptions := svc.ListPermissionsQueryOptions{SelectedAttrs: wantSelectedAttrs}
+				handler := httpAPI.ListPermissions
+				if spaceRoot {
+					handler = httpAPI.ListSpaceRootPermissions
+					mockProvider.On("ListSpaceRootPermissions", mock.Anything, mock.Anything, wantOptions).
+						Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Once()
+				} else {
+					rCTX.URLParams.Add("itemID", "1$2!3")
+					mockProvider.On("ListPermissions", mock.Anything, mock.Anything, wantOptions).
+						Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Once()
+				}
+
+				responseRecorder := httptest.NewRecorder()
+				request := httptest.NewRequest(http.MethodGet, "/?"+query, nil).
+					WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+				handler(responseRecorder, request)
+
+				Expect(responseRecorder.Code).To(Equal(http.StatusOK))
+				mockProvider.AssertExpectations(GinkgoT())
+			},
+			Entry("item, only the actions", false,
+				"$select=@libre.graph.permissions.actions.allowedValues",
+				[]string{"@libre.graph.permissions.actions.allowedValues"}),
+			Entry("item, only the roles", false,
+				"$select=@libre.graph.permissions.roles.allowedValues",
+				[]string{"@libre.graph.permissions.roles.allowedValues"}),
+			Entry("item, the actions and the roles", false,
+				"$select=@libre.graph.permissions.actions.allowedValues,@libre.graph.permissions.roles.allowedValues",
+				[]string{"@libre.graph.permissions.actions.allowedValues", "@libre.graph.permissions.roles.allowedValues"}),
+			Entry("space root, only the actions", true,
+				"$select=@libre.graph.permissions.actions.allowedValues",
+				[]string{"@libre.graph.permissions.actions.allowedValues"}),
+			Entry("space root, only the roles", true,
+				"$select=@libre.graph.permissions.roles.allowedValues",
+				[]string{"@libre.graph.permissions.roles.allowedValues"}),
+		)
+		DescribeTable("passes $select together with the other query options to the service",
+			func(query url.Values, wantOptions svc.ListPermissionsQueryOptions) {
+				rCTX.URLParams.Add("itemID", "1$2!3")
+				mockProvider.On("ListPermissions", mock.Anything, mock.Anything, wantOptions).
+					Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Once()
+
+				responseRecorder := httptest.NewRecorder()
+				request := httptest.NewRequest(http.MethodGet, "/?"+query.Encode(), nil).
+					WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+				httpAPI.ListPermissions(responseRecorder, request)
+
+				Expect(responseRecorder.Code).To(Equal(http.StatusOK))
+				mockProvider.AssertExpectations(GinkgoT())
+			},
+			Entry("the federated roles filter",
+				url.Values{
+					"$filter": {`@libre.graph.permissions.roles.allowedValues/rolePermissions/any(p:contains(p/condition, '@Subject.UserType=="Federated"'))`},
+					"$select": {"@libre.graph.permissions.roles.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{FilterFederatedRoles: true, SelectedAttrs: []string{"@libre.graph.permissions.roles.allowedValues"}}),
+			Entry("the filter without link permissions",
+				url.Values{
+					"$filter": {"grantedToV2 ne ''"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{NoLinkPermissions: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("$count",
+				url.Values{
+					"$count":  {"true"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{Count: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("$count with $top=0",
+				url.Values{
+					"$count":  {"true"},
+					"$top":    {"0"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{Count: true, NoValues: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+		)
+		DescribeTable("rejects an invalid query with $select without calling the service",
+			func(query url.Values) {
+				rCTX.URLParams.Add("itemID", "1$2!3")
+
+				responseRecorder := httptest.NewRecorder()
+				request := httptest.NewRequest(http.MethodGet, "/?"+query.Encode(), nil).
+					WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+				httpAPI.ListPermissions(responseRecorder, request)
+
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+				mockProvider.AssertNotCalled(GinkgoT(), "ListPermissions", mock.Anything, mock.Anything, mock.Anything)
+			},
+			Entry("an unknown filter", url.Values{
+				"$filter": {"id eq 'abc'"},
+				"$select": {"@libre.graph.permissions.actions.allowedValues"},
+			}),
+			Entry("a $select path with several segments", url.Values{
+				"$select": {"@libre.graph.permissions.roles.allowedValues/id"},
+			}),
+		)
+		It("renders the error of the service when only the actions of a space root are selected", func() {
+			// web treats the 404 as "not a member of the space"
+			mockProvider.On("ListSpaceRootPermissions", mock.Anything, mock.Anything, mock.Anything).
+				Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, errorcode.New(errorcode.ItemNotFound, "getting space")).Once()
+
+			responseRecorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/?"+url.Values{"$select": {"@libre.graph.permissions.actions.allowedValues"}}.Encode(), nil).
+				WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+			httpAPI.ListSpaceRootPermissions(responseRecorder, request)
+
+			Expect(responseRecorder.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
