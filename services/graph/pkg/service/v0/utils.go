@@ -264,7 +264,7 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 				}
 
 				if root := shareStat.GetInfo().GetSpace().GetRoot(); root != nil {
-					parentReference.SetDriveId(storagespace.FormatResourceID(root))
+					parentReference.SetDriveId(storagespace.FormatStorageID(root.GetStorageId(), root.GetSpaceId()))
 				}
 				if !reflect.ValueOf(*parentReference).IsZero() {
 					remoteItem.ParentReference = parentReference
@@ -619,7 +619,7 @@ func cs3ReceivedOCMSharesToDriveItems(ctx context.Context,
 				}
 
 				if root := shareStat.GetInfo().GetSpace().GetRoot(); root != nil {
-					parentReference.SetDriveId(storagespace.FormatResourceID(root))
+					parentReference.SetDriveId(storagespace.FormatStorageID(root.GetStorageId(), root.GetSpaceId()))
 				}
 				if !reflect.ValueOf(*parentReference).IsZero() {
 					remoteItem.ParentReference = parentReference

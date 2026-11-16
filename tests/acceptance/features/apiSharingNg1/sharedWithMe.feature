@@ -202,7 +202,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -571,7 +571,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -870,7 +870,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "type": "string",
@@ -1121,7 +1121,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "personal"
@@ -1399,7 +1399,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "type": "string",
@@ -1748,7 +1748,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "personal"
@@ -2708,7 +2708,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -2921,7 +2921,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -3146,7 +3146,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -3345,7 +3345,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -3564,7 +3564,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -3842,7 +3842,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "%space_id_pattern%"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -4433,7 +4433,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
@@ -4660,7 +4660,7 @@ Feature: an user gets the resources shared to them
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType" : {
                           "const": "project"
