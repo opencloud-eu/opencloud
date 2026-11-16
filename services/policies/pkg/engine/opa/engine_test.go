@@ -150,5 +150,28 @@ var _ = Describe("engine", func() {
 				Expect(granted).To(Equal(tc.want), "for %s", tc.name)
 			}
 		})
+
+		It("compares the request lengths as numbers", func() {
+			e, _ := newEngine("package size\n\nimport future.keywords.if\n\ndefault granted := true\n\ngranted = false if {\n    input.request.upload_length > 10737418240\n}\n\ngranted = false if {\n    input.request.method == [\"PUT\", \"PATCH\"][_]\n    input.request.content_length > 10737418240\n}\n")
+
+			for _, tc := range []struct {
+				name    string
+				request engine.Request
+				want    bool
+			}{
+				{"no lengths", engine.Request{Method: "POST"}, true},
+				{"tus creation below limit", engine.Request{Method: "POST", UploadLength: 10737418240}, true},
+				{"tus creation above limit", engine.Request{Method: "POST", UploadLength: 20000000000}, false},
+				{"put above limit", engine.Request{Method: "PUT", ContentLength: 20000000000}, false},
+				{"patch above limit", engine.Request{Method: "PATCH", ContentLength: 20000000000}, false},
+				{"patch below limit", engine.Request{Method: "PATCH", ContentLength: 104857600}, true},
+			} {
+				granted, err := e.Evaluate(context.Background(), "data.size.granted", engine.Environment{
+					Request: tc.request,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(granted).To(Equal(tc.want), "for %s", tc.name)
+			}
+		})
 	})
 })

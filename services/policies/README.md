@@ -185,6 +185,31 @@ To identify available keys for OPA, you need to look at [`engine.go`](https://gi
 
 Note that which keys are available depends on the module it is used in.
 
+### Request Lengths
+
+In the proxy module, `input.request.content_length` contains the `Content-Length` of the request body and `input.request.upload_length` the total size of an upload as declared by the TUS `Upload-Length` header. Both are `0` if unknown. They allow rejecting uploads that are too big before any data is transferred:
+
+```rego
+package proxy
+
+import future.keywords.if
+
+default granted := true
+
+# TUS creation declares the total size of the upload
+granted = false if {
+    input.request.upload_length > 10737418240
+}
+
+# a plain PUT carries the whole file, a PATCH a chunk
+granted = false if {
+    input.request.method == ["PUT", "PATCH"][_]
+    input.request.content_length > 10737418240
+}
+```
+
+This is only an early check. The TUS concatenation extension can merge several smaller uploads into one file, so the actual file size has to be checked in postprocessing using `input.resource.size`.
+
 ## Rego Extensions
 
 Besides the standard rego built-in functions, the following functions are added on top:

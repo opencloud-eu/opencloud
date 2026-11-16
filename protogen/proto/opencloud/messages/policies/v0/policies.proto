@@ -32,6 +32,10 @@ message Resource {
 message Request {
 	string method = 1;
 	string path = 2;
+	// Content-Length of the request body, 0 if unknown
+	uint64 content_length = 3;
+	// TUS Upload-Length header, the declared total size of an upload, 0 if absent
+	uint64 upload_length = 4;
 }
 
 enum Stage {

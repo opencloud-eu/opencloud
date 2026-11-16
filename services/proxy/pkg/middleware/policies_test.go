@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -107,6 +108,51 @@ func TestPolicies_EvaluationEnvironment_Request(t *testing.T) {
 
 	responseRecorder := httptest.NewRecorder()
 	policiesMiddleware.ServeHTTP(responseRecorder, httptest.NewRequest(http.MethodDelete, "/whatever", nil))
+}
+
+func TestPolicies_EvaluationEnvironment_RequestLengths(t *testing.T) {
+	tests := []struct {
+		name                  string
+		method                string
+		body                  string
+		uploadLength          string
+		expectedContentLength uint64
+		expectedUploadLength  uint64
+	}{
+		{name: "tus creation", method: http.MethodPost, uploadLength: "20000000000", expectedUploadLength: 20000000000},
+		{name: "put", method: http.MethodPut, body: "some content", expectedContentLength: 12},
+		{name: "patch", method: http.MethodPatch, body: "a chunk", expectedContentLength: 7},
+		{name: "invalid upload length", method: http.MethodPost, uploadLength: "-1"},
+		{name: "no lengths", method: http.MethodGet},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var g = NewWithT(t)
+
+			policiesMiddleware, policiesProviderService, _ := prepare("any")
+			policiesProviderService.On("Evaluate", mock.Anything, mock.Anything, mock.Anything).Return(
+				func(_ context.Context, in *policiesPG.EvaluateRequest, _ ...client.CallOption) (*policiesPG.EvaluateResponse, error) {
+					g.Expect(in.Environment.Request.ContentLength).To(Equal(tt.expectedContentLength))
+					g.Expect(in.Environment.Request.UploadLength).To(Equal(tt.expectedUploadLength))
+
+					return &policiesPG.EvaluateResponse{Result: false}, nil
+				},
+			).Once()
+
+			var body io.Reader
+			if tt.body != "" {
+				body = strings.NewReader(tt.body)
+			}
+			request := httptest.NewRequest(tt.method, "/remote.php/dav/spaces/some-space-id/file.txt", body)
+			if tt.uploadLength != "" {
+				request.Header.Set(net.HeaderUploadLength, tt.uploadLength)
+			}
+
+			policiesMiddleware.ServeHTTP(httptest.NewRecorder(), request)
+			policiesProviderService.AssertExpectations(t)
+		})
+	}
 }
 
 func TestPolicies_EvaluationEnvironment_Resource(t *testing.T) {

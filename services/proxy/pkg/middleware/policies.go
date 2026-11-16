@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +71,14 @@ func Policies(qs string, opts ...Option) func(next http.Handler) http.Handler {
 					},
 					Stage: pMessage.Stage_STAGE_HTTP,
 				},
+			}
+
+			// the declared lengths allow policies to reject uploads before the data is transferred
+			if r.ContentLength > 0 {
+				req.Environment.Request.ContentLength = uint64(r.ContentLength)
+			}
+			if uploadLength, err := strconv.ParseUint(r.Header.Get(net.HeaderUploadLength), 10, 64); err == nil {
+				req.Environment.Request.UploadLength = uploadLength
 			}
 
 			resource := &pMessage.Resource{}

@@ -40,6 +40,10 @@ type Resource struct {
 type Request struct {
 	Method string `json:"method"`
 	Path   string `json:"path"`
+	// ContentLength is the length of the request body, 0 if unknown.
+	ContentLength uint64 `json:"content_length"`
+	// UploadLength is the total size of an upload as declared by the TUS Upload-Length header, 0 if absent.
+	UploadLength uint64 `json:"upload_length"`
 }
 
 // Environment contains every data that is needed to decide if the request should pass or not
@@ -62,6 +66,10 @@ func NewEnvironmentFromPB(pEnv *v0.Environment) (Environment, error) {
 	if err := json.Unmarshal(rData, &env); err != nil {
 		return env, err
 	}
+
+	// protojson encodes uint64 as strings with camelCase keys, so copy the lengths explicitly
+	env.Request.ContentLength = pEnv.GetRequest().GetContentLength()
+	env.Request.UploadLength = pEnv.GetRequest().GetUploadLength()
 
 	switch pEnv.Stage {
 	case v0.Stage_STAGE_HTTP:
