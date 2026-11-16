@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- test(search): cover trailing NOT operator in invalid KQL patterns [[#3982](https://github.com/opencloud-eu/opencloud/pull/3982)]
 - test(guest-link): guest session does not override other credentials [[#3877](https://github.com/opencloud-eu/opencloud/pull/3877)]
 - fix(ci): skip the font regeneration that restarts OnlyOffice [[#3996](https://github.com/opencloud-eu/opencloud/pull/3996)]
 - test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
