@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc, @v-scharf
+@AlexAndBear, @Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc, @v-scharf
 
 ### 🐛 Bug Fixes
 
+- fix(markdown): create toc anchors like github-slugger [[#4005](https://github.com/opencloud-eu/opencloud/pull/4005)]
 - fix(graph): return the drive id in remoteItem.parentReference.driveId [[#4006](https://github.com/opencloud-eu/opencloud/pull/4006)]
 - fix(graph): name the space image size limit after space images [[#3993](https://github.com/opencloud-eu/opencloud/pull/3993)]
 - fix(graph): succeed when unassigning tags a resource doesn't have [[#3950](https://github.com/opencloud-eu/opencloud/pull/3950)]
