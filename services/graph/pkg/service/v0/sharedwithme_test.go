@@ -289,6 +289,24 @@ var _ = Describe("SharedWithMe", func() {
 			Expect(jsonData.Get("driveId").String()).To(Equal(storagespace.FormatStorageID(utils.ShareStorageProviderID, utils.ShareStorageSpaceID)))
 		})
 
+		It("populates the driveItem.remoteItem.parentReference properties with the drive of the shared resource", func() {
+			statResponse.Info.Space = &providerv1beta1.StorageSpace{
+				SpaceType: "project",
+				Root:      toResourceID("1$2!2"),
+			}
+
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			jsonData := gjson.Get(tape.Body.String(), "value.0.remoteItem.parentReference")
+
+			// the id of the drive, not the id of its root item
+			Expect(jsonData.Get("driveId").String()).To(Equal("1$2"))
+			Expect(jsonData.Get("driveType").String()).To(Equal("project"))
+		})
+
 		It("populates the driveItem remoteItem properties", func() {
 			share := listReceivedSharesResponse.Shares[0].Share
 			share.Id = &collaborationv1beta1.ShareId{OpaqueId: "1:2:3"}
