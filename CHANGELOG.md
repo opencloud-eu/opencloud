@@ -10,6 +10,16 @@
 
 - Bump reva to v3.0.1 [[#4031](https://github.com/opencloud-eu/opencloud/pull/4031)]
 
+### 📈 Enhancement
+
+- feat(graph): add logging and tracing to the single-permission GET endpoints [[#4038](https://github.com/opencloud-eu/opencloud/pull/4038)]
+- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
+- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
+- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
+- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
+- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
+- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
+
 ### 📚 Documentation
 
 - bump opencloud version to 9.2.0 [[#4033](https://github.com/opencloud-eu/opencloud/pull/4033)]
@@ -36,15 +46,6 @@
 - Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
 - fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
 - fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
-
-### 📈 Enhancement
-
-- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
-- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
-- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
-- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
-- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
-- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
 ### 📦️ Dependencies
 
