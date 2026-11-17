@@ -115,6 +115,21 @@ var _ = Describe("SpaceDebouncer", func() {
 		}, "300ms").Should(Equal(1))
 	})
 
+	It("runs once when the debounce timer and the timeout are due together", func() {
+		debouncer = event.NewSpaceDebouncer(20*time.Millisecond, 20*time.Millisecond, func(id *sprovider.StorageSpaceId, _ bool) {
+			if id.OpaqueId == "spaceid" {
+				callCount.Add(1)
+			}
+		}, log.NewLogger())
+
+		for i := 0; i < 10; i++ {
+			callCount.Store(0)
+			debouncer.Debounce(spaceid, nil, false)
+			time.Sleep(60 * time.Millisecond)
+			Expect(int(callCount.Load())).To(Equal(1), "iteration %d", i)
+		}
+	})
+
 	It("doesn't run the timeout function if the work function has been called", func() {
 		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId, _ bool) {
 			if id.OpaqueId == "spaceid" {
