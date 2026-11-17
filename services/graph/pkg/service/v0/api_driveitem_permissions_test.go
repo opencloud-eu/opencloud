@@ -285,6 +285,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
 			return err
 		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
+		Entry("GetSpaceRootPermission", "GetSpaceRootPermission", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
+			_, err := s.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
+			return err
+		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 	)
 
 	It("does not mark the span of an expected client error as error, but records its error code", func() {
@@ -419,6 +423,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
 			return err
 		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}),
+		Entry("GetSpaceRootPermission", "personal", func(s svc.DriveItemPermissionsService) error {
+			_, err := s.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
+			return err
+		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}),
 	)
 
 	var (
@@ -435,6 +443,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		}
 		updateSpaceRootPermission = func(s svc.DriveItemPermissionsService) error {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
+			return err
+		}
+		getSpaceRootPermission = func(s svc.DriveItemPermissionsService) error {
+			_, err := s.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
 			return err
 		}
 		missingSpaceResponse = &provider.ListStorageSpacesResponse{Status: status.NewOK(context.Background())}
@@ -505,6 +517,12 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, missingSpaceResponse, missingSpaceErr, "debug"),
 		Entry("UpdateSpaceRootPermission: internal gateway error", updateSpaceRootPermission,
 			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, internalSpaceResponse, internalSpaceErr, "error"),
+		Entry("GetSpaceRootPermission: missing space", getSpaceRootPermission,
+			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, missingSpaceResponse, missingSpaceErr, "debug"),
+		Entry("GetSpaceRootPermission: internal gateway error", getSpaceRootPermission,
+			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, internalSpaceResponse, internalSpaceErr, "error"),
+		Entry("GetSpaceRootPermission: transport error", getSpaceRootPermission,
+			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, nil, transportSpaceErr, "error"),
 	)
 
 	Describe("Invite", func() {
@@ -2311,6 +2329,72 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := driveItemPermissionsService.GetPermission(ctx, driveItemId, "aaaaaaaaaaaaaaa")
 			Expect(errorcode.IsErrorCode(err, errorcode.AccessDenied)).To(BeTrue())
 		})
+
+		It("logs a permission that is not listed for the item as debug and records the not found in its span", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil)
+			listPublicSharesResponse.Share = []*link.PublicShare{viewLink("aaaaaaaaaaaaaaa")}
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+			var logBuf bytes.Buffer
+			sr, tp := newSpanRecorder()
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = service.GetPermission(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), driveItemId, "ccccccccccccccc")
+			Expect(err).To(MatchError(errorcode.New(errorcode.ItemNotFound, "permission not found")))
+
+			entries := logEntries(&logBuf)
+			Expect(entries).To(ContainElement(SatisfyAll(
+				HaveKeyWithValue("level", "debug"),
+				HaveKeyWithValue("message", "permission not found"),
+				HaveKeyWithValue("request-id", "request-42"),
+				HaveKeyWithValue("itemID", "1$2!3"),
+				HaveKeyWithValue("permissionID", "ccccccccccccccc"),
+			)))
+			Expect(entries).ToNot(ContainElement(HaveKeyWithValue("level", BeElementOf("error", "warn"))))
+
+			// a not found is an expected client error: recorded by its code, the span is not marked as error
+			span := endedSpan(sr, "GetPermission")
+			Expect(span.Status().Code).To(Equal(codes.Unset))
+			Expect(span.Attributes()).To(ContainElement(attribute.String("error.type", "itemNotFound")))
+			// the listing succeeded, its span records no error
+			list := endedSpan(sr, "ListPermissions")
+			Expect(list.Parent().SpanID()).To(Equal(span.SpanContext().SpanID()))
+			Expect(list.Attributes()).ToNot(ContainElement(HaveField("Key", attribute.Key("error.type"))))
+		})
+
+		It("logs a failure of the listing once and marks both spans as error", func() {
+			gatewayErr := errors.New("no gateway available at 10.0.0.42")
+			gatewaySelector.EXPECT().Next().Unset()
+			gatewaySelector.EXPECT().Next().Return(nil, gatewayErr)
+			var logBuf bytes.Buffer
+			sr, tp := newSpanRecorder()
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = service.GetPermission(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), driveItemId, "permissionid")
+			Expect(err).To(MatchError(gatewayErr))
+
+			// ListPermissions logs the failure, GetPermission does not log it again
+			errorEntries := entriesAtLevel(logEntries(&logBuf), "error")
+			Expect(errorEntries).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("request-id", "request-42"),
+				HaveKeyWithValue("itemID", "1$2!3"),
+				HaveKeyWithValue("errorCode", "generalException"),
+				HaveKeyWithValue("error", gatewayErr.Error()),
+			)))
+
+			Expect(sr.Ended()).To(HaveLen(2))
+			span := endedSpan(sr, "GetPermission", "10.0.0.42")
+			list := endedSpan(sr, "ListPermissions", "10.0.0.42")
+			Expect(list.Parent().SpanID()).To(Equal(span.SpanContext().SpanID()))
+			Expect(list.SpanContext().TraceID()).To(Equal(span.SpanContext().TraceID()))
+			for _, s := range []sdktrace.ReadOnlySpan{span, list} {
+				Expect(s.Status().Code).To(Equal(codes.Error))
+				Expect(s.Status().Description).To(Equal("generalException"))
+				Expect(s.Attributes()).To(ContainElement(attribute.String("error.type", "generalException")))
+			}
+		})
 	})
 
 	Describe("GetSpaceRootPermission", func() {
@@ -2331,6 +2415,35 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Entry("personal", "personal"),
 			Entry("virtual", "virtual"),
 		)
+
+		It("records a GetSpaceRootPermission span as the parent of the GetPermission span", func() {
+			sr, tp := newSpanRecorder()
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			Expect(err).ToNot(HaveOccurred())
+			spaceRoot := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status: status.NewOK(ctx),
+				StorageSpaces: []*provider.StorageSpace{
+					{Id: &provider.StorageSpaceId{OpaqueId: "2"}, SpaceType: "project", Root: spaceRoot},
+				},
+			}, nil)
+			// the space root is gone, so the listing of its permissions fails with not found
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{Status: status.NewNotFound(ctx, "not found")}, nil)
+
+			_, err = service.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
+			Expect(errorcode.IsErrorCode(err, errorcode.ItemNotFound)).To(BeTrue())
+
+			root := endedSpan(sr, "GetSpaceRootPermission")
+			get := endedSpan(sr, "GetPermission")
+			list := endedSpan(sr, "ListPermissions")
+			Expect(get.Parent().SpanID()).To(Equal(root.SpanContext().SpanID()))
+			Expect(list.Parent().SpanID()).To(Equal(get.SpanContext().SpanID()))
+			for _, s := range []sdktrace.ReadOnlySpan{root, get, list} {
+				Expect(s.SpanContext().TraceID()).To(Equal(root.SpanContext().TraceID()))
+				Expect(s.Status().Code).To(Equal(codes.Unset))
+				Expect(s.Attributes()).To(ContainElement(attribute.String("error.type", "itemNotFound")))
+			}
+		})
 	})
 
 	Describe("DeletePermission", func() {
