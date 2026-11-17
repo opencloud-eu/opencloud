@@ -61,6 +61,9 @@ type Config struct {
 
 	ConfigurableNotifications bool `yaml:"configurable_notifications" env:"FRONTEND_CONFIGURABLE_NOTIFICATIONS" desc:"Allow configuring notifications via web client." introductionVersion:"1.0.0"`
 
+	DisableNewUserShares  bool `yaml:"disable_new_user_shares" env:"OC_DISABLE_NEW_USER_SHARES" desc:"Reject the creation of new user, group and federated shares. Existing shares keep working. Adding members to spaces is not affected. The sharee search returns no results and the capabilities announce that user sharing is disabled." introductionVersion:"%%NEXT%%"`
+	DisableNewPublicLinks bool `yaml:"disable_new_public_links" env:"OC_DISABLE_NEW_PUBLIC_LINKS" desc:"Reject the creation of new public links and turning internal links into public links. Internal links and existing public links keep working." introductionVersion:"%%NEXT%%"`
+
 	ServerManagedSpaces bool `yaml:"server_managed_spaces" env:"OC_CLAIM_MANAGED_SPACES_ENABLED" desc:"Mark spaces as managed by the server. Clients like the web UI then block adding or removing users to or from spaces. See the text description for more details." introductionVersion:"9.2.0"`
 
 	Groupware Groupware `yaml:"groupware"`

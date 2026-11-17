@@ -67,6 +67,7 @@ type config struct {
 	WriteableShareMustHavePassword bool                              `mapstructure:"writeable_share_must_have_password"`
 	PublicShareMustHavePassword    bool                              `mapstructure:"public_share_must_have_password"`
 	PasswordPolicy                 map[string]interface{}            `mapstructure:"password_policy"`
+	DisableNewPublicLinks          bool                              `mapstructure:"disable_new_public_links" docs:"false;Reject the creation of new public links and turning internal links into public links. Internal links and existing public links are not affected."`
 }
 
 type passwordPolicy struct {
@@ -212,6 +213,12 @@ func (s *service) CreatePublicShare(ctx context.Context, req *link.CreatePublicS
 	}
 
 	isInternalLink := grants.PermissionsEqual(req.GetGrant().GetPermissions().GetPermissions(), &provider.ResourcePermissions{})
+
+	if s.conf.DisableNewPublicLinks && !isInternalLink {
+		return &link.CreatePublicShareResponse{
+			Status: status.NewPermissionDenied(ctx, nil, "creating new public links is disabled"),
+		}, nil
+	}
 
 	sRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{ResourceId: req.GetResourceInfo().GetId()}})
 	if err != nil {
@@ -491,6 +498,14 @@ func (s *service) UpdatePublicShare(ctx context.Context, req *link.UpdatePublicS
 	}
 
 	isInternalLink := isInternalLink(req, ps)
+
+	// an internal link that gets permissions is a new public link
+	if s.conf.DisableNewPublicLinks && !isInternalLink &&
+		grants.PermissionsEqual(ps.GetPermissions().GetPermissions(), &provider.ResourcePermissions{}) {
+		return &link.UpdatePublicShareResponse{
+			Status: status.NewPermissionDenied(ctx, nil, "creating new public links is disabled"),
+		}, nil
+	}
 
 	// check if the user has the permission in the user role
 	if !publicshare.IsCreatedByUser(ps, user) {

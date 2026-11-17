@@ -38,7 +38,8 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 			// TODO build services dynamically
 			"services": map[string]any{
 				"usershareprovider": map[string]any{
-					"driver": cfg.UserSharingDriver,
+					"driver":                  cfg.UserSharingDriver,
+					"disable_new_user_shares": cfg.DisableNewUserShares,
 					"drivers": map[string]any{
 						"json": map[string]any{
 							"file":         cfg.UserSharingDrivers.JSON.File,
@@ -99,6 +100,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 					"public_share_must_have_password":    cfg.PublicShareMustHavePassword,
 					"password_policy":                    passwordPolicyCfg,
 					"driver":                             cfg.PublicSharingDriver,
+					"disable_new_public_links":           cfg.DisableNewPublicLinks,
 					"drivers": map[string]any{
 						"json": map[string]any{
 							"file":         cfg.PublicSharingDrivers.JSON.File,

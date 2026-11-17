@@ -148,7 +148,7 @@ func (r *Role) WebDAVPermissions(isDir, isShared, isMountpoint, isPublic bool) s
 	}
 	if r.ocsPermissions.Contain(PermissionWrite) {
 		// Single file public link shares cannot be renamed
-		if !isPublic || (isPublic && r.cS3ResourcePermissions != nil && r.cS3ResourcePermissions.Move) {
+		if r.cS3ResourcePermissions != nil && r.cS3ResourcePermissions.Move {
 			fmt.Fprintf(&b, "NV")
 		}
 		if !isDir {
