@@ -350,11 +350,26 @@ func (n *Node) SpaceOwnerOrManager(ctx context.Context) *userpb.UserId {
 	return nil
 }
 
+// IsValidID returns false for ids that cannot be turned into a path below the
+// space root: ids containing a path separator, a NUL byte or "..". Ids are
+// opaque but come from the client, e.g. as the parent of a new file, and the
+// revision suffix after RevisionIDDelimiter is appended to the node path as is.
+func IsValidID(id string) bool {
+	return !strings.ContainsAny(id, "/\x00") && !strings.Contains(id, "..")
+}
+
 // ReadNode creates a new instance from an id and checks if it exists
 func ReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool) (*Node, error) {
 	ctx, span := tracer.Start(ctx, "ReadNode")
 	defer span.End()
 	var err error
+
+	// the ids become path segments below the space root, a separator in them
+	// would make the path leave the node directory while the permissions are
+	// checked on the node named before the revision delimiter
+	if !IsValidID(spaceID) || !IsValidID(nodeID) {
+		return nil, errtypes.NotFound(nodeID)
+	}
 
 	if spaceRoot == nil {
 		// read space root

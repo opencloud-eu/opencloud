@@ -62,7 +62,7 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 
 	// verify revision key format
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
 		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
 		return errtypes.NotFound(revisionKey)
 	}
@@ -177,7 +177,7 @@ func (fs *Decomposedfs) getRevisionNode(ctx context.Context, ref *provider.Refer
 
 	// verify revision key format
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
 		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
 		return nil, errtypes.NotFound(revisionKey)
 	}
