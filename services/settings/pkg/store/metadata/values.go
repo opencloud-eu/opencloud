@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/settings"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 )
 
 // ListValues reads all values that match the given bundleId and accountUUID.

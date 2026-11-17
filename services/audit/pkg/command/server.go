@@ -14,8 +14,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/server/debug"
 	svc "github.com/opencloud-eu/opencloud/services/audit/pkg/service"
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/types"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 
 	"github.com/spf13/cobra"
 )

@@ -3,7 +3,7 @@ package capabilities
 import (
 	"sync/atomic"
 
-	"github.com/opencloud-eu/reva/v2/pkg/owncloud/ocs"
+	"github.com/opencloud-eu/reva/v3/pkg/owncloud/ocs"
 )
 
 // allow the consuming part to change defaults, e.g., tests

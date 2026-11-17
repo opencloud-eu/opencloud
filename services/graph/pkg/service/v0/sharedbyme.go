@@ -7,7 +7,7 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"

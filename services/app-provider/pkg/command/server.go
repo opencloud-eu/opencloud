@@ -6,7 +6,7 @@ import (
 	"os/signal"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
+	"github.com/opencloud-eu/reva/v3/cmd/revad/runtime"
 	"github.com/spf13/cobra"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"

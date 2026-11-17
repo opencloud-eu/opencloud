@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"reflect"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
@@ -25,7 +25,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/service"
 
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 	"github.com/spf13/cobra"
 	microstore "go-micro.dev/v4/store"
 

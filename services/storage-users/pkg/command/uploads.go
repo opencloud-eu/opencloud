@@ -26,14 +26,14 @@ import (
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storage"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
-	"github.com/opencloud-eu/reva/v2/pkg/upload"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/registry"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/upload"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 const (

@@ -9,7 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 )
 
 // ErrRoleClaim is returned (wrapped) by a UserRoleAssigner when the user's claims

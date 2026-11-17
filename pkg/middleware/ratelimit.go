@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/httprate"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 )
 
 var errNoAuthenticatedUser = errors.New("no authenticated user")

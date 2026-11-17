@@ -8,7 +8,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
 	microstore "go-micro.dev/v4/store"
 )
 

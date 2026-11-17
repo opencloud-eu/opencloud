@@ -15,8 +15,8 @@ import (
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
-	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/bytesize"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 
 	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/roles"

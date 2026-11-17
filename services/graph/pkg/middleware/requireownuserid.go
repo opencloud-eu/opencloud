@@ -7,7 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 )
 
 // RequireOwnUserID rejects requests whose URL parameter urlParam, the user id

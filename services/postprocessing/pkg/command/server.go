@@ -13,7 +13,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 
 	"github.com/spf13/cobra"
 	microstore "go-micro.dev/v4/store"

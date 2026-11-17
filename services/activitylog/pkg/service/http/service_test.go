@@ -8,8 +8,8 @@ import (
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 	httpsvc "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/http"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 )
 
 var _ = Describe("Service", func() {

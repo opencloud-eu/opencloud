@@ -8,7 +8,7 @@ import (
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config/defaults"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
 )

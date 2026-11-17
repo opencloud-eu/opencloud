@@ -9,7 +9,7 @@ import (
 
 	memr "github.com/go-micro/plugins/v4/registry/memory"
 	"github.com/opencloud-eu/opencloud/pkg/natsjsregistry"
-	rRegistry "github.com/opencloud-eu/reva/v2/pkg/registry"
+	rRegistry "github.com/opencloud-eu/reva/v3/pkg/registry"
 	mRegistry "go-micro.dev/v4/registry"
 	"go-micro.dev/v4/registry/cache"
 )

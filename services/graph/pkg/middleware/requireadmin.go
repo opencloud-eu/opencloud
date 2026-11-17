@@ -7,7 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	settings "github.com/opencloud-eu/opencloud/services/settings/pkg/service/v0"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 )
 
 // RequireAdmin middleware is used to require the user in context to be an admin / have account management permissions

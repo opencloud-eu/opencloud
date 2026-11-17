@@ -18,8 +18,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/revaconfig"
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/server/http"
-	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/cmd/revad/runtime"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 
 	"github.com/spf13/cobra"
 )
