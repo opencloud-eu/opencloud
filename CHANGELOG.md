@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- test(webdav): fix a data race in the thumbnail cache test [[#4011](https://github.com/opencloud-eu/opencloud/pull/4011)]
 - test(graph): cover $select on the permissions list endpoints [[#4019](https://github.com/opencloud-eu/opencloud/pull/4019)]
 - test(acceptance): fail on responses that are cut off after their headers [[#4009](https://github.com/opencloud-eu/opencloud/pull/4009)]
 - test(search): cover trailing NOT operator in invalid KQL patterns [[#3982](https://github.com/opencloud-eu/opencloud/pull/3982)]
