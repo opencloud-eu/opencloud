@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@kulmann
+@kulmann, @rhafer
+
+### 🔒 Security
+
+- [stable-4.0] bump reva to 2.40.6 [[#4044](https://github.com/opencloud-eu/opencloud/pull/4044)]
 
 ### 📦️ Dependencies
 
