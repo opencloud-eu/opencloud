@@ -1,5 +1,55 @@
 # Changelog
 
+## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-17
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear, @Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @pbleser-oc, @v-scharf
+
+### 🔒 Security
+
+- Bump reva to v3.0.1 [[#4031](https://github.com/opencloud-eu/opencloud/pull/4031)]
+
+### 📚 Documentation
+
+- bump opencloud version to 9.2.0 [[#4033](https://github.com/opencloud-eu/opencloud/pull/4033)]
+
+### ✅ Tests
+
+- test(webdav): fix a data race in the thumbnail cache test [[#4011](https://github.com/opencloud-eu/opencloud/pull/4011)]
+- test(graph): cover $select on the permissions list endpoints [[#4019](https://github.com/opencloud-eu/opencloud/pull/4019)]
+- test(acceptance): fail on responses that are cut off after their headers [[#4009](https://github.com/opencloud-eu/opencloud/pull/4009)]
+- test(search): cover trailing NOT operator in invalid KQL patterns [[#3982](https://github.com/opencloud-eu/opencloud/pull/3982)]
+- test(guest-link): guest session does not override other credentials [[#3877](https://github.com/opencloud-eu/opencloud/pull/3877)]
+- fix(ci): skip the font regeneration that restarts OnlyOffice [[#3996](https://github.com/opencloud-eu/opencloud/pull/3996)]
+- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
+
+### 🐛 Bug Fixes
+
+- fix(graph): hide private user attributes from other users [[#4014](https://github.com/opencloud-eu/opencloud/pull/4014)]
+- fix(markdown): create toc anchors like github-slugger [[#4005](https://github.com/opencloud-eu/opencloud/pull/4005)]
+- fix(graph): return the drive id in remoteItem.parentReference.driveId [[#4006](https://github.com/opencloud-eu/opencloud/pull/4006)]
+- fix(graph): name the space image size limit after space images [[#3993](https://github.com/opencloud-eu/opencloud/pull/3993)]
+- fix(graph): succeed when unassigning tags a resource doesn't have [[#3950](https://github.com/opencloud-eu/opencloud/pull/3950)]
+- fix(graph): port share permission and link fixes [[#3944](https://github.com/opencloud-eu/opencloud/pull/3944)]
+- fix(graph): refuse space images too large for a thumbnail [[#3986](https://github.com/opencloud-eu/opencloud/pull/3986)]
+- Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
+- fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
+- fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
+
+### 📈 Enhancement
+
+- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
+- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
+- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
+- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
+- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
+- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
+
+### 📦️ Dependencies
+
+- [full-ci] chore: bump web to v8.3.0 [[#4027](https://github.com/opencloud-eu/opencloud/pull/4027)]
+
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
