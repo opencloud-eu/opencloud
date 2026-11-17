@@ -208,7 +208,7 @@ func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, r
 
 	// verify revision key format
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
 		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
 		return nil, nil, errtypes.NotFound(revisionKey)
 	}
