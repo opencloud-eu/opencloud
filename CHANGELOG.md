@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-16
+## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
 
