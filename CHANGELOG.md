@@ -10,6 +10,10 @@
 
 - Bump reva to v3.0.1 [[#4031](https://github.com/opencloud-eu/opencloud/pull/4031)]
 
+### 📚 Documentation
+
+- bump opencloud version to 9.2.0 [[#4033](https://github.com/opencloud-eu/opencloud/pull/4033)]
+
 ### ✅ Tests
 
 - test(webdav): fix a data race in the thumbnail cache test [[#4011](https://github.com/opencloud-eu/opencloud/pull/4011)]
