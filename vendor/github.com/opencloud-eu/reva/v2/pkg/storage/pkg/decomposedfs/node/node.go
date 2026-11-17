@@ -373,6 +373,11 @@ func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, intern
 	ctx, span := tracer.Start(ctx, "LockAndReadNode")
 	defer span.End()
 
+	// validate before the lock file is created from the ids
+	if !IsValidID(spaceID) || !IsValidID(nodeID) {
+		return nil, nil, errtypes.NotFound(nodeID)
+	}
+
 	_, subspan := tracer.Start(ctx, "MetadataBackend.Lock")
 	bn := NewBaseNode(spaceID, nodeID, lu)
 	unlock, err := lu.MetadataBackend().Lock(bn)
@@ -398,6 +403,14 @@ func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, intern
 	}, nil
 }
 
+// IsValidID returns false for ids that cannot be turned into a path below the
+// space root: ids containing a path separator, a NUL byte or "..". Ids are
+// opaque but come from the client, e.g. as the parent of a new file, and the
+// revision suffix after RevisionIDDelimiter is appended to the node path as is.
+func IsValidID(id string) bool {
+	return !strings.ContainsAny(id, "/\x00") && !strings.Contains(id, "..")
+}
+
 // ReadNode creates a new instance from an id and checks if it exists
 func ReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool) (*Node, error) {
 	return readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, false)
@@ -410,6 +423,13 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 	ctx, span := tracer.Start(ctx, "ReadNode")
 	defer span.End()
 	var err error
+
+	// the ids become path segments below the space root, a separator in them
+	// would make the path leave the node directory while the permissions are
+	// checked on the node named before the revision delimiter
+	if !IsValidID(spaceID) || !IsValidID(nodeID) {
+		return nil, errtypes.NotFound(nodeID)
+	}
 
 	if spaceRoot == nil {
 		// read space root
