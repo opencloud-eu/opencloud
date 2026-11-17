@@ -1,7 +1,10 @@
 package svc
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
+	"slices"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -16,7 +19,35 @@ const (
 	_favoriteLabel = "favorite"
 	// deliberately not using the existing node.FavoriteKey constant to avoid importing a specific storage driver package
 	_favoriteMetadataKey = "http://owncloud.org/ns/favorite"
+	// the storage driver lists the ids of all users who marked a resource as favorite in this opaque entry
+	_favoritesOpaqueKey = "favorites"
 )
+
+// isFollowing reports whether the user in the context marked the resource as favorite.
+// The per-user flag is only part of the arbitrary metadata when it was requested,
+// which is not the case for the root info of a space, so the favorites list in the
+// opaque is checked as well.
+func isFollowing(ctx context.Context, info *provider.ResourceInfo) bool {
+	if info.GetArbitraryMetadata().GetMetadata()[_favoriteMetadataKey] == "1" {
+		return true
+	}
+
+	entry := info.GetOpaque().GetMap()[_favoritesOpaqueKey]
+	if entry.GetDecoder() != "json" {
+		return false
+	}
+
+	u, ok := revactx.ContextGetUser(ctx)
+	if !ok || u.GetId().GetOpaqueId() == "" {
+		return false
+	}
+
+	var favorites []string
+	if err := json.Unmarshal(entry.GetValue(), &favorites); err != nil {
+		return false
+	}
+	return slices.Contains(favorites, u.GetId().GetOpaqueId())
+}
 
 // FollowDriveItem marks a drive item as favorite.
 func (g Graph) FollowDriveItem(w http.ResponseWriter, r *http.Request) {

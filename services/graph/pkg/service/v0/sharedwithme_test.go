@@ -275,6 +275,29 @@ var _ = Describe("SharedWithMe", func() {
 
 		})
 
+		It("reports whether the current user follows the shared resource", func() {
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			jsonData := gjson.Get(tape.Body.String(), "value.0")
+			Expect(jsonData.Get("@libre\\.graph\\.me\\.following").Exists()).To(BeTrue())
+			Expect(jsonData.Get("@libre\\.graph\\.me\\.following").Bool()).To(BeFalse())
+
+			statResponse.Info.ArbitraryMetadata = &providerv1beta1.ArbitraryMetadata{
+				Metadata: map[string]string{"http://owncloud.org/ns/favorite": "1"},
+			}
+			tape = httptest.NewRecorder()
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			jsonData = gjson.Get(tape.Body.String(), "value.0")
+			Expect(jsonData.Get("@libre\\.graph\\.me\\.following").Bool()).To(BeTrue())
+		})
+
 		It("populates the driveItem parentReference properties", func() {
 			share := listReceivedSharesResponse.Shares[0].Share
 			share.Id = &collaborationv1beta1.ShareId{OpaqueId: "1:2:3"}
