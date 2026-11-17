@@ -1141,15 +1141,14 @@ func (api DriveItemPermissionsApi) getListPermissionsQueryOptions(odataReq *goda
 		queryOptions.Count = bool(*odataReq.Query.Count)
 	}
 	if odataReq.Query.Top != nil {
-		top := int(*odataReq.Query.Top)
 		switch {
-		case top != 0:
-			return ListPermissionsQueryOptions{}, err
-		case top == 0 && !queryOptions.Count:
-			return ListPermissionsQueryOptions{}, err
-		default:
+		case int(*odataReq.Query.Top) != 0:
+			return ListPermissionsQueryOptions{}, errorcode.New(errorcode.InvalidRequest, "only $top=0 is supported")
+		case queryOptions.Count:
+			// $top=0 with $count=true: only the number of permissions
 			queryOptions.NoValues = true
 		}
+		// $top=0 without $count=true is ignored: clients send it when they want all permissions
 	}
 	return queryOptions, nil
 }
