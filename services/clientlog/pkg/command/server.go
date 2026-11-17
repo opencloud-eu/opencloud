@@ -17,9 +17,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/clientlog/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/clientlog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/clientlog/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 
 	"github.com/spf13/cobra"
 )

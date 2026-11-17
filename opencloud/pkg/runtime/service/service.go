@@ -60,9 +60,9 @@ import (
 	web "github.com/opencloud-eu/opencloud/services/web/pkg/command"
 	webdav "github.com/opencloud-eu/opencloud/services/webdav/pkg/command"
 	webfinger "github.com/opencloud-eu/opencloud/services/webfinger/pkg/command"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/logger"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/thejerf/suture/v4"
 )
 

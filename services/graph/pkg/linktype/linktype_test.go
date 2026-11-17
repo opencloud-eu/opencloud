@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/grants"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 

@@ -8,7 +8,7 @@ import (
 	pkgconfig "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 // GatewayConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.

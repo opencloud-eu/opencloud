@@ -21,8 +21,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/wopisrc"
-	"github.com/opencloud-eu/reva/v2/pkg/token"
-	rjwt "github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
+	"github.com/opencloud-eu/reva/v3/pkg/token"
+	rjwt "github.com/opencloud-eu/reva/v3/pkg/token/manager/jwt"
 )
 
 var _ = Describe("Wopi Context Middleware", func() {

@@ -13,8 +13,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/settings"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/metadata"
 )
 
 var (

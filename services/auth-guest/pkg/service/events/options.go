@@ -8,7 +8,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
 )
 
 // Option for the auth-guest service

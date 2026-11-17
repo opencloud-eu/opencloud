@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	rev "github.com/opencloud-eu/reva/v2/pkg/events"
+	rev "github.com/opencloud-eu/reva/v3/pkg/events"
 	microevents "go-micro.dev/v4/events"
 )
 

@@ -10,8 +10,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 	microstore "go-micro.dev/v4/store"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 )

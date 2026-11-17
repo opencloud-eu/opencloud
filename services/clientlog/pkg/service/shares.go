@@ -14,9 +14,9 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/grants"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )

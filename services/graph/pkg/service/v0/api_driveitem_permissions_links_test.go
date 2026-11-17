@@ -19,10 +19,10 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
+	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 )
 

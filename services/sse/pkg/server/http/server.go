@@ -15,7 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	svc "github.com/opencloud-eu/opencloud/services/sse/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/riandyrn/otelchi"
 	"go-micro.dev/v4"
 )

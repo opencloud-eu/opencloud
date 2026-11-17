@@ -28,9 +28,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 	svcEvents "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/events"
 	svcHttp "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/http"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 )
 
 var _registeredEvents = []events.Unmarshaller{

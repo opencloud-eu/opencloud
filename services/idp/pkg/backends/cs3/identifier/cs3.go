@@ -12,7 +12,7 @@ import (
 	"github.com/libregraph/lico/identifier/backends"
 	"github.com/libregraph/lico/identifier/meta/scopes"
 	"github.com/libregraph/lico/identity"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
 )

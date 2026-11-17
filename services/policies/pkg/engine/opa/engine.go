@@ -10,7 +10,7 @@ import (
 
 	"github.com/open-policy-agent/opa/loader"
 	"github.com/open-policy-agent/opa/rego"
-	"github.com/opencloud-eu/reva/v2/pkg/rhttp"
+	"github.com/opencloud-eu/reva/v3/pkg/rhttp"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/policies/pkg/config"

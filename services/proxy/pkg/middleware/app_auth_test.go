@@ -11,8 +11,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	userRoleMocks "github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles/mocks"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 )

@@ -16,9 +16,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	utils "github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	utils "github.com/opencloud-eu/reva/v3/pkg/utils"
 	"go-micro.dev/v4/selector"
 )
 

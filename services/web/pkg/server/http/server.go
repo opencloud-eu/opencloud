@@ -9,7 +9,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"go-micro.dev/v4"
 
 	"github.com/opencloud-eu/opencloud/pkg/cors"

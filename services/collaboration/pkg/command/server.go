@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"go-micro.dev/v4/selector"
