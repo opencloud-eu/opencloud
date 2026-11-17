@@ -10,6 +10,10 @@
 
 - [stable-9.1] chore: bump reva to latest stable-2.52 [[#4024](https://github.com/opencloud-eu/opencloud/pull/4024)]
 
+### 📚 Documentation
+
+- [stable-9.1] docs: set removal version 9.1.1 for deprecated options [[#4029](https://github.com/opencloud-eu/opencloud/pull/4029)]
+
 ### 🐛 Bug Fixes
 
 - [stable-9.1] backport Pflum/fix-revaconfig [[#3988](https://github.com/opencloud-eu/opencloud/pull/3988)]
