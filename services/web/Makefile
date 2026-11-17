@@ -1,7 +1,7 @@
 SHELL := bash
 NAME := web
-WEB_ASSETS_VERSION = v4.2.3
-WEB_ASSETS_BRANCH = main
+WEB_ASSETS_VERSION = v4.2.4
+WEB_ASSETS_BRANCH = stable-4.2
 
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
 include ../../.bingo/Variables.mk
