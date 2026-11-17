@@ -62,7 +62,7 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 
 	// verify revision key format
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
 		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
 		return nil, errtypes.NotFound(revisionKey)
 	}
@@ -176,7 +176,7 @@ func (fs *Decomposedfs) DeleteRevision(ctx context.Context, ref *provider.Refere
 // sidecars and its own blob. It is a no-op if the revision does not exist.
 func (fs *Decomposedfs) deleteRevisionFile(ctx context.Context, n *node.Node, revisionKey string) error {
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
 		return errtypes.NotFound(revisionKey)
 	}
 
@@ -199,7 +199,7 @@ func (fs *Decomposedfs) getRevisionNode(ctx context.Context, ref *provider.Refer
 
 	// verify revision key format
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
 		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
 		return nil, errtypes.NotFound(revisionKey)
 	}
