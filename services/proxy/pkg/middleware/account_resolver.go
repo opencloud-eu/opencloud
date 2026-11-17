@@ -22,10 +22,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 // AccountResolver provides a middleware which mints a jwt and adds it to the proxied request based
@@ -238,6 +238,11 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		user, err = m.userRoleAssigner.UpdateUserRoleAssignment(ctx, user, claims)
 		if err != nil {
 			m.logger.Error().Err(err).Msg("Could not get user roles")
+			if errors.Is(err, userroles.ErrRoleClaim) {
+				// the token has no usable role claim: the user is not authorized, OpenCloud did not fail
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

@@ -6,12 +6,16 @@ import (
 
 	"github.com/shamaton/msgpack/v2/def"
 	"github.com/shamaton/msgpack/v2/internal/common"
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
+// common.Common is zero-sized and placed first: as the last field it would
+// add trailing padding and push the decoder into a larger size class.
 type decoder struct {
+	common.Common
 	data    []byte
 	asArray bool
-	common.Common
+	depth   int32
 }
 
 // Decode analyzes the MessagePack-encoded data and stores
@@ -148,6 +152,9 @@ func (d *decoder) decode(rv reflect.Value, offset int) (int, error) {
 		}
 
 		// create slice dynamically
+		if err = d.enter(); err != nil {
+			return 0, err
+		}
 		tmpSlice := reflect.MakeSlice(rv.Type(), l, l)
 		for i := 0; i < l; i++ {
 			v := tmpSlice.Index(i)
@@ -161,6 +168,7 @@ func (d *decoder) decode(rv reflect.Value, offset int) (int, error) {
 			}
 		}
 		rv.Set(tmpSlice)
+		d.depth--
 		offset = o
 
 	case reflect.Complex64:
@@ -233,12 +241,16 @@ func (d *decoder) decode(rv reflect.Value, offset int) (int, error) {
 		}
 
 		// create array dynamically
+		if err = d.enter(); err != nil {
+			return 0, err
+		}
 		for i := 0; i < l; i++ {
 			o, err = d.decode(rv.Index(i), o)
 			if err != nil {
 				return 0, err
 			}
 		}
+		d.depth--
 		offset = o
 
 	case reflect.Map:
@@ -268,14 +280,26 @@ func (d *decoder) decode(rv reflect.Value, offset int) (int, error) {
 		}
 
 		// create dynamically
+		if err = d.enter(); err != nil {
+			return 0, err
+		}
 		key := rv.Type().Key()
 		value := rv.Type().Elem()
+		ifaceKey := key.Kind() == reflect.Interface
+		checkKey := decodingutil.MapKeyNeedsCheck(key)
 		if rv.IsNil() {
 			rv.Set(reflect.MakeMapWithSize(rv.Type(), l))
 		}
 		for i := 0; i < l; i++ {
 			k := reflect.New(key).Elem()
 			v := reflect.New(value).Elem()
+			extKey := false
+			if ifaceKey {
+				if err = d.canSetAsMapKey(o); err != nil {
+					return 0, err
+				}
+				extKey = decodingutil.IsExtCode(d.data[o])
+			}
 			o, err = d.decode(k, o)
 			if err != nil {
 				return 0, err
@@ -285,8 +309,14 @@ func (d *decoder) decode(rv reflect.Value, offset int) (int, error) {
 				return 0, err
 			}
 
+			if checkKey || extKey {
+				if err = decodingutil.CheckMapKeyValue(k); err != nil {
+					return 0, err
+				}
+			}
 			rv.SetMapIndex(k, v)
 		}
+		d.depth--
 		offset = o
 
 	case reflect.Struct:
@@ -336,6 +366,16 @@ func (d *decoder) decode(rv reflect.Value, offset int) (int, error) {
 		return 0, fmt.Errorf("%v is %w type", rv.Kind(), def.ErrUnsupportedType)
 	}
 	return offset, nil
+}
+
+// enter increments the nesting depth. Callers decrement d.depth on success;
+// on error the whole decode is aborted, so no decrement is needed.
+func (d *decoder) enter() error {
+	d.depth++
+	if d.depth > decodingutil.MaxDepth {
+		return decodingutil.DepthError()
+	}
+	return nil
 }
 
 func (d *decoder) errorTemplate(code byte, k reflect.Kind) error {

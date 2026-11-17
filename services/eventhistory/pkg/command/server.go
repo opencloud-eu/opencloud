@@ -19,7 +19,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/server/grpc"
 	svc "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 
 	"github.com/spf13/cobra"
 	microstore "go-micro.dev/v4/store"

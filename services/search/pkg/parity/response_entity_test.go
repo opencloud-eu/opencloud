@@ -18,12 +18,14 @@ func entityGroup() responseGroup {
 		withSize(1234),
 	)
 	notes := fixtureDoc("notes.txt", withID("1$1!4"), withContent("foo bar baz"))
+	markup := fixtureDoc("markup.txt", withID("1$1!5"), withContent("foo <img src=x> qux"))
+	escaped := fixtureDoc("escaped.txt", withID("1$1!6"), withContent("foo &lt;img src=x&gt; zap"))
 
 	moved := func(e search.Engine) error { return e.Move(parent.ID, "1$1!9", "./somewhere/newname") }
 
 	return responseGroup{
 		name:     "entity",
-		fixtures: []search.Resource{parent, doc, notes},
+		fixtures: []search.Resource{parent, doc, notes, markup, escaped},
 		cases: []responseCase{
 			{
 				id: 1, query: `name:"bar.pdf"`, reads: "Ref.Path", want: []string{"./parent/bar.pdf"},
@@ -83,6 +85,14 @@ func entityGroup() responseGroup {
 			},
 			{
 				id: 13, query: `content:bar`, reads: "Highlights", want: []string{"foo <mark>bar</mark> baz"},
+				read: reads(func(m *searchMessage.Match) string { return m.GetEntity().GetHighlights() }),
+			},
+			{
+				id: 17, query: `content:qux`, reads: "Highlights", want: []string{"foo &lt;img src=x&gt; <mark>qux</mark>"},
+				read: reads(func(m *searchMessage.Match) string { return m.GetEntity().GetHighlights() }),
+			},
+			{
+				id: 18, query: `content:zap`, reads: "Highlights", want: []string{"foo &amp;lt;img src=x&amp;gt; <mark>zap</mark>"},
 				read: reads(func(m *searchMessage.Match) string { return m.GetEntity().GetHighlights() }),
 			},
 			{

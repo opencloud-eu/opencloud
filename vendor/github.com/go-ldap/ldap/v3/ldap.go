@@ -2,7 +2,6 @@ package ldap
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -101,10 +100,18 @@ func addLDAPDescriptions(packet *ber.Packet) (err error) {
 		}
 	}()
 	packet.Description = "LDAP Response"
-	packet.Children[0].Description = "Message ID"
+	messageID, err := packetChild(packet, 0)
+	if err != nil {
+		return err
+	}
+	messageID.Description = "Message ID"
 
-	application := uint8(packet.Children[1].Tag)
-	packet.Children[1].Description = ApplicationMap[application]
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return err
+	}
+	application := uint8(protocolOp.Tag)
+	protocolOp.Description = ApplicationMap[application]
 
 	switch application {
 	case ApplicationBindRequest:
@@ -116,18 +123,46 @@ func addLDAPDescriptions(packet *ber.Packet) (err error) {
 	case ApplicationSearchRequest:
 		err = addRequestDescriptions(packet)
 	case ApplicationSearchResultEntry:
-		packet.Children[1].Children[0].Description = "Object Name"
-		packet.Children[1].Children[1].Description = "Attributes"
-		for _, child := range packet.Children[1].Children[1].Children {
+		objectName, err := packetChild(protocolOp, 0)
+		if err != nil {
+			return err
+		}
+		objectName.Description = "Object Name"
+		attrs, err := packetChild(protocolOp, 1)
+		if err != nil {
+			return err
+		}
+		attrs.Description = "Attributes"
+		for _, child := range attrs.Children {
+			if child == nil {
+				continue
+			}
 			child.Description = "Attribute"
-			child.Children[0].Description = "Attribute Name"
-			child.Children[1].Description = "Attribute Values"
-			for _, grandchild := range child.Children[1].Children {
+			nameChild, err := packetChild(child, 0)
+			if err != nil {
+				return err
+			}
+			nameChild.Description = "Attribute Name"
+			valuesChild, err := packetChild(child, 1)
+			if err != nil {
+				return err
+			}
+			valuesChild.Description = "Attribute Values"
+			for _, grandchild := range valuesChild.Children {
+				if grandchild == nil {
+					continue
+				}
 				grandchild.Description = "Attribute Value"
 			}
 		}
-		if len(packet.Children) == 3 {
-			err = addControlDescriptions(packet.Children[2])
+		controls, ok, err := packetChildIfPresent(packet, 2)
+		if err != nil {
+			return err
+		}
+		if ok {
+			if err = addControlDescriptions(controls); err != nil {
+				return err
+			}
 		}
 	case ApplicationSearchResultDone:
 		err = addDefaultLDAPResponseDescriptions(packet)
@@ -160,42 +195,55 @@ func addLDAPDescriptions(packet *ber.Packet) (err error) {
 func addControlDescriptions(packet *ber.Packet) error {
 	packet.Description = "Controls"
 	for _, child := range packet.Children {
+		if child == nil {
+			return fmt.Errorf("nil control packet found")
+		}
 		var value *ber.Packet
 		controlType := ""
 		child.Description = "Control"
-		switch len(child.Children) {
-		case 0:
-			// at least one child is required for control type
-			return fmt.Errorf("at least one child is required for control type")
 
-		case 1:
-			// just type, no criticality or value
-			controlType = child.Children[0].Value.(string)
-			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+		controlChildren, err := packetChildCount(child, 1, 3, "control packet")
+		if err != nil {
+			return err
+		}
 
+		typeChild, err := packetChild(child, 0)
+		if err != nil {
+			return err
+		}
+		controlType, err = packetString(typeChild)
+		if err != nil {
+			return err
+		}
+		typeChild.Description = "Control Type (" + ControlTypeMap[controlType] + ")"
+
+		switch len(controlChildren) {
 		case 2:
-			controlType = child.Children[0].Value.(string)
-			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
-			// Children[1] could be criticality or value (both are optional)
-			// duck-type on whether this is a boolean
-			if _, ok := child.Children[1].Value.(bool); ok {
-				child.Children[1].Description = "Criticality"
+			second, err := packetChild(child, 1)
+			if err != nil {
+				return err
+			}
+			// Children[1] is criticality or value; identify it by its ASN.1 tag.
+			if second.ClassType == ber.ClassUniversal && second.Tag == ber.TagBoolean {
+				second.Description = "Criticality"
 			} else {
-				child.Children[1].Description = "Control Value"
-				value = child.Children[1]
+				second.Description = "Control Value"
+				value = second
 			}
 
 		case 3:
 			// criticality and value present
-			controlType = child.Children[0].Value.(string)
-			child.Children[0].Description = "Control Type (" + ControlTypeMap[controlType] + ")"
-			child.Children[1].Description = "Criticality"
-			child.Children[2].Description = "Control Value"
-			value = child.Children[2]
-
-		default:
-			// more than 3 children is invalid
-			return fmt.Errorf("more than 3 children for control packet found")
+			criticality, err := packetChild(child, 1)
+			if err != nil {
+				return err
+			}
+			criticality.Description = "Criticality"
+			valueChild, err := packetChild(child, 2)
+			if err != nil {
+				return err
+			}
+			valueChild.Description = "Control Value"
+			value = valueChild
 		}
 
 		if value == nil {
@@ -205,53 +253,99 @@ func addControlDescriptions(packet *ber.Packet) error {
 		case ControlTypePaging:
 			value.Description += " (Paging)"
 			if value.Value != nil {
-				valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
+				data, err := packetData(value)
 				if err != nil {
-					return fmt.Errorf("failed to decode data bytes: %s", err)
+					return fmt.Errorf("failed to decode data bytes: %w", err)
+				}
+				valueChildren, err := ber.DecodePacketErr(data)
+				if err != nil {
+					return fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				value.Data.Truncate(0)
 				value.Value = nil
-				valueChildren.Children[1].Value = valueChildren.Children[1].Data.Bytes()
+				cookieChild, err := packetChild(valueChildren, 1)
+				if err != nil {
+					return err
+				}
+				cookie, err := packetData(cookieChild)
+				if err != nil {
+					return err
+				}
+				cookieChild.Value = cookie
 				value.AppendChild(valueChildren)
 			}
-			value.Children[0].Description = "Real Search Control Value"
-			value.Children[0].Children[0].Description = "Paging Size"
-			value.Children[0].Children[1].Description = "Cookie"
+			real, err := packetChild(value, 0)
+			if err != nil {
+				return err
+			}
+			real.Description = "Real Search Control Value"
+			sizeChild, err := packetChild(real, 0)
+			if err != nil {
+				return err
+			}
+			cookieChild, err := packetChild(real, 1)
+			if err != nil {
+				return err
+			}
+			sizeChild.Description = "Paging Size"
+			cookieChild.Description = "Cookie"
 
 		case ControlTypeBeheraPasswordPolicy:
 			value.Description += " (Password Policy - Behera Draft)"
 			if value.Value != nil {
-				valueChildren, err := ber.DecodePacketErr(value.Data.Bytes())
+				data, err := packetData(value)
 				if err != nil {
-					return fmt.Errorf("failed to decode data bytes: %s", err)
+					return fmt.Errorf("failed to decode data bytes: %w", err)
+				}
+				valueChildren, err := ber.DecodePacketErr(data)
+				if err != nil {
+					return fmt.Errorf("failed to decode data bytes: %w", err)
 				}
 				value.Data.Truncate(0)
 				value.Value = nil
 				value.AppendChild(valueChildren)
 			}
-			sequence := value.Children[0]
+			sequence, err := packetChild(value, 0)
+			if err != nil {
+				return err
+			}
 			for _, child := range sequence.Children {
-				if child.Tag == 0 {
+				if child == nil {
+					continue
+				}
+				switch child.Tag {
+				case 0:
 					// Warning
-					warningPacket := child.Children[0]
-					val, err := ber.ParseInt64(warningPacket.Data.Bytes())
+					warningPacket, err := packetChild(child, 0)
 					if err != nil {
-						return fmt.Errorf("failed to decode data bytes: %s", err)
+						return err
 					}
-					if warningPacket.Tag == 0 {
+					data, err := packetData(warningPacket)
+					if err != nil {
+						return fmt.Errorf("failed to decode data bytes: %w", err)
+					}
+					val, err := ber.ParseInt64(data)
+					if err != nil {
+						return fmt.Errorf("failed to decode data bytes: %w", err)
+					}
+					switch warningPacket.Tag {
+					case 0:
 						// timeBeforeExpiration
 						value.Description += " (TimeBeforeExpiration)"
 						warningPacket.Value = val
-					} else if warningPacket.Tag == 1 {
+					case 1:
 						// graceAuthNsRemaining
 						value.Description += " (GraceAuthNsRemaining)"
 						warningPacket.Value = val
 					}
-				} else if child.Tag == 1 {
+				case 1:
 					// Error
-					bs := child.Data.Bytes()
+					bs, err := packetData(child)
+					if err != nil {
+						return err
+					}
 					if len(bs) != 1 || bs[0] > 8 {
-						return fmt.Errorf("failed to decode data bytes: %s", "invalid PasswordPolicyResponse enum value")
+						return malformedf("invalid PasswordPolicyResponse enum value")
 					}
 					val := int8(bs[0])
 					child.Description = "Error"
@@ -265,10 +359,22 @@ func addControlDescriptions(packet *ber.Packet) error {
 
 func addRequestDescriptions(packet *ber.Packet) error {
 	packet.Description = "LDAP Request"
-	packet.Children[0].Description = "Message ID"
-	packet.Children[1].Description = ApplicationMap[uint8(packet.Children[1].Tag)]
-	if len(packet.Children) == 3 {
-		return addControlDescriptions(packet.Children[2])
+	messageID, err := packetChild(packet, 0)
+	if err != nil {
+		return err
+	}
+	messageID.Description = "Message ID"
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return err
+	}
+	protocolOp.Description = ApplicationMap[uint8(protocolOp.Tag)]
+	controls, ok, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return addControlDescriptions(controls)
 	}
 	return nil
 }
@@ -283,28 +389,52 @@ func addDefaultLDAPResponseDescriptions(packet *ber.Packet) error {
 		description = "Error Message"
 	}
 
-	packet.Children[1].Children[0].Description = "Result Code (" + LDAPResultCodeMap[resultCode] + ")"
-	packet.Children[1].Children[1].Description = "Matched DN (" + matchedDN + ")"
-	packet.Children[1].Children[2].Description = description
-	if len(packet.Children[1].Children) > 3 {
-		packet.Children[1].Children[3].Description = "Referral"
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return err
 	}
-	if len(packet.Children) == 3 {
-		return addControlDescriptions(packet.Children[2])
+	resultCodeChild, err := packetChild(protocolOp, 0)
+	if err != nil {
+		return err
+	}
+	resultCodeChild.Description = "Result Code (" + LDAPResultCodeMap[resultCode] + ")"
+	matchedDNChild, err := packetChild(protocolOp, 1)
+	if err != nil {
+		return err
+	}
+	matchedDNChild.Description = "Matched DN (" + matchedDN + ")"
+	errorMessageChild, err := packetChild(protocolOp, 2)
+	if err != nil {
+		return err
+	}
+	errorMessageChild.Description = description
+	referral, ok, err := packetChildIfPresent(protocolOp, 3)
+	if err != nil {
+		return err
+	}
+	if ok {
+		referral.Description = "Referral"
+	}
+	controls, ok, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return addControlDescriptions(controls)
 	}
 	return nil
 }
 
 // DebugBinaryFile reads and prints packets from the given filename
 func DebugBinaryFile(fileName string) error {
-	file, err := ioutil.ReadFile(fileName)
+	file, err := os.ReadFile(fileName)
 	if err != nil {
 		return NewError(ErrorDebugging, err)
 	}
 	ber.PrintBytes(os.Stdout, file, "")
 	packet, err := ber.DecodePacketErr(file)
 	if err != nil {
-		return fmt.Errorf("failed to decode packet: %s", err)
+		return fmt.Errorf("failed to decode packet: %w", err)
 	}
 	if err := addLDAPDescriptions(packet); err != nil {
 		return err

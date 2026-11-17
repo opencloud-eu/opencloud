@@ -25,10 +25,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -42,7 +42,6 @@ import (
 // GetMe implements the Service interface.
 func (g Graph) GetMe(w http.ResponseWriter, r *http.Request) {
 	logger := g.logger.SubloggerWithRequestID(r.Context())
-	logger.Debug().Msg("calling get user in /me")
 	sanitizedPath := strings.TrimPrefix(r.URL.Path, "/graph/v1.0/")
 
 	odataReq, err := godata.ParseRequest(r.Context(), sanitizedPath, r.URL.Query())
@@ -66,22 +65,23 @@ func (g Graph) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var me *libregraph.User
-	// We can just return the user from context unless we need to expand the group memberships
-	if !slices.Contains(exp, "memberOf") {
-		me = identity.CreateUserModelFromCS3(u)
-	} else {
-		var err error
-		logger.Debug().Msg("calling get user on backend")
-		me, err = g.identityBackend.GetUser(r.Context(), u.GetId().GetOpaqueId(), odataReq)
-		if err != nil {
-			logger.Debug().Err(err).Interface("user", u).Msg("could not get user from backend")
-			errorcode.RenderError(w, r, err)
-			return
-		}
-		if me.MemberOf == nil {
-			me.MemberOf = []libregraph.Group{}
-		}
+	// The user is always read from the identity backend: the CS3 user of the request
+	// context doesn't know the identities the user signed in with, and a model built
+	// from it would report the internal user ID as identities[].issuerAssignedId
+	// instead of the subject assigned by the identity provider. The group memberships
+	// are only looked up when $expand=memberOf asks for them.
+	me, err := g.identityBackend.GetUser(r.Context(), u.GetId().GetOpaqueId(), odataReq)
+	if err != nil {
+		// a user the backend doesn't know is logged at debug level, a failing backend as error
+		errorEvent(&logger, err).Str(_logKeyUserID, u.GetId().GetOpaqueId()).Msg("could not get user from backend")
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	// An expanded relation without entries is returned as an empty array rather than
+	// left out, so that clients that asked for it can rely on the attribute being there.
+	// The JSON encoding leaves out a nil slice, but keeps an empty one.
+	if slices.Contains(exp, "memberOf") && me.MemberOf == nil {
+		me.MemberOf = []libregraph.Group{}
 	}
 
 	// expand appRoleAssignments if requested
@@ -300,23 +300,8 @@ func (g Graph) GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the user isn't admin, we'll show just the minimum user attibutes
-	if !ctxHasFullPerms {
-		finalUsers := make([]*libregraph.User, len(users))
-		for i, u := range users {
-			finalUsers[i] = &libregraph.User{
-				Id:                       u.Id,
-				DisplayName:              u.DisplayName,
-				UserType:                 u.UserType,
-				Identities:               u.Identities,
-				OnPremisesSamAccountName: u.OnPremisesSamAccountName,
-			}
-
-			if g.config.API.ShowUserEmailInResults {
-				finalUsers[i].Mail = u.Mail
-			}
-		}
-		users = finalUsers
+	for i, u := range users {
+		users[i] = g.filterOutPrivateUserAttrs(r.Context(), u, ctxHasFullPerms)
 	}
 
 	exp, err := odata.GetExpandValues(odataReq.Query)
@@ -529,14 +514,14 @@ func (g Graph) GetUser(w http.ResponseWriter, r *http.Request) {
 			// transport error, needs to be fixed by admin
 			logger.Error().Err(err).Interface("query", r.URL.Query()).Msg("error getting storages: transport error")
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, user)
+			render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 			return
 		}
 		if lspr.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
 			logger.Debug().Str("grpc", lspr.GetStatus().GetMessage()).Msg("could not list drives for user")
 			// in case of NOT_OK, we can just return the user object with empty drives
 			render.Status(r, status.HTTPStatusFromCode(http.StatusOK))
-			render.JSON(w, r, user)
+			render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 			return
 		}
 		if listDrives {
@@ -584,13 +569,8 @@ func (g Graph) GetUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctxHasFullPerms := g.contextUserHasFullAccountPerms(r.Context())
-	if !ctxHasFullPerms && !g.config.API.ShowUserEmailInResults {
-		user.Mail = nil
-	}
-
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, user)
+	render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 }
 
 // getUserLanguage returns the language of the user in the context.
@@ -723,7 +703,7 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 			// Deleting a space a two step process (1. disabling/trashing, 2. purging)
 			// Do the "disable/trash" step only if the space is not marked as trashed yet:
 			if _, ok := sp.Opaque.Map[_spaceStateTrashed]; !ok {
-				_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
+				resp, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
 					Id: &storageprovider.StorageSpaceId{
 						OpaqueId: sp.Id.OpaqueId,
 					},
@@ -733,11 +713,16 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not disable homespace, aborting")
 					return
 				}
+				if code := resp.GetStatus().GetCode(); code != cs3rpc.Code_CODE_OK {
+					logger.Error().Str("message", resp.GetStatus().GetMessage()).Interface("code", code).Msg("could not disable homespace: unexpected status code")
+					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not disable homespace, aborting")
+					return
+				}
 			}
 			// the space will if the system does not have a UserSoftDeleteRetentionTime configured, e.g. SoftDelete disabled
 			if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && us.State == userstate.UserStateSoftDeleted) {
 				purgeSpaceFlag := utils.AppendPlainToOpaque(nil, "purge", "")
-				_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
+				resp, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
 					Opaque: purgeSpaceFlag,
 					Id: &storageprovider.StorageSpaceId{
 						OpaqueId: sp.Id.OpaqueId,
@@ -746,6 +731,12 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					// transport error, log as error
 					logger.Error().Err(err).Msg("could not delete homespace: transport error")
+					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not delete homespace, aborting")
+					return
+				}
+				// a space that is already gone needs no purging
+				if code := resp.GetStatus().GetCode(); code != cs3rpc.Code_CODE_OK && code != cs3rpc.Code_CODE_NOT_FOUND {
+					logger.Error().Str("message", resp.GetStatus().GetMessage()).Interface("code", code).Msg("could not delete homespace: unexpected status code")
 					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not delete homespace, aborting")
 					return
 				}
@@ -1063,7 +1054,33 @@ func (g *Graph) patchUserResponse(w http.ResponseWriter, r *http.Request, user *
 	g.publishEvent(r.Context(), e)
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, user)
+	render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
+}
+
+// filterOutPrivateUserAttrs returns the attributes of user that the user in ctx may see.
+// Users with full account management permissions and the user themselves get a copy of all
+// attributes. Everybody else only gets the public ones: the id, the display name, the user
+// name, the user type and the identities, plus the mail if mails are shown in results.
+func (g Graph) filterOutPrivateUserAttrs(ctx context.Context, user *libregraph.User, ctxHasFullPerms bool) *libregraph.User {
+	currentUser, ok := revactx.ContextGetUser(ctx)
+	isSameUser := ok && currentUser.GetId().GetOpaqueId() != "" && currentUser.GetId().GetOpaqueId() == user.GetId()
+
+	if ctxHasFullPerms || isSameUser {
+		finalUser := *user
+		return &finalUser
+	}
+
+	finalUser := &libregraph.User{
+		Id:                       user.Id,
+		DisplayName:              user.DisplayName,
+		OnPremisesSamAccountName: user.OnPremisesSamAccountName,
+		UserType:                 user.UserType,
+		Identities:               user.Identities,
+	}
+	if g.config.API.ShowUserEmailInResults {
+		finalUser.Mail = user.Mail
+	}
+	return finalUser
 }
 
 const (

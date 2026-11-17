@@ -8,7 +8,7 @@ import (
 
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	ohttp "github.com/opencloud-eu/opencloud/pkg/service/http"
-	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
+	"github.com/opencloud-eu/reva/v3/cmd/revad/runtime"
 	"google.golang.org/grpc"
 )
 

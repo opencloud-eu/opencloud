@@ -58,6 +58,8 @@ func decode_clut_table(raw []byte, bytes_per_channel, OutputChannels int, grid_p
 	switch output_colorspace {
 	case ColorSpaceCMYK:
 		expected_num_of_output_channels = 4
+	case ColorSpaceGray:
+		expected_num_of_output_channels = 1
 	}
 	if expected_num_of_output_channels != OutputChannels {
 		return nil, 0, fmt.Errorf("CLUT table number of output channels %d inappropriate for output_colorspace: %s", OutputChannels, output_colorspace)
@@ -147,7 +149,12 @@ func (c *TetrahedralInterpolate) Transform(r, g, b unit_float) (unit_float, unit
 }
 
 func (m *TetrahedralInterpolate) TransformGeneral(o, i []unit_float) {
-	m.d.tetrahedral_interpolation4(i[0], i[1], i[2], i[3], o[:m.d.num_outputs:m.d.num_outputs])
+	o = o[:m.d.num_outputs:m.d.num_outputs]
+	if m.d.num_inputs == 3 {
+		m.d.tetrahedral_interpolation(i[0], i[1], i[2], o)
+	} else {
+		m.d.tetrahedral_interpolation4(i[0], i[1], i[2], i[3], o)
+	}
 }
 
 func clamp01(v unit_float) unit_float {

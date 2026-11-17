@@ -55,7 +55,7 @@ func (pr *ProfileReader) readHeader(header *Header) (err error) {
 			if header.ProfileConnectionSpace != ColorSpaceXYZ && header.ProfileConnectionSpace != ColorSpaceLab {
 				return fmt.Errorf("unsupported profile connection space colorspace: %s", header.ProfileConnectionSpace)
 			}
-			if header.DataColorSpace != ColorSpaceRGB && header.DataColorSpace != ColorSpaceCMYK {
+			if header.DataColorSpace != ColorSpaceRGB && header.DataColorSpace != ColorSpaceCMYK && header.DataColorSpace != ColorSpaceGray {
 				return fmt.Errorf("unsupported device colorspace: %s", header.DataColorSpace)
 			}
 		}

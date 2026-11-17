@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
+	"github.com/opencloud-eu/reva/v3/pkg/bytesize"
 )
 
 // ParseMaxInputFileSize parses a size string like "50MB" into bytes, the same

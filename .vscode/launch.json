@@ -19,9 +19,6 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "buildFlags": [
-        // "-tags", "enable_vips"
-      ],
       "program": "${workspaceFolder}/opencloud/cmd/opencloud",
       "args": ["server"],
       "env": {

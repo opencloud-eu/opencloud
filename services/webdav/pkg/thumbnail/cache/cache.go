@@ -13,9 +13,11 @@ import (
 var ErrCacheMiss = errors.New("thumbnail cache miss")
 
 // DefaultFileCacheDir is the on-disk location of file-backend thumbnails:
-// $OC_BASE_DATA_PATH/thumbnails/files.
+// $OC_BASE_DATA_PATH/thumbnails/cache. It is not the files directory the old
+// thumbnails service wrote to: the keys changed, nothing in there is read again,
+// and keeping the two apart lets that directory be deleted as a whole.
 func DefaultFileCacheDir() string {
-	return filepath.Join(defaults.BaseDataPath(), "thumbnails", "files")
+	return filepath.Join(defaults.BaseDataPath(), "thumbnails", "cache")
 }
 
 // ThumbnailCache provides cached storage for generated thumbnails.

@@ -3,14 +3,15 @@ package bleve
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
@@ -34,10 +35,29 @@ type Backend struct {
 
 func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger) *Backend {
 	return &Backend{
-		index:        index,
+		index:        &serialIndex{bleveIndex: index},
 		queryCreator: queryCreator,
 		log:          log,
 	}
+}
+
+// bleveIndex lets serialIndex embed bleve.Index, whose Index method would clash
+// with an embedded field of the same name
+type bleveIndex = bleve.Index
+
+// serialIndex runs one batch at a time. bleve analyzes a batch through a pool of
+// workers shared by all batches and keeps the whole analysis in memory until the
+// batch is written, so batches running side by side (e.g. spaces reindexed
+// concurrently) add little throughput but stack up their memory.
+type serialIndex struct {
+	bleveIndex
+	batchMu sync.Mutex
+}
+
+func (i *serialIndex) Batch(b *bleve.Batch) error {
+	i.batchMu.Lock()
+	defer i.batchMu.Unlock()
+	return i.bleveIndex.Batch(b)
 }
 
 // Search executes a search request operation within the index.

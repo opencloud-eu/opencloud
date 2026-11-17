@@ -8,6 +8,9 @@ import (
 
 var _ = fmt.Println
 
+// The D50 white point used by lcms as the PCS illuminant, see cmsD50_XYZ()
+var lcms_d50 = XYZType{0.9642, 1.0, 0.8249}
+
 const MAX_ENCODEABLE_XYZ = 1.0 + 32767.0/32768.0
 const MAX_ENCODEABLE_XYZ_INVERSE = 1.0 / (MAX_ENCODEABLE_XYZ)
 const LAB_MFT2_ENCODING_CORRECTION = 65535.0 / 65280.0

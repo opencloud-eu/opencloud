@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/shamaton/msgpack/v2/def"
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
 type structCacheTypeMap struct {
@@ -48,10 +49,20 @@ func (d *decoder) setStruct(code byte, rv reflect.Value, k reflect.Kind) error {
 		}
 	}
 
-	if d.asArray {
-		return d.setStructFromArray(code, rv, k)
+	if err := d.enter(); err != nil {
+		return err
 	}
-	return d.setStructFromMap(code, rv, k)
+	var err error
+	if d.asArray {
+		err = d.setStructFromArray(code, rv, k)
+	} else {
+		err = d.setStructFromMap(code, rv, k)
+	}
+	if err != nil {
+		return err
+	}
+	d.depth--
+	return nil
 }
 
 func (d *decoder) setStructFromArray(code byte, rv reflect.Value, k reflect.Kind) error {
@@ -318,7 +329,7 @@ func (d *decoder) jumpOffset() error {
 			return err
 		}
 		if l >= math.MaxInt { // Byte1 + l must not overflow
-			return errDeclaredLengthTooLarge
+			return decodingutil.ErrDeclaredLengthTooLarge
 		}
 		_, err = d.readSizeN(def.Byte1 + l)
 		return err

@@ -15,7 +15,6 @@
 package nats
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -50,7 +49,7 @@ import (
 
 // Default Constants
 const (
-	Version                   = "1.54.0"
+	Version                   = "1.55.0"
 	DefaultURL                = "nats://127.0.0.1:4222"
 	DefaultPort               = 4222
 	DefaultMaxReconnect       = 60
@@ -96,6 +95,13 @@ const (
 
 	// MAX_SUBSCRIPTIONS_ERR is for when nats server denies the connection due to server subscriptions limit.
 	MAX_SUBSCRIPTIONS_ERR = "maximum subscriptions exceeded"
+
+	// unknownProtoOpErr is sent by the server when it cannot parse what the
+	// client sent, after which it closes the connection.
+	unknownProtoOpErr = "unknown protocol operation"
+
+	// maxControlLineErr is sent by the server when a protocol line is too long.
+	maxControlLineErr = "maximum control line exceeded"
 )
 
 // Errors
@@ -710,13 +716,20 @@ type natsReader struct {
 
 type natsWriter struct {
 	w       io.Writer
+	conn    net.Conn
 	bufs    []byte
 	limit   int
 	pending *bytes.Buffer
 	plimit  int
+	// Error of a partial write that caused conn to be closed.
+	partialWriteErr error
 }
 
 // Subscription represents interest in a given subject.
+//
+// A Subscription is safe for concurrent use by multiple goroutines, for
+// example several goroutines may call NextMsg on the same Subscription.
+// Each message is delivered to only one of the callers.
 type Subscription struct {
 	mu sync.Mutex
 
@@ -796,6 +809,11 @@ func (s SubStatus) String() string {
 // Msg represents a message delivered by NATS. This structure is used
 // by Subscribers and PublishMsg().
 //
+// A new Msg is allocated for every delivered message and is not reused by
+// the library, so it is safe to keep a reference to it, and to its Data,
+// after a message handler returns, for example to process it asynchronously.
+// There is no need to copy the message first.
+//
 // # Types of Acknowledgements
 //
 // In case using JetStream, there are multiple ways to ack a Msg:
@@ -860,35 +878,43 @@ func (m *Msg) Size() int {
 	if m.wsz != 0 {
 		return m.wsz
 	}
-	hdr, _ := m.headerBytes()
-	return len(m.Subject) + len(m.Reply) + len(hdr) + len(m.Data)
+	hdrSize, _ := m.headerSize()
+	return len(m.Subject) + len(m.Reply) + hdrSize + len(m.Data)
+}
+
+// pendingSize returns the data and encoded header size of a received message.
+func (m *Msg) pendingSize() int {
+	return m.wsz - len(m.Subject) - len(m.Reply)
+}
+
+// Validate the keys and calculate the exact total encoded size.
+//
+// We don't perform any special validation on header values because we
+// consider all strings to be valid values (including Unicode strings,
+// special characters, etc.).
+func (m *Msg) headerSize() (int, error) {
+	if len(m.Header) == 0 {
+		return 0, nil
+	}
+
+	hdrSize := len(hdrLine) + len(crlf)
+	for k, vs := range m.Header {
+		if !isHeaderKeyValid(k) {
+			return 0, ErrBadHeaderMsg
+		}
+		for _, v := range vs {
+			hdrSize += len(k) + len(textproto.TrimString(v)) + 4 // 4 is for the colon, space, CR, and LF
+		}
+	}
+
+	return hdrSize, nil
 }
 
 func (m *Msg) headerBytes() ([]byte, error) {
 	var hdr []byte
-	if len(m.Header) == 0 {
-		return hdr, nil
-	}
-
-	// Validate the keys and calculate an upper bound for the total encoded
-	// size.
-	//
-	// The size calculation may not be exact if any values contain
-	// leading/trailing whitespace (as those will be trimmed later), but a
-	// slight over-estimation here is more preferable than an under-estimation
-	// (which could lead to unnecessary memory allocations).
-	//
-	// We don't perform any special validation on header values because we
-	// consider all strings to be valid values (including Unicode strings,
-	// special characters, etc.).
-	hdrSize := len(hdrLine) + len(crlf)
-	for k, vs := range m.Header {
-		if !isHeaderKeyValid(k) {
-			return nil, ErrBadHeaderMsg
-		}
-		for _, v := range vs {
-			hdrSize += len(k) + len(v) + 4 // 4 is for the colon, space, CR, and LF
-		}
+	hdrSize, err := m.headerSize()
+	if hdrSize == 0 || err != nil {
+		return hdr, err
 	}
 
 	// NOTE: bytes.Buffer.WriteString() returns an error because bytes.Buffer
@@ -1068,6 +1094,9 @@ type ServerInfo struct {
 	// IsSystemAccount indicates whether the connected client's account
 	// is the system account.
 	IsSystemAccount bool `json:"acc_is_sys,omitempty"`
+	// RemoteAccount is the name of the account the connected client is
+	// bound to.
+	RemoteAccount string `json:"remote_account,omitempty"`
 	// JSApiLevel is the JetStream API level advertised by the server.
 	// Requires nats-server v2.12.0 or later; older servers will report 0.
 	JSApiLevel int    `json:"api_lvl,omitempty"`
@@ -1940,7 +1969,7 @@ func processUrlString(url string) []string {
 	urls := strings.Split(url, ",")
 	var j int
 	for _, s := range urls {
-		u := strings.TrimSuffix(strings.TrimSpace(s), "/")
+		u := strings.TrimSpace(s)
 		if len(u) > 0 {
 			urls[j] = u
 			j++
@@ -2218,31 +2247,20 @@ func (nc *Conn) parseServerURL(sURL string, implicit, saveTLSName bool) (*Server
 	if !strings.Contains(sURL, "://") {
 		sURL = fmt.Sprintf("%s://%s", nc.connScheme(), sURL)
 	}
-	var (
-		u   *url.URL
-		err error
-	)
-	for i := 0; i < 2; i++ {
-		u, err = url.Parse(sURL)
-		if err != nil {
-			return nil, err
-		}
-		if u.Port() != "" {
-			break
-		}
-		// In case given URL is of the form "localhost:", just add
-		// the port number at the end, otherwise, add ":4222".
-		if sURL[len(sURL)-1] != ':' {
-			sURL += ":"
-		}
+	u, err := url.Parse(sURL)
+	if err != nil {
+		return nil, err
+	}
+	if u.Port() == "" {
+		port := defaultPortString
 		switch u.Scheme {
 		case wsScheme:
-			sURL += defaultWSPortString
+			port = defaultWSPortString
 		case wsSchemeTLS:
-			sURL += defaultWSSPortString
-		default:
-			sURL += defaultPortString
+			port = defaultWSSPortString
 		}
+		// "host:" has an empty port, so trim the colon before adding the default.
+		u.Host = strings.TrimSuffix(u.Host, ":") + ":" + port
 	}
 
 	var tlsName string
@@ -2315,7 +2333,7 @@ func (nc *Conn) newReaderWriter() {
 
 func (nc *Conn) bindToNewConn() {
 	bw := nc.bw
-	bw.w, bw.bufs = nc.newWriter(), nil
+	bw.w, bw.conn, bw.bufs, bw.partialWriteErr = nc.newWriter(), nc.conn, nil, nil
 	br := nc.br
 	br.r, br.n, br.off = nc.conn, 0, -1
 }
@@ -2368,7 +2386,13 @@ func (w *natsWriter) flush() error {
 	// Do not skip calling w.w.Write() here if len(w.bufs) is 0 because
 	// the actual writer (if websocket for instance) may have things
 	// to do such as sending control frames, etc..
-	_, err := w.w.Write(w.bufs)
+	n, err := w.w.Write(w.bufs)
+	// A write that fails part way leaves a truncated protocol op on the
+	// wire, so the connection can no longer be used.
+	if err != nil && n > 0 && w.conn != nil {
+		w.partialWriteErr = err
+		w.conn.Close()
+	}
 	w.bufs = w.bufs[:0]
 	return err
 }
@@ -2854,6 +2878,26 @@ func (nc *Conn) IsSystemAccount() bool {
 		return false
 	}
 	return nc.info.IsSystemAccount
+}
+
+// RemoteAccount returns the name of the account the connected client is
+// bound to, e.g. "$G" when the server has no accounts configured. The
+// server sends it in an INFO right after the PONG to the connection's
+// first PING, which is processed only after Connect returns, so call
+// Flush first when the value is needed immediately. The same applies
+// after a reconnect.
+func (nc *Conn) RemoteAccount() string {
+	if nc == nil {
+		return _EMPTY_
+	}
+
+	nc.mu.RLock()
+	defer nc.mu.RUnlock()
+
+	if nc.status != CONNECTED {
+		return _EMPTY_
+	}
+	return nc.info.RemoteAccount
 }
 
 // Low level setup for structs, etc
@@ -3459,6 +3503,7 @@ func (nc *Conn) doReconnect(err error, forceReconnect bool) {
 					rt.Stop()
 					nc.mu.Lock()
 					nc.rqch = make(chan struct{})
+					rqch = nc.rqch
 					nc.mu.Unlock()
 				case <-rt.C:
 				}
@@ -3491,9 +3536,12 @@ func (nc *Conn) doReconnect(err error, forceReconnect bool) {
 				rt.Stop()
 
 				// we need to reset the rqch channel to avoid
-				// closing a closed channel in the next iteration
+				// closing a closed channel in the next iteration,
+				// and keep selecting on the new channel so the
+				// delay is honored again on the next iteration.
 				nc.mu.Lock()
 				nc.rqch = make(chan struct{})
+				rqch = nc.rqch
 				nc.mu.Unlock()
 			case <-rt.C:
 			}
@@ -3727,6 +3775,12 @@ func (nc *Conn) readLoop() {
 			err = nc.parse(buf)
 		}
 		if err != nil {
+			// Report the write error rather than the read error it caused.
+			nc.mu.Lock()
+			if nc.bw.partialWriteErr != nil {
+				err = nc.bw.partialWriteErr
+			}
+			nc.mu.Unlock()
 			if shouldClose := nc.processOpErr(err, false); shouldClose {
 				nc.close(CLOSED, true, nil)
 			}
@@ -3778,7 +3832,7 @@ func (nc *Conn) waitForMsgs(s *Subscription) {
 				}
 				continue
 			}
-			msgLen = len(m.Data)
+			msgLen = m.pendingSize()
 		}
 		mcb := s.mcb
 		max = s.max
@@ -3952,7 +4006,7 @@ func (nc *Conn) processMsg(data []byte) {
 			if sub.pMsgs > sub.pMsgsMax {
 				sub.pMsgsMax = sub.pMsgs
 			}
-			sub.pBytes += len(m.Data)
+			sub.pBytes += m.pendingSize()
 			if sub.pBytes > sub.pBytesMax {
 				sub.pBytesMax = sub.pBytes
 			}
@@ -4101,7 +4155,7 @@ slowConsumer:
 func (sub *Subscription) releaseReserved(m *Msg) {
 	if sub.typ != ChanSubscription {
 		sub.pMsgs--
-		sub.pBytes -= len(m.Data)
+		sub.pBytes -= m.pendingSize()
 	}
 }
 
@@ -4344,8 +4398,14 @@ func (nc *Conn) processInfo(info string) error {
 // protection.
 func (nc *Conn) processAsyncInfo(info []byte) {
 	nc.mu.Lock()
+	remoteAcc, isSysAcc := nc.info.RemoteAccount, nc.info.IsSystemAccount
 	// Ignore errors, we will simply not update the server pool...
 	nc.processInfo(string(info))
+	// Only the INFO following the first PONG carries the account; later
+	// ones (cluster topology, lame duck mode) must not clear it.
+	if nc.info.RemoteAccount == _EMPTY_ {
+		nc.info.RemoteAccount, nc.info.IsSystemAccount = remoteAcc, isSysAcc
+	}
 	nc.mu.Unlock()
 }
 
@@ -4397,6 +4457,17 @@ func (nc *Conn) processErr(ie string) {
 		close = nc.processOpErr(ErrMaxConnectionsExceeded, false)
 	} else if e == MAX_ACCOUNT_CONNECTIONS_ERR {
 		close = nc.processOpErr(ErrMaxAccountConnectionsExceeded, false)
+	} else if e == unknownProtoOpErr {
+		close = nc.processOpErr(errors.New("nats: "+ne), false)
+	} else if e == maxControlLineErr {
+		close = true
+		err := errors.New("nats: " + ne)
+		nc.mu.Lock()
+		nc.err = err
+		if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
+			nc.ach.push(func() { asyncErrorCB(nc, nil, err) })
+		}
+		nc.mu.Unlock()
 	} else if strings.HasPrefix(e, PERMISSIONS_ERR) {
 		nc.processTransientError(fmt.Errorf("%w: %s", ErrPermissionViolation, ne))
 	} else if strings.HasPrefix(e, MAX_SUBSCRIPTIONS_ERR) {
@@ -4500,16 +4571,29 @@ const (
 	statusLen          = 3 // e.g. 20x, 40x, 50x
 )
 
+// nextHeaderLine returns the next line in s mirroring textproto.Reader
+func nextHeaderLine(s string) (line, rest string, ok bool) {
+	i := strings.IndexByte(s, '\n')
+	if i < 0 {
+		return "", "", false
+	}
+	line = s[:i]
+	if len(line) > 0 && line[len(line)-1] == '\r' {
+		line = line[:len(line)-1]
+	}
+	return line, s[i+1:], true
+}
+
 // DecodeHeadersMsg will decode and headers.
 func DecodeHeadersMsg(data []byte) (Header, error) {
-	br := bufio.NewReaderSize(bytes.NewReader(data), 128)
-	tp := textproto.NewReader(br)
-	l, err := tp.ReadLine()
-	if err != nil || len(l) < hdrPreEnd || l[:hdrPreEnd] != hdrLine[:hdrPreEnd] {
+	// Copy the header block once; keys and values are substrings of it.
+	s := string(data)
+	l, s, ok := nextHeaderLine(s)
+	if !ok || len(l) < hdrPreEnd || l[:hdrPreEnd] != hdrLine[:hdrPreEnd] {
 		return nil, ErrBadHeaderMsg
 	}
 
-	mh, err := readMIMEHeader(tp)
+	h, err := readMIMEHeader(s)
 	if err != nil {
 		return nil, err
 	}
@@ -4525,25 +4609,27 @@ func DecodeHeadersMsg(data []byte) (Header, error) {
 			description = strings.TrimSpace(status[statusLen:])
 			status = status[:statusLen]
 		}
-		mh.Add(statusHdr, status)
+		h.Add(statusHdr, status)
 		if len(description) > 0 {
-			mh.Add(descrHdr, description)
+			h.Add(descrHdr, description)
 		}
 	}
-	return Header(mh), nil
+	return h, nil
 }
 
 // readMIMEHeader returns a MIMEHeader that preserves the
-// original case of the MIME header, based on the implementation
-// of textproto.ReadMIMEHeader.
-//
-// https://golang.org/pkg/net/textproto/#Reader.ReadMIMEHeader
-func readMIMEHeader(tp *textproto.Reader) (textproto.MIMEHeader, error) {
-	m := make(textproto.MIMEHeader)
+// original case of the MIME header
+func readMIMEHeader(s string) (Header, error) {
+	m := make(Header)
 	for {
-		kv, err := tp.ReadLine()
+		kv, rest, ok := nextHeaderLine(s)
+		if !ok {
+			return nil, ErrBadHeaderMsg
+		}
+		s = rest
 		if len(kv) == 0 {
-			return m, err
+			// Blank line marks the end of the header block.
+			return m, nil
 		}
 
 		// Process key fetching original case.
@@ -4561,9 +4647,6 @@ func readMIMEHeader(tp *textproto.Reader) (textproto.MIMEHeader, error) {
 			i++
 		}
 		m[key] = append(m[key], kv[i:])
-		if err != nil {
-			return m, err
-		}
 	}
 }
 
@@ -4877,7 +4960,10 @@ func (nc *Conn) newRequest(subj string, hdr, data []byte, timeout time.Duration)
 	select {
 	case msg, ok = <-mch:
 		if !ok {
-			return nil, ErrConnectionClosed
+			if nc.IsClosed() {
+				return nil, ErrConnectionClosed
+			}
+			return nil, ErrDisconnected
 		}
 	case <-t.C:
 		nc.mu.Lock()
@@ -5767,7 +5853,7 @@ func (s *Subscription) processNextMsgDelivered(msg *Msg) error {
 
 	if s.typ == SyncSubscription {
 		s.pMsgs--
-		s.pBytes -= len(msg.Data)
+		s.pBytes -= msg.pendingSize()
 	}
 	if s.jsi != nil && s.jsi.resetPending {
 		s.tryResetOrderedConsumer()
@@ -5805,6 +5891,7 @@ func (s *Subscription) QueuedMsgs() (int, error) {
 }
 
 // Pending returns the number of queued messages and queued bytes in the client for this subscription.
+// The byte count includes data and encoded headers.
 func (s *Subscription) Pending() (int, int, error) {
 	if s == nil {
 		return -1, -1, ErrBadSubscription
@@ -5880,6 +5967,7 @@ func (s *Subscription) PendingLimits() (int, int, error) {
 }
 
 // SetPendingLimits sets the limits for pending msgs and bytes for this subscription.
+// The byte limit includes data and encoded headers.
 // Zero is not allowed. Any negative value means that the given metric is not limited.
 func (s *Subscription) SetPendingLimits(msgLimit, bytesLimit int) error {
 	if s == nil {
@@ -6349,6 +6437,11 @@ func (nc *Conn) drainConnection() {
 		min = 0
 	}
 	for time.Now().Before(timeout) {
+		// Close clears all subscriptions, including respMux, so min
+		// would never be reached.
+		if nc.IsClosed() {
+			return
+		}
 		if nc.NumSubscriptions() == min {
 			break
 		}
@@ -6375,8 +6468,16 @@ func (nc *Conn) drainConnection() {
 		pushErr(ErrDrainTimeout)
 	}
 
-	// Flip State
+	// Flip State, unless the connection was closed while we were
+	// draining subscriptions (for example by a concurrent Close call).
+	// In that case abort the publish drain: the connection is already
+	// terminal, and flipping the state here would resurrect it and
+	// start a new flush on a closed connection.
 	nc.mu.Lock()
+	if nc.isClosed() {
+		nc.mu.Unlock()
+		return
+	}
 	nc.changeConnStatus(DRAINING_PUBS)
 	nc.mu.Unlock()
 
@@ -6721,6 +6822,9 @@ func (nc *Conn) GetClientID() (uint64, error) {
 
 // StatusChanged returns a channel on which given list of connection status changes will be reported.
 // If no statuses are provided, defaults will be used: CONNECTED, RECONNECTING, DISCONNECTED, CLOSED.
+// The channel buffers up to 10 events; further events are dropped while it is full.
+// It stays registered, and is not closed when the connection closes, until it is
+// removed with RemoveStatusListener.
 func (nc *Conn) StatusChanged(statuses ...Status) chan Status {
 	if len(statuses) == 0 {
 		statuses = []Status{CONNECTED, RECONNECTING, DISCONNECTED, CLOSED}
@@ -6734,25 +6838,23 @@ func (nc *Conn) StatusChanged(statuses ...Status) chan Status {
 	return ch
 }
 
-// RemoveStatusListener removes a status change listener.
-// If the channel is not closed, it will be closed.
-// Listeners will be removed automatically on status change
-// as well, but this is a way to remove them manually.
+// RemoveStatusListener unregisters ch from all statuses and closes it.
+// Events already buffered can still be received. Use this instead of
+// closing the channel yourself.
 func (nc *Conn) RemoveStatusListener(ch chan (Status)) {
 	nc.mu.Lock()
 	defer nc.mu.Unlock()
 
-	select {
-	case <-ch:
-	default:
-		close(ch)
-	}
-
 	for _, listeners := range nc.statListeners {
-		for range listeners {
-			delete(listeners, ch)
-		}
+		delete(listeners, ch)
 	}
+	closeStatusListener(ch)
+}
+
+// closeStatusListener closes ch unless it is already closed.
+func closeStatusListener(ch chan Status) {
+	defer func() { _ = recover() }()
+	close(ch)
 }
 
 // registerStatusChangeListener registers a channel waiting for a specific status change event.
@@ -6773,22 +6875,27 @@ func (nc *Conn) registerStatusChangeListener(status Status, ch chan Status) {
 // If channel is closed, or there is no listener, sendStatusEvent
 // will not block. Lock should be held entering.
 func (nc *Conn) sendStatusEvent(s Status) {
-Loop:
 	for ch := range nc.statListeners[s] {
-		// make sure channel is not closed
-		select {
-		case <-ch:
-			// if chan is closed, remove it
+		if !notifyStatusListener(ch, s) {
 			delete(nc.statListeners[s], ch)
-			continue Loop
-		default:
-		}
-		// only send event if someone's listening
-		select {
-		case ch <- s:
-		default:
 		}
 	}
+}
+
+// notifyStatusListener sends s on ch unless its buffer is full, and reports
+// whether ch is still open. Receiving from ch to detect a closed channel
+// would consume an event the listener has not read yet.
+func notifyStatusListener(ch chan Status, s Status) (open bool) {
+	defer func() {
+		if recover() != nil {
+			open = false
+		}
+	}()
+	select {
+	case ch <- s:
+	default:
+	}
+	return true
 }
 
 // changeConnStatus changes connections status and sends events

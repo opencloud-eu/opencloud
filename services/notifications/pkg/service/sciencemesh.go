@@ -5,8 +5,8 @@ import (
 
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/email"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 func (s eventsNotifier) handleScienceMeshInviteTokenGenerated(e events.ScienceMeshInviteTokenGenerated) {
@@ -34,6 +34,7 @@ func (s eventsNotifier) handleScienceMeshInviteTokenGenerated(e events.ScienceMe
 
 	msgENV := map[string]string{
 		"ShareSharer":     owner.GetDisplayName(),
+		"InitiatorName":   owner.GetDisplayName(),
 		"ShareSharerMail": owner.GetMail(),
 		"ShareLink":       e.InviteLink,
 		"Token":           e.Token,

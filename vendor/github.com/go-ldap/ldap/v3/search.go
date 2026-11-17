@@ -245,7 +245,7 @@ func readTag(f reflect.StructField) (string, bool) {
 //	if err := result.Unmarshal(&user); err != nil {
 //		// ...
 //	}
-func (e *Entry) Unmarshal(i interface{}) (err error) {
+func (e *Entry) Unmarshal(i any) (err error) {
 	return e.UnmarshalFunc(i, func(entry *Entry, ft reflect.StructField, fv reflect.Value) error {
 		// omitempty can be safely discarded, as it's not needed when unmarshalling
 		fieldTag, _ := readTag(ft)
@@ -307,10 +307,10 @@ func (e *Entry) Unmarshal(i interface{}) (err error) {
 
 // UnmarshalFunc allows you to define a custom unmarshaler to parse an Entry values.
 // A custom unmarshaler can be found in the Unmarshal function or in the test files.
-func (e *Entry) UnmarshalFunc(i interface{},
+func (e *Entry) UnmarshalFunc(i any,
 	fn func(entry *Entry, fieldType reflect.StructField, fieldValue reflect.Value) error) error {
 	// Make sure it's a ptr
-	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Ptr {
+	if vo := reflect.ValueOf(i).Kind(); vo != reflect.Pointer {
 		return fmt.Errorf("ldap: cannot use %s, expected pointer to a struct", vo)
 	}
 
@@ -377,6 +377,22 @@ type SearchResult struct {
 	Referrals []string
 	// Controls are the returned controls
 	Controls []Control
+	// ResultCode is the LDAP resultCode from SearchResultDone (0 = success).
+	// Populated even on success so callers can inspect it alongside DiagnosticMessage.
+	//
+	// Note: for paged searches (SearchWithPaging), appendTo overwrites this field
+	// on each page, so only the last page's ResultCode is preserved.
+	// SearchAsync does not populate this field.
+	ResultCode uint16
+	// DiagnosticMessage is the server's free-text message from SearchResultDone.
+	// Per RFC 4511, this may be set even when resultCode is 0 (success).
+	// GetLDAPError returns nil on success and does not expose this field;
+	// it is preserved here so callers can log or act on it.
+	//
+	// Note: for paged searches (SearchWithPaging), appendTo overwrites this field
+	// on each page, so only the last page's DiagnosticMessage is preserved.
+	// SearchAsync does not populate this field.
+	DiagnosticMessage string
 }
 
 // Print outputs a human-readable description
@@ -398,6 +414,8 @@ func (s *SearchResult) appendTo(r *SearchResult) {
 	r.Entries = append(r.Entries, s.Entries...)
 	r.Referrals = append(r.Referrals, s.Referrals...)
 	r.Controls = append(r.Controls, s.Controls...)
+	r.ResultCode = s.ResultCode
+	r.DiagnosticMessage = s.DiagnosticMessage
 }
 
 // SearchSingleResult holds the server's single entry response to a search request
@@ -583,7 +601,12 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 			return result, err
 		}
 
-		switch packet.Children[1].Tag {
+		protocolOp, err := packetChild(packet, 1)
+		if err != nil {
+			return result, err
+		}
+
+		switch protocolOp.Tag {
 		case 4:
 			if searchRequest.EnforceSizeLimit &&
 				searchRequest.SizeLimit > 0 &&
@@ -591,32 +614,59 @@ func (l *Conn) Search(searchRequest *SearchRequest) (*SearchResult, error) {
 				return result, ErrSizeLimitExceeded
 			}
 
-			attr := make([]*ber.Packet, 0)
-			if len(packet.Children[1].Children) > 1 {
-				attr = packet.Children[1].Children[1].Children
+			// RFC 4511 declares SearchResultEntry ::= [APPLICATION 4] SEQUENCE {
+			// objectName LDAPDN, attributes PartialAttributeList }, and
+			// PartialAttributeList is a SEQUENCE OF, so the attributes element
+			// must be present even when it is empty. Both search paths treat a
+			// missing element as malformed.
+			attributesChild, err := packetChild(protocolOp, 1)
+			if err != nil {
+				return result, err
+			}
+			attributes, err := unpackAttributes(attributesChild.Children)
+			if err != nil {
+				return result, err
+			}
+			dn, err := packetStringAt(protocolOp, 0)
+			if err != nil {
+				return result, err
 			}
 			entry := &Entry{
-				DN:         packet.Children[1].Children[0].Value.(string),
-				Attributes: unpackAttributes(attr),
+				DN:         dn,
+				Attributes: attributes,
 			}
 			result.Entries = append(result.Entries, entry)
 		case 5:
+			rc, _, diag, parseErr := parseLDAPResult(packet)
+			if parseErr != nil {
+				return result, NewError(ErrorNetwork, fmt.Errorf("malformed SearchResultDone: %w", parseErr))
+			}
+			result.ResultCode = rc
+			result.DiagnosticMessage = diag
 			err := GetLDAPError(packet)
 			if err != nil {
 				return result, err
 			}
-			if len(packet.Children) == 3 {
-				for _, child := range packet.Children[2].Children {
+			controlsChild, ok, err := packetChildIfPresent(packet, 2)
+			if err != nil {
+				return result, err
+			}
+			if ok {
+				for _, child := range controlsChild.Children {
 					decodedChild, err := DecodeControl(child)
 					if err != nil {
-						return result, fmt.Errorf("failed to decode child control: %s", err)
+						return result, fmt.Errorf("failed to decode child control: %w", err)
 					}
 					result.Controls = append(result.Controls, decodedChild)
 				}
 			}
 			return result, nil
 		case 19:
-			result.Referrals = append(result.Referrals, packet.Children[1].Children[0].Value.(string))
+			ref, err := packetStringAt(protocolOp, 0)
+			if err != nil {
+				return result, err
+			}
+			result.Referrals = append(result.Referrals, ref)
 		}
 	}
 }
@@ -653,26 +703,52 @@ func (l *Conn) Syncrepl(
 
 // unpackAttributes will extract all given LDAP attributes and it's values
 // from the ber.Packet
-func unpackAttributes(children []*ber.Packet) []*EntryAttribute {
-	entries := make([]*EntryAttribute, len(children))
-	for i, child := range children {
-		length := len(child.Children[1].Children)
+func unpackAttributes(children []*ber.Packet) ([]*EntryAttribute, error) {
+	entries := make([]*EntryAttribute, 0, len(children))
+	for _, child := range children {
+		// A conforming PartialAttribute is SEQUENCE { type, vals SET OF value }.
+		// A non-conforming or malicious server can omit the vals element or send
+		// a non-string type/value; return an error instead of panicking the
+		// search goroutine, so the caller can handle it.
+		if child == nil {
+			return nil, malformedf("malformed attribute: nil attribute")
+		}
+		nameChild, err := packetChild(child, 0)
+		if err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: %w", err)
+		}
+		valuesChild, err := packetChild(child, 1)
+		if err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: %w", err)
+		}
+		name, err := packetString(nameChild)
+		if err != nil {
+			return nil, fmt.Errorf("ldap: malformed attribute: type is not a string: %T: %w", nameChild.Value, err)
+		}
+		values := valuesChild.Children
 		entry := &EntryAttribute{
-			Name: child.Children[0].Value.(string),
+			Name: name,
 			// pre-allocate the slice since we can determine
 			// the number of attributes at this point
-			Values:     make([]string, length),
-			ByteValues: make([][]byte, length),
+			Values:     make([]string, len(values)),
+			ByteValues: make([][]byte, len(values)),
 		}
 
-		for i, value := range child.Children[1].Children {
+		for i, value := range values {
+			if value == nil {
+				return nil, malformedf("malformed attribute %q: value is nil", name)
+			}
+			v, err := packetString(value)
+			if err != nil {
+				return nil, fmt.Errorf("ldap: malformed attribute %q: value is not a string: %T: %w", name, value.Value, err)
+			}
 			entry.ByteValues[i] = value.ByteValue
-			entry.Values[i] = value.Value.(string)
+			entry.Values[i] = v
 		}
-		entries[i] = entry
+		entries = append(entries, entry)
 	}
 
-	return entries
+	return entries, nil
 }
 
 // DirSync does a Search with dirSync Control.
@@ -717,7 +793,7 @@ func (l *Conn) DirSync(
 	return searchResult, nil
 }
 
-// DirSyncDirSyncAsync performs a search request and returns all search results
+// DirSyncAsync performs a search request and returns all search results
 // asynchronously. This is efficient when the server returns lots of entries.
 func (l *Conn) DirSyncAsync(
 	ctx context.Context, searchRequest *SearchRequest, bufferSize int,

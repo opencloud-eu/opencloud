@@ -7,8 +7,8 @@ import (
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/reva/v2/pkg/tags"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/tags"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 // Basic is the simplest Extractor implementation.

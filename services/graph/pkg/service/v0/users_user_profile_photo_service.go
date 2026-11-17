@@ -9,7 +9,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/storage/metadata"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
-	revaMetadata "github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	revaMetadata "github.com/opencloud-eu/reva/v3/pkg/storage/utils/metadata"
 )
 
 // NewConfiguredUserProfilePhotoService creates the shared photo storage and download service.

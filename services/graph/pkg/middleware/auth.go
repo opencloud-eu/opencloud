@@ -10,9 +10,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	opkgm "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
+	"github.com/opencloud-eu/reva/v3/pkg/auth/scope"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/token/manager/jwt"
 )
 
 // authOptions initializes the available default options.

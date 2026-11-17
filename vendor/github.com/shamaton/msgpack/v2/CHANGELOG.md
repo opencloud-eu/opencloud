@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.4.4](https://github.com/shamaton/msgpack/compare/v2.4.3...v2.4.4) - 2026-10-20
+- fix: validate 32-bit declared lengths in the buffer decoder (v2) by @shamaton in https://github.com/shamaton/msgpack/pull/144
+
+## [v2.4.3](https://github.com/shamaton/msgpack/compare/v2.4.2...v2.4.3) - 2026-10-15
+- fix: prevent decoder crashes on unhashable map keys and deep nesting (v2) by @shamaton in https://github.com/shamaton/msgpack/pull/140
+
 ## [v2.4.2](https://github.com/shamaton/msgpack/compare/v2.4.1...v2.4.2) - 2026-08-30
 - fix: bound streaming decoder allocations against declared lengths (v2) by @shamaton in https://github.com/shamaton/msgpack/pull/115
 

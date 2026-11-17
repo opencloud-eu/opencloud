@@ -1,3 +1,10 @@
+Release 1.8.1
+=============
+
+**Fixes**
+
+* Fixed a panic-causing bug in all Remove functions.
+
 Release 1.8.0
 =============
 

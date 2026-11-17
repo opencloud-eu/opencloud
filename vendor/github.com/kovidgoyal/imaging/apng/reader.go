@@ -847,6 +847,10 @@ func (d *decoder) mergePassInto(dst image.Image, src image.Image, pass int) {
 		srcPix = src.(*image.NRGBA64).Pix
 		dstPix, stride, rect = target.Pix, target.Stride, target.Rect
 		bytesPerPixel = 8
+	case *nrgb.Image:
+		srcPix = src.(*nrgb.Image).Pix
+		dstPix, stride, rect = target.Pix, target.Stride, target.Rect
+		bytesPerPixel = 3
 	case *image.Paletted:
 		source := src.(*image.Paletted)
 		srcPix = source.Pix
@@ -859,14 +863,14 @@ func (d *decoder) mergePassInto(dst image.Image, src image.Image, pass int) {
 			// same adjustment here.
 			target.Palette = source.Palette
 		}
-	case *image.RGBA:
-		srcPix = src.(*image.RGBA).Pix
-		dstPix, stride, rect = target.Pix, target.Stride, target.Rect
-		bytesPerPixel = 4
 	case *image.RGBA64:
 		srcPix = src.(*image.RGBA64).Pix
 		dstPix, stride, rect = target.Pix, target.Stride, target.Rect
 		bytesPerPixel = 8
+	default:
+		// Every image type readImagePass can allocate must be handled above,
+		// otherwise the pass would be silently dropped.
+		panic(fmt.Sprintf("apng: mergePassInto: unsupported image type %T", dst))
 	}
 	s, bounds := 0, src.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {

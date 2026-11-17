@@ -7,8 +7,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 	svc "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	"go-micro.dev/v4/store"
 )
 

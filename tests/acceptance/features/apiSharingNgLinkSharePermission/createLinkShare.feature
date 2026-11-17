@@ -1279,10 +1279,10 @@ Feature: Create a link share for a resource
       """
     Examples:
       | permissions-role | drive    | message                                   |
-      | view             | Shares   | no share permission                       |
-      | edit             | Shares   | no share permission                       |
-      | upload           | Shares   | no share permission                       |
-      | createOnly       | Shares   | no share permission                       |
+      | view             | Shares   | cannot create link on shares space root   |
+      | edit             | Shares   | cannot create link on shares space root   |
+      | upload           | Shares   | cannot create link on shares space root   |
+      | createOnly       | Shares   | cannot create link on shares space root   |
       | view             | Personal | cannot create link on personal space root |
       | edit             | Personal | cannot create link on personal space root |
       | upload           | Personal | cannot create link on personal space root |
@@ -1394,6 +1394,7 @@ Feature: Create a link share for a resource
     Examples:
       | drive    | message                                   |
       | Personal | cannot create link on personal space root |
+      | Shares   | cannot create link on shares space root   |
 
 
   Scenario Outline: try to create an internal link share with password of a Personal and Shares drives using permissions endpoint
@@ -1427,7 +1428,7 @@ Feature: Create a link share for a resource
                 ]
               },
               "message": {
-                "const": "password is redundant for the internal link"
+                "const": "<message>"
               }
             }
           }
@@ -1435,9 +1436,9 @@ Feature: Create a link share for a resource
       }
       """
     Examples:
-      | drive    |
-      | Personal |
-      | Shares   |
+      | drive    | message                                     |
+      | Personal | password is redundant for the internal link |
+      | Shares   | cannot create link on shares space root     |
 
 
   Scenario: create an internal link share of a project-space using permissions endpoint

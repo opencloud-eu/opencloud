@@ -56,19 +56,27 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("doesn't trigger twice simultaneously", func() {
+		// runs block until released, so the first one is still in progress for
+		// as long as the test needs it, however slow the machine is
+		release := make(chan struct{})
 		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 5*time.Second, func(id *sprovider.StorageSpaceId, _ bool) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
-			time.Sleep(300 * time.Millisecond)
+			<-release
 		}, log.NewLogger())
 		debouncer.Debounce(spaceid, nil, false)
-		time.Sleep(100 * time.Millisecond) // Let it trigger once
+		Eventually(func() int {
+			return int(callCount.Load())
+		}, "2000ms").Should(Equal(1))
 
 		debouncer.Debounce(spaceid, nil, false)
-		time.Sleep(100 * time.Millisecond) // shouldn't trigger as the other run is still in progress
-		Expect(int(callCount.Load())).To(Equal(1))
+		// shouldn't trigger as the other run is still in progress
+		Consistently(func() int {
+			return int(callCount.Load())
+		}, "200ms").Should(Equal(1))
 
+		close(release)
 		Eventually(func() int {
 			return int(callCount.Load())
 		}, "2000ms").Should(Equal(2))

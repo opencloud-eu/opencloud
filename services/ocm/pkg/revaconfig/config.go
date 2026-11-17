@@ -3,6 +3,7 @@ package revaconfig
 import (
 	"math"
 	"net/url"
+	"path/filepath"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/ocm/pkg/config"
@@ -94,8 +95,9 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]any {
 					"expose_recipient_display_name": cfg.OCMD.ExposeRecipientDisplayName,
 				},
 				"dataprovider": map[string]any{
-					"prefix": "data",
-					"driver": "ocmreceived",
+					"prefix":           "data",
+					"driver":           "ocmreceived",
+					"upload_directory": filepath.Join(cfg.OCMStorageProvider.StorageRoot, "uploads"),
 					"drivers": map[string]any{
 						"ocmreceived": map[string]any{
 							"insecure":               cfg.OCMStorageProvider.Insecure,
@@ -175,7 +177,8 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]any {
 					},
 				},
 				"storageprovider": map[string]any{
-					"driver": "ocmreceived",
+					"driver":           "ocmreceived",
+					"upload_directory": filepath.Join(cfg.OCMStorageProvider.StorageRoot, "uploads"),
 					"drivers": map[string]any{
 						"ocmreceived": map[string]any{
 							"insecure":     cfg.OCMStorageProvider.Insecure,

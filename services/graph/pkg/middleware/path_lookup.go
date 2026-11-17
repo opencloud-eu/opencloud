@@ -17,9 +17,9 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 // The middleware is attached to the /drives/{driveID} sub-routers, so by the

@@ -11,11 +11,11 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/justinas/alice"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/signedurl"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
@@ -354,16 +354,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 	authenticators = append(authenticators, oidcAuthenticator)
 
-	if cfg.Commons != nil && cfg.Commons.EnableGuestLinks {
-		authenticators = append(authenticators, &middleware.GuestLinkAuthenticator{
-			Logger:              logger,
-			RevaGatewaySelector: gatewaySelector,
-			Config: middleware.GuestLinkAuthConfig{
-				CookieName: cfg.GuestLinkAuth.CookieName,
-			},
-		})
-	}
-
 	authenticators = append(authenticators, middleware.PublicShareAuthenticator{
 		Logger:              logger,
 		RevaGatewaySelector: gatewaySelector,
@@ -384,13 +374,27 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		URLVerifier:        signURLVerifier,
 	})
 
+	// validated by the config parser
+	trustedProxies, _ := pkgmiddleware.ParseTrustedProxies(cfg.ClientIP.TrustedProxies)
+
+	if cfg.Commons != nil && cfg.Commons.EnableGuestLinks {
+		authenticators = append(authenticators, &middleware.GuestLinkAuthenticator{
+			Logger:              logger,
+			RevaGatewaySelector: gatewaySelector,
+			Config: middleware.GuestLinkAuthConfig{
+				CookieName: cfg.GuestLinkAuth.CookieName,
+			},
+			URLVerifier: signURLVerifier,
+		})
+	}
+
 	cspConfig, err := middleware.LoadCSPConfig(cfg)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to load CSP configuration.")
 	}
 
 	return alice.New(
-		chimiddleware.RealIP,
+		pkgmiddleware.ClientIP(trustedProxies, cfg.ClientIP.Header),
 		chimiddleware.RequestID,
 
 		// 1. Logging & Tracing first

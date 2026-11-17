@@ -35,6 +35,9 @@ func convert(tr *icc.Pipeline, image_any image.Image) (ans image.Image, err erro
 	b := image_any.Bounds()
 	width, height := b.Dx(), b.Dy()
 	ans = image_any
+	if width < 1 || height < 1 {
+		return
+	}
 	var f func(start, limit int)
 	switch img := image_any.(type) {
 	case *NRGB:
@@ -203,8 +206,8 @@ func convert(tr *icc.Pipeline, image_any image.Image) (ans image.Image, err erro
 						r, g, bb, _ := color.YCbCr{img.Y[iy], img.Cb[ic], img.Cr[ic]}.RGBA()
 						fr, fg, fb := t(f16(uint16(r)), f16(uint16(g)), f16(uint16(bb)))
 						rr[0], rr[1], rr[2] = f8i(fr), f8i(fg), f8i(fb)
-						row = row[4:]
 					}
+					row = row[4:]
 				}
 			}
 		}
@@ -216,7 +219,7 @@ func convert(tr *icc.Pipeline, image_any image.Image) (ans image.Image, err erro
 					if a16 != 0 {
 						fr, fg, fb := unpremultiply(r16, a16), unpremultiply(g16, a16), unpremultiply(b16, a16)
 						fr, fg, fb = t(fr, fg, fb)
-						img.Set(x, y, &color.NRGBA64{R: f16i(fr), G: f16i(fg), B: f16i(fb)})
+						img.Set(x, y, &color.NRGBA64{R: f16i(fr), G: f16i(fg), B: f16i(fb), A: uint16(a16)})
 					}
 				}
 			}
@@ -229,18 +232,220 @@ func convert(tr *icc.Pipeline, image_any image.Image) (ans image.Image, err erro
 				row := d.Pix[d.Stride*y:]
 				for x := range width {
 					r16, g16, b16, a16 := img.At(x+b.Min.X, y+b.Min.Y).RGBA()
+					s := row[0:8:8]
+					row = row[8:]
 					if a16 != 0 {
 						fr, fg, fb := unpremultiply(r16, a16), unpremultiply(g16, a16), unpremultiply(b16, a16)
 						fr, fg, fb = t(fr, fg, fb)
 						r, g, b := f16i(fr), f16i(fg), f16i(fb)
-						s := row[0:8:8]
-						row = row[8:]
 						s[0], s[1] = uint8(r>>8), uint8(r)
 						s[2], s[3] = uint8(g>>8), uint8(g)
 						s[4], s[5] = uint8(b>>8), uint8(b)
 						s[6] = uint8(a16 >> 8)
 						s[7] = uint8(a16)
 					}
+				}
+			}
+		}
+	}
+	err = parallel.Run_in_parallel_over_range(0, f, 0, height)
+	return
+}
+
+// round and clamp normalized values
+func f8r(x float64) uint8   { return uint8(max(0, min(x, 1))*math.MaxUint8 + 0.5) }
+func f16r(x float64) uint16 { return uint16(max(0, min(x, 1))*math.MaxUint16 + 0.5) }
+
+// luminance as used by color.GrayModel, it is exact for pixels with r == g == b
+func gray8(r, g, b uint8) uint8 {
+	return uint8((19595*uint32(r) + 38470*uint32(g) + 7471*uint32(b) + 1<<15) >> 16)
+}
+
+func gray16(r, g, b uint32) uint16 {
+	return uint16((19595*r + 38470*g + 7471*b + 1<<15) >> 16)
+}
+
+func new_gray_lut8(tr *icc.Pipeline) (ans *[256][3]uint8) {
+	ans = &[256][3]uint8{}
+	for i := range ans {
+		r, g, b := tr.Transform(f8(uint8(i)), 0, 0)
+		ans[i] = [3]uint8{f8r(r), f8r(g), f8r(b)}
+	}
+	return
+}
+
+// Return a function to map 16 bit gray values to 16 bit sRGB. Uses a lookup
+// table when the number of pixels is large enough to make it worthwhile.
+func new_gray_mapper16(tr *icc.Pipeline, num_pixels int) func(uint16) [3]uint16 {
+	direct := func(v uint16) [3]uint16 {
+		r, g, b := tr.Transform(f16(v), 0, 0)
+		return [3]uint16{f16r(r), f16r(g), f16r(b)}
+	}
+	if num_pixels < 1<<16 {
+		return direct
+	}
+	lut := make([][3]uint16, 1<<16)
+	_ = parallel.Run_in_parallel_over_range(0, func(start, limit int) {
+		for i := start; i < limit; i++ {
+			lut[i] = direct(uint16(i))
+		}
+	}, 0, len(lut))
+	return func(v uint16) [3]uint16 { return lut[v] }
+}
+
+// Convert an image whose pixel values are in the device space of a
+// monochrome profile to sRGB. tr must transform a single gray channel to
+// sRGB. Any color information in the pixels is discarded, the gray value used
+// is the luminance of the pixel.
+func convert_gray(tr *icc.Pipeline, image_any image.Image) (ans image.Image, err error) {
+	b := image_any.Bounds()
+	width, height := b.Dx(), b.Dy()
+	if width < 1 || height < 1 {
+		return image_any, nil
+	}
+	ans = image_any
+	var f func(start, limit int)
+	switch img := image_any.(type) {
+	case *image.Gray:
+		lut := new_gray_lut8(tr)
+		d := nrgb.NewNRGB(b)
+		ans = d
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Pix[img.Stride*y : img.Stride*y+width]
+				drow := d.Pix[d.Stride*y : d.Stride*y+3*width]
+				for x, v := range row {
+					c := lut[v]
+					s := drow[3*x : 3*x+3 : 3*x+3]
+					s[0], s[1], s[2] = c[0], c[1], c[2]
+				}
+			}
+		}
+	case *image.Gray16:
+		m := new_gray_mapper16(tr, width*height)
+		d := image.NewNRGBA64(b)
+		ans = d
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Pix[img.Stride*y : img.Stride*y+2*width]
+				drow := d.Pix[d.Stride*y : d.Stride*y+8*width]
+				for x := range width {
+					c := m(uint16(row[2*x])<<8 | uint16(row[2*x+1]))
+					s := drow[8*x : 8*x+8 : 8*x+8]
+					s[0], s[1] = uint8(c[0]>>8), uint8(c[0])
+					s[2], s[3] = uint8(c[1]>>8), uint8(c[1])
+					s[4], s[5] = uint8(c[2]>>8), uint8(c[2])
+					s[6], s[7] = 0xff, 0xff
+				}
+			}
+		}
+	case *NRGB:
+		lut := new_gray_lut8(tr)
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Pix[img.Stride*y : img.Stride*y+3*width]
+				for x := range width {
+					s := row[3*x : 3*x+3 : 3*x+3]
+					c := lut[gray8(s[0], s[1], s[2])]
+					s[0], s[1], s[2] = c[0], c[1], c[2]
+				}
+			}
+		}
+	case *image.NRGBA:
+		// this is what gray + alpha images are decoded as
+		lut := new_gray_lut8(tr)
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Pix[img.Stride*y : img.Stride*y+4*width]
+				for x := range width {
+					s := row[4*x : 4*x+3 : 4*x+3]
+					c := lut[gray8(s[0], s[1], s[2])]
+					s[0], s[1], s[2] = c[0], c[1], c[2]
+				}
+			}
+		}
+	case *image.NRGBA64:
+		// this is what 16 bit gray + alpha images are decoded as
+		m := new_gray_mapper16(tr, width*height)
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Pix[img.Stride*y : img.Stride*y+8*width]
+				for x := range width {
+					s := row[8*x : 8*x+6 : 8*x+6]
+					c := m(gray16(uint32(s[0])<<8|uint32(s[1]), uint32(s[2])<<8|uint32(s[3]), uint32(s[4])<<8|uint32(s[5])))
+					s[0], s[1] = uint8(c[0]>>8), uint8(c[0])
+					s[2], s[3] = uint8(c[1]>>8), uint8(c[1])
+					s[4], s[5] = uint8(c[2]>>8), uint8(c[2])
+				}
+			}
+		}
+	case *image.Paletted:
+		for i, c := range img.Palette {
+			r, g, b, a := c.RGBA()
+			if a != 0 {
+				v := gray16(uint32(unpremultiply(r, a)*math.MaxUint16+0.5), uint32(unpremultiply(g, a)*math.MaxUint16+0.5), uint32(unpremultiply(b, a)*math.MaxUint16+0.5))
+				fr, fg, fb := tr.Transform(f16(v), 0, 0)
+				img.Palette[i] = color.NRGBA64{R: f16r(fr), G: f16r(fg), B: f16r(fb), A: uint16(a)}
+			}
+		}
+		return
+	case *image.YCbCr:
+		// Y is the gray value
+		lut := new_gray_lut8(tr)
+		d := nrgb.NewNRGB(b)
+		ans = d
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Y[img.YStride*y : img.YStride*y+width]
+				drow := d.Pix[d.Stride*y : d.Stride*y+3*width]
+				for x, v := range row {
+					c := lut[v]
+					s := drow[3*x : 3*x+3 : 3*x+3]
+					s[0], s[1], s[2] = c[0], c[1], c[2]
+				}
+			}
+		}
+	case *image.NYCbCrA:
+		lut := new_gray_lut8(tr)
+		d := image.NewNRGBA(b)
+		ans = d
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				row := img.Y[img.YStride*y : img.YStride*y+width]
+				arow := img.A[img.AStride*y : img.AStride*y+width]
+				drow := d.Pix[d.Stride*y : d.Stride*y+4*width]
+				for x, v := range row {
+					c := lut[v]
+					s := drow[4*x : 4*x+4 : 4*x+4]
+					s[0], s[1], s[2], s[3] = c[0], c[1], c[2], arow[x]
+				}
+			}
+		}
+	case *image.CMYK:
+		return nil, fmt.Errorf("cannot apply a monochrome color profile to a CMYK image")
+	default:
+		// This handles premultiplied images like RGBA and RGBA64 as well
+		m := new_gray_mapper16(tr, width*height)
+		d := image.NewNRGBA64(b)
+		ans = d
+		f = func(start, limit int) {
+			for y := start; y < limit; y++ {
+				drow := d.Pix[d.Stride*y : d.Stride*y+8*width]
+				for x := range width {
+					r, g, bb, a := img.At(x+b.Min.X, y+b.Min.Y).RGBA()
+					if a == 0 {
+						continue
+					}
+					v := uint16(r)
+					if a != math.MaxUint16 || r != g || g != bb {
+						v = gray16(uint32(unpremultiply(r, a)*math.MaxUint16+0.5), uint32(unpremultiply(g, a)*math.MaxUint16+0.5), uint32(unpremultiply(bb, a)*math.MaxUint16+0.5))
+					}
+					c := m(v)
+					s := drow[8*x : 8*x+8 : 8*x+8]
+					s[0], s[1] = uint8(c[0]>>8), uint8(c[0])
+					s[2], s[3] = uint8(c[1]>>8), uint8(c[1])
+					s[4], s[5] = uint8(c[2]>>8), uint8(c[2])
+					s[6], s[7] = uint8(a>>8), uint8(a)
 				}
 			}
 		}

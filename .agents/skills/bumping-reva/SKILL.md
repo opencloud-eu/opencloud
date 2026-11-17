@@ -7,7 +7,7 @@ description: Use when the user asks to bump, update, or upgrade the OpenCloud re
 
 ## Overview
 
-Bumping reva updates the pinned [opencloud-eu/reva](https://github.com/opencloud-eu/reva) dependency (`github.com/opencloud-eu/reva/v2`) to a tagged release, re-vendors the module graph, and bumps the OpenCloud dev version. It touches `go.mod`, `go.sum`, `vendor/**` and `pkg/version/version.go`, lands as one commit, and ships as a PR whose body is the reva changelog for that version.
+Bumping reva updates the pinned [opencloud-eu/reva](https://github.com/opencloud-eu/reva) dependency (`github.com/opencloud-eu/reva/v3`) to a tagged release, re-vendors the module graph, and bumps the OpenCloud dev version. It touches `go.mod`, `go.sum`, `vendor/**` and `pkg/version/version.go`, lands as one commit, and ships as a PR whose body is the reva changelog for that version.
 
 Template PR: https://github.com/opencloud-eu/opencloud/pull/3127
 
@@ -28,7 +28,7 @@ Template PR: https://github.com/opencloud-eu/opencloud/pull/3127
 
 | File                     | What                                                                 |
 | ------------------------ | ------------------------------------------------------------------- |
-| `go.mod`                 | `github.com/opencloud-eu/reva/v2` → `REVA_VERSION` (+ indirect deps pulled by `go mod tidy`) |
+| `go.mod`                 | `github.com/opencloud-eu/reva/v3` → `REVA_VERSION` (+ indirect deps pulled by `go mod tidy`) |
 | `go.sum`                 | updated by `go get` / `go mod tidy`                                  |
 | `vendor/**`              | re-vendored by `go mod vendor` (incl. `vendor/modules.txt`)         |
 | `pkg/version/version.go` | `LatestTag = "<OC_VERSION>+dev"`                                     |
@@ -51,13 +51,13 @@ gh api repos/opencloud-eu/reva/commits/$REVA_VERSION --jq '.sha'
 ### 2. Bump the dependency and re-vendor
 
 ```bash
-go get github.com/opencloud-eu/reva/v2@$REVA_VERSION
+go get github.com/opencloud-eu/reva/v3@$REVA_VERSION
 go mod tidy
 go mod vendor
 ```
 
 (Sandbox disabled — these need network.) Notes:
-- Right after a fresh tag the module proxy can lag; if `go get` reports the version as unknown, retry, or use `GOPROXY=direct go get github.com/opencloud-eu/reva/v2@$REVA_VERSION`.
+- Right after a fresh tag the module proxy can lag; if `go get` reports the version as unknown, retry, or use `GOPROXY=direct go get github.com/opencloud-eu/reva/v3@$REVA_VERSION`.
 - `go mod tidy` will also bump indirect dependencies that reva pulled in — that is expected (the template PR did the same).
 
 ### 3. Bump the OpenCloud dev version
@@ -106,7 +106,7 @@ git diff go.mod pkg/version/version.go        # the meaningful edits
 git diff --stat | tail -1                      # vendor churn summary
 ```
 
-Confirm the reva line in `go.mod` is exactly `github.com/opencloud-eu/reva/v2 REVA_VERSION`, show the target branch (`main`), and the PR body. **Do not commit until the user approves.**
+Confirm the reva line in `go.mod` is exactly `github.com/opencloud-eu/reva/v3 REVA_VERSION`, show the target branch (`main`), and the PR body. **Do not commit until the user approves.**
 
 ### 6. Commit, push, open PR
 
@@ -137,7 +137,7 @@ REVA_VERSION=v2.48.0
 gh api repos/opencloud-eu/reva/commits/$REVA_VERSION --jq '.sha'                       # verify tag exists
 OC_VERSION=$(gh pr list --repo opencloud-eu/opencloud --head next-release/main --state open \
   --json title --jq '.[0].title' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)         # from open release PR
-go get github.com/opencloud-eu/reva/v2@$REVA_VERSION && go mod tidy && go mod vendor    # bump + re-vendor
+go get github.com/opencloud-eu/reva/v3@$REVA_VERSION && go mod tidy && go mod vendor    # bump + re-vendor
 # edit pkg/version/version.go -> LatestTag = "$OC_VERSION+dev"
 gh api "repos/opencloud-eu/reva/contents/CHANGELOG.md?ref=$REVA_VERSION" --jq '.content' | base64 -d  # changelog
 ```

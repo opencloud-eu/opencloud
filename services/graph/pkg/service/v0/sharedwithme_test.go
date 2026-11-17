@@ -15,12 +15,12 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	roleconversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	roleconversions "github.com/opencloud-eu/reva/v3/pkg/conversions"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
+	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
@@ -287,6 +287,24 @@ var _ = Describe("SharedWithMe", func() {
 			jsonData := gjson.Get(tape.Body.String(), "value.0.parentReference")
 
 			Expect(jsonData.Get("driveId").String()).To(Equal(storagespace.FormatStorageID(utils.ShareStorageProviderID, utils.ShareStorageSpaceID)))
+		})
+
+		It("populates the driveItem.remoteItem.parentReference properties with the drive of the shared resource", func() {
+			statResponse.Info.Space = &providerv1beta1.StorageSpace{
+				SpaceType: "project",
+				Root:      toResourceID("1$2!2"),
+			}
+
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			jsonData := gjson.Get(tape.Body.String(), "value.0.remoteItem.parentReference")
+
+			// the id of the drive, not the id of its root item
+			Expect(jsonData.Get("driveId").String()).To(Equal("1$2"))
+			Expect(jsonData.Get("driveType").String()).To(Equal("project"))
 		})
 
 		It("populates the driveItem remoteItem properties", func() {

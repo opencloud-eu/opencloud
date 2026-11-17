@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"sync"
 )
@@ -29,6 +30,8 @@ type Profile struct {
 	TagTable      TagTable
 	PCSIlluminant XYZType
 	blackpoints   map[RenderingIntent]*XYZType
+
+	blackpoints_lock sync.Mutex
 }
 
 func (p *Profile) Description() (string, error) {
@@ -43,36 +46,52 @@ func (p *Profile) DeviceModelDescription() (string, error) {
 	return p.TagTable.getDeviceModelDescription()
 }
 
-func (p *Profile) get_effective_chromatic_adaption(forward bool, intent RenderingIntent) (ans *Matrix3, err error) {
-	if intent != AbsoluteColorimetricRenderingIntent { // ComputeConversion() in lcms
-		return nil, nil
+// See _cmsReadMediaWhitePoint() in cmsio1.c
+func (p *Profile) media_white_point() XYZType {
+	// V2 display profiles should give D50
+	if p.Header.Version.Major < 4 && p.Header.DeviceClass == DeviceClassDisplay {
+		return lcms_d50
 	}
-	pcs_whitepoint := p.Header.ParsedPCSIlluminant()
 	x, err := p.TagTable.get_parsed(MediaWhitePointTagSignature, p.Header.DataColorSpace, p.Header.ProfileConnectionSpace)
 	if err != nil {
-		return nil, err
+		return lcms_d50
 	}
-	wtpt, ok := x.(*XYZType)
-	if !ok {
-		return nil, fmt.Errorf("wtpt tag is not of XYZType")
+	if wtpt, ok := x.(*XYZType); ok {
+		return *wtpt
 	}
-	if pcs_whitepoint == *wtpt {
-		return nil, nil
-	}
-	defer func() {
-		if err == nil && ans != nil && !forward {
-			m, ierr := ans.Inverted()
-			if ierr == nil {
-				ans = &m
-			} else {
-				ans, err = nil, ierr
-			}
-		}
-	}()
-	return p.TagTable.get_chromatic_adaption()
+	return lcms_d50
 }
 
-func (p *Profile) create_matrix_trc_transformer(forward bool, chromatic_adaptation *Matrix3, pipeline *Pipeline) (err error) {
+// The transformers to convert relative colorimetric normalized PCS values to
+// absolute colorimetric ones (or the reverse when forward is false). See
+// ComputeAbsoluteIntent() in cmscnvrt.c, we use an adaptation state of 1 (the
+// lcms default) and D50 as the white point of the other side of the
+// conversion, which is the PCS or an sRGB profile.
+func (p *Profile) absolute_colorimetric_adaptation(forward bool, intent RenderingIntent) []ChannelTransformer {
+	if intent != AbsoluteColorimetricRenderingIntent {
+		return nil
+	}
+	wp := p.media_white_point()
+	// v4 profiles have a media white point of D50 up to the precision of s15Fixed16Number
+	const threshold = 2. / 65536
+	if math.Abs(wp.X-lcms_d50.X) < threshold && math.Abs(wp.Y-lcms_d50.Y) < threshold && math.Abs(wp.Z-lcms_d50.Z) < threshold {
+		return nil
+	}
+	m := &Matrix3{{wp.X / lcms_d50.X, 0, 0}, {0, wp.Y / lcms_d50.Y, 0}, {0, 0, wp.Z / lcms_d50.Z}}
+	if !forward {
+		m = &Matrix3{{lcms_d50.X / wp.X, 0, 0}, {0, lcms_d50.Y / wp.Y, 0}, {0, 0, lcms_d50.Z / wp.Z}}
+	}
+	if p.Header.ProfileConnectionSpace == ColorSpaceLab {
+		// the scaling must be done in XYZ space
+		return []ChannelTransformer{NewNormalizedToLAB(), NewLABtoXYZ(p.PCSIlluminant), m, NewXYZtoLAB(p.PCSIlluminant), NewLABToNormalized()}
+	}
+	return []ChannelTransformer{m}
+}
+
+func (p *Profile) create_matrix_trc_transformer(forward bool, pipeline *Pipeline) (err error) {
+	if p.Header.DataColorSpace == ColorSpaceGray {
+		return p.create_gray_trc_transformer(forward, pipeline)
+	}
 	if p.Header.ProfileConnectionSpace != ColorSpaceXYZ {
 		return fmt.Errorf("matrix/TRC based profile using non XYZ PCS color space: %v", p.Header.ProfileConnectionSpace)
 	}
@@ -91,16 +110,10 @@ func (p *Profile) create_matrix_trc_transformer(forward bool, chromatic_adaptati
 	if err != nil {
 		return err
 	}
-	var c Curves
 	if forward {
-		c = NewCurveTransformer("TRC", rc, gc, bc)
+		pipeline.Append(NewCurveTransformer("TRC", rc, gc, bc), m)
 	} else {
-		c = NewInverseCurveTransformer("TRC", rc, gc, bc)
-	}
-	if forward {
-		pipeline.Append(c, m, chromatic_adaptation)
-	} else {
-		pipeline.Append(chromatic_adaptation, m, NewInverseCurveTransformer("TRC", rc, gc, bc))
+		pipeline.Append(m, NewInverseCurveTransformer("TRC", rc, gc, bc))
 	}
 	return nil
 }
@@ -118,7 +131,9 @@ func (p *Profile) find_conversion_tag(forward bool, rendering_intent RenderingIn
 		case SaturationRenderingIntent:
 			ans_sig = AToB2TagSignature
 		case AbsoluteColorimetricRenderingIntent:
-			ans_sig = AToB3TagSignature
+			// absolute colorimetric uses the relative colorimetric table
+			// with adaptation to the media white point, see Device2PCS16 in cmsio1.c
+			ans_sig = AToB1TagSignature
 		default:
 			return nil, fmt.Errorf("unknown rendering intent: %v", rendering_intent)
 		}
@@ -137,7 +152,7 @@ func (p *Profile) find_conversion_tag(forward bool, rendering_intent RenderingIn
 		case SaturationRenderingIntent:
 			ans_sig = BToA2TagSignature
 		case AbsoluteColorimetricRenderingIntent:
-			ans_sig = BToA3TagSignature
+			ans_sig = BToA1TagSignature
 		default:
 			return nil, fmt.Errorf("unknown rendering intent: %v", rendering_intent)
 		}
@@ -152,7 +167,7 @@ func (p *Profile) find_conversion_tag(forward bool, rendering_intent RenderingIn
 		return nil, nil
 	}
 	// We rely on profile reader to error out if the PCS color space is not XYZ
-	// or LAB and the device colorspace is not RGB or CMYK
+	// or LAB and the device colorspace is not RGB, CMYK or Gray
 	input_colorspace, output_colorspace := p.Header.DataColorSpace, p.Header.ProfileConnectionSpace
 	if !forward {
 		input_colorspace, output_colorspace = output_colorspace, input_colorspace
@@ -194,6 +209,7 @@ func (p *Profile) CreateTransformerToDevice(rendering_intent RenderingIntent, us
 	}()
 	ans = &Pipeline{}
 
+	pcs_normalized := false
 	if p.effective_bpc(rendering_intent, use_blackpoint_compensation) {
 		var PCS_blackpoint XYZType // 0, 0, 0
 		output_blackpoint := p.BlackPoint(rendering_intent, nil)
@@ -201,36 +217,47 @@ func (p *Profile) CreateTransformerToDevice(rendering_intent RenderingIntent, us
 			is_lab := p.Header.ProfileConnectionSpace == ColorSpaceLab
 			if is_lab {
 				ans.Append(NewLABtoXYZ(p.PCSIlluminant))
-				ans.Append(NewXYZToNormalized())
 			}
+			// black point correction works on normalized XYZ
+			ans.Append(NewXYZToNormalized())
 			ans.Append(NewBlackPointCorrection(p.PCSIlluminant, PCS_blackpoint, output_blackpoint))
 			if is_lab {
 				ans.Append(NewNormalizedToXYZ())
 				ans.Append(NewXYZtoLAB(p.PCSIlluminant))
+			} else {
+				pcs_normalized = true
 			}
 		}
 	}
-	ans.Append(transform_for_pcs_colorspace(p.Header.ProfileConnectionSpace, false))
+	if !pcs_normalized {
+		ans.Append(transform_for_pcs_colorspace(p.Header.ProfileConnectionSpace, false))
+	}
 
 	const forward = false
 	b2a, err := p.find_conversion_tag(forward, rendering_intent)
 	if err != nil {
 		return nil, err
 	}
-	chromatic_adaptation, err := p.get_effective_chromatic_adaption(forward, rendering_intent)
-	if err != nil {
-		return nil, err
-	}
+	ans.Append(p.absolute_colorimetric_adaptation(forward, rendering_intent)...)
 	if b2a != nil {
+		is_legacy_lab := false
+		if mft, ok := b2a.(*MFT); ok && !mft.is8bit && p.Header.ProfileConnectionSpace == ColorSpaceLab {
+			// Need to scale to the legacy LAB encoding used by lut16type
+			// tags, see _cmsReadOutputLUT() in cmsio1.c
+			is_legacy_lab = true
+			ans.Append(NewLABToMFT2())
+		}
 		ans.Append(b2a)
-		ans.Append(chromatic_adaptation)
+		if is_legacy_lab && p.Header.DataColorSpace == ColorSpaceLab {
+			ans.Append(NewLABFromMFT2())
+		}
 		if p.Header.ProfileConnectionSpace == ColorSpaceLab {
 			// For some reason, lcms prefers trilinear over tetrahedral in this
 			// case, see _cmsReadOutputLUT() in cmsio1.c
 			ans.UseTrilinearInsteadOfTetrahedral()
 		}
 	} else {
-		err = p.create_matrix_trc_transformer(forward, chromatic_adaptation, ans)
+		err = p.create_matrix_trc_transformer(forward, ans)
 	}
 	return
 }
@@ -242,13 +269,8 @@ func (p *Profile) createTransformerToPCS(rendering_intent RenderingIntent) (ans 
 	if err != nil {
 		return nil, err
 	}
-	chromatic_adaptation, err := p.get_effective_chromatic_adaption(forward, rendering_intent)
-	if err != nil {
-		return nil, err
-	}
 	if a2b != nil {
 		ans.Append(a2b)
-		ans.Append(chromatic_adaptation)
 		if ans.has_lut16type_tag && p.Header.ProfileConnectionSpace == ColorSpaceLab {
 			// Need to scale the lut16type data for legacy LAB encoding in ICC profiles
 			if p.Header.DataColorSpace == ColorSpaceLab {
@@ -257,7 +279,10 @@ func (p *Profile) createTransformerToPCS(rendering_intent RenderingIntent) (ans 
 			ans.Append(NewLABFromMFT2())
 		}
 	} else {
-		err = p.create_matrix_trc_transformer(forward, chromatic_adaptation, ans)
+		err = p.create_matrix_trc_transformer(forward, ans)
+	}
+	if err == nil {
+		ans.Append(p.absolute_colorimetric_adaptation(forward, rendering_intent)...)
 	}
 	return
 }

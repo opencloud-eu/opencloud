@@ -17,8 +17,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 
 	"github.com/opencloud-eu/opencloud/pkg/keycloak"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
@@ -72,6 +72,8 @@ type Graph struct {
 	metrics                  *metrics.Metrics
 	traceProvider            trace.TracerProvider
 	natskv                   jetstream.KeyValue
+	// the maximum file size of a space image in bytes, 0 for unlimited
+	maxSpaceImageSize uint64
 }
 
 var _ Service = Graph{} // ensure that the Graph struct implements all of the Service interface

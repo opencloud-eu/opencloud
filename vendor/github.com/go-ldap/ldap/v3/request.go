@@ -76,7 +76,8 @@ func getReferral(err error, packet *ber.Packet) (referral string) {
 		return ""
 	}
 
-	if len(packet.Children) < 2 {
+	protocolOp, perr := packetChild(packet, 1)
+	if perr != nil {
 		return ""
 	}
 
@@ -87,13 +88,17 @@ func getReferral(err error, packet *ber.Packet) (referral string) {
 	//
 	// Related Issues:
 	//   - https://github.com/authelia/authelia/issues/4199 (downstream)
-	if len(packet.Children[1].Children) == 0 || (packet.Children[1].TagType != ber.TypeConstructed || packet.Children[1].ClassType != ber.ClassApplication) {
+	if protocolOp.TagType != ber.TypeConstructed || protocolOp.ClassType != ber.ClassApplication {
+		return ""
+	}
+	if _, err := packetChildCount(protocolOp, 1, -1, "referral"); err != nil {
 		return ""
 	}
 
-	var ok bool
-
-	for _, child := range packet.Children[1].Children {
+	for _, child := range protocolOp.Children {
+		if child == nil {
+			continue
+		}
 		// The referral URI itself should be contained within a child which has a Tag of ber.BitString or
 		// ber.TagPrintableString, and the Type of ber.TypeConstructed and the Class of ClassContext. As soon as any of
 		// these conditions is not true  we can skip this child.
@@ -105,11 +110,11 @@ func getReferral(err error, packet *ber.Packet) (referral string) {
 		// malicious server can send an empty SEQUENCE. Skip it instead of indexing
 		// child.Children[0], which would panic the goroutine that called Modify or
 		// PasswordModify.
-		if len(child.Children) == 0 {
+		uriChild, err := packetChild(child, 0)
+		if err != nil {
 			continue
 		}
-
-		if referral, ok = child.Children[0].Value.(string); ok {
+		if referral, err := packetString(uriChild); err == nil {
 			return referral
 		}
 	}

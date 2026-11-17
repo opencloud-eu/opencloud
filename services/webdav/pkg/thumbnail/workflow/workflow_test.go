@@ -20,14 +20,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
+	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
+	grpcmetadata "google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
@@ -216,6 +217,7 @@ func setupPreprocessTest(
 		if err := r.ParseMultipartForm(10 << 20); err == nil {
 			for _, fh := range r.MultipartForm.File["image"] {
 				captured.filename = filepath.Base(fh.Filename)
+				captured.contentType = fh.Header.Get("Content-Type")
 				file, ferr := fh.Open()
 				if ferr != nil {
 					continue
@@ -234,9 +236,10 @@ func setupPreprocessTest(
 }
 
 type capturedUpload struct {
-	path     string
-	filename string
-	data     []byte
+	path        string
+	filename    string
+	contentType string
+	data        []byte
 }
 
 var _ = Describe("ThumbnailWorkflow", func() {
@@ -680,9 +683,15 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 	Describe("username-scoped reference", func() {
 		It("resolves a username identifier to the user's home path via GetUserByClaim", func() {
-			var statRef *providerv1beta1.Reference
+			var (
+				statRef  *providerv1beta1.Reference
+				claimCtx context.Context
+			)
 
-			gatewayClient.On("GetUserByClaim", mock.Anything, mock.MatchedBy(func(req *userv1beta1.GetUserByClaimRequest) bool {
+			gatewayClient.On("GetUserByClaim", mock.MatchedBy(func(ctx context.Context) bool {
+				claimCtx = ctx
+				return true
+			}), mock.MatchedBy(func(req *userv1beta1.GetUserByClaimRequest) bool {
 				return req.GetClaim() == "username" && req.GetValue() == "alice"
 			})).Return(&userv1beta1.GetUserByClaimResponse{
 				Status: status.NewOK(context.Background()),
@@ -752,6 +761,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			// The username from the URL (alice) is resolved via GetUserByClaim and
 			// the path is absolutized under alice's home, not the token owner's.
+			// The lookup carries the requester's token, because the user provider
+			// searches the requester's tenant.
+			md, _ := grpcmetadata.FromOutgoingContext(claimCtx)
+			Expect(md.Get(revactx.TokenHeader)).To(ConsistOf(testToken))
 			Expect(statRef.GetResourceId()).ToNot(BeNil())
 			Expect(statRef.GetPath()).To(Equal("./users/alice-opaque/photo.jpeg"))
 			Expect(downloadRef.GetResourceId()).ToNot(BeNil())
@@ -776,6 +789,25 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).To(Equal(pngBytes))
+		})
+
+		It("streams an announced type without a converter through untouched", func() {
+			pdfBytes := []byte("%PDF-1.4 not really a pdf")
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "application/pdf", "doc.pdf", pdfBytes)
+			wf2.sourceTypes = thumbnail.NewSourceTypes([]string{"application/pdf"})
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "doc.pdf"),
+				Filename: "doc.pdf",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.data).To(Equal(pdfBytes))
+			Expect(captured.contentType).To(Equal("application/pdf"), "the generator sees the file's own type, not a guess")
 		})
 
 		It("converts audio to cover art before posting", func() {
@@ -985,6 +1017,13 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Width:    64,
 				Height:   64,
 			}
+
+			untouched := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				defer GinkgoRecover()
+				Fail("a type outside the source types must never reach the generator")
+			}))
+			defer untouched.Close()
+			wf.generatorURL = untouched.URL
 
 			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())

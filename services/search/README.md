@@ -27,6 +27,12 @@ The following optional settings can be set:
 
 *   `SEARCH_ENGINE_BLEVE_DATA_PATH=/path/to/bleve/index` (default: `$OC_BASE_DATA_PATH/search`): Path to store the bleve index.
 
+#### Memory
+
+Bleve stores the index in segments and merges smaller segments into larger ones in the background. A merge keeps the positions of each word across the whole new segment in memory, so it can briefly need much more memory than indexing or searching. How much depends on the size of the segments, and they grow with the index.
+
+This mostly matters with content extraction and many large text files, such as books or long documents. As a rough guide, keep about a tenth of the index size (the size of the bleve directory in the data path) free in addition to what OpenCloud otherwise uses, and expect that to grow along with the index. Merges run whenever bleve decides to, not only during a reindex. If the search service is killed for running out of memory while or after indexing, give it more memory.
+
 ### OpenSearch
 
 OpenSearch is a distributed, RESTful search and analytics engine capable of addressing a growing number of use cases.
@@ -79,6 +85,35 @@ Not all parts are supported, the following list gives an overview of parts that 
 *   Date intervals
 
 In [this ADR](https://github.com/owncloud/ocis/blob/docs/ocis/adr/0020-file-search-query-language.md) you can read why KQL was chosen.
+
+### Quoting values
+
+Put a value in double quotes when it contains a space, a parenthesis or a double quote, or when it should not be read as an operator such as `AND`, `OR` or `NOT`: `name:"quarterly report"`, `tag:"draft (old)"`, `name:"rock AND roll"`.
+
+Inside the quotes only the double quote is special. Write it twice to search for one double quote, as the [KQL specification](https://learn.microsoft.com/en-us/openspecs/sharepoint_protocols/ms-kql/56ed4d93-d021-430b-a367-972122d00111) defines it:
+
+```
+name:"*""draft""*"
+```
+
+finds `Offer "draft" v2.pdf`. Every other character stands for itself, the backslash and the slash included:
+
+| Character | In a quoted value | In an unquoted value |
+|---|---|---|
+| `"` | write it twice: `""` | not allowed, the query is rejected |
+| `\` | itself: `content:"C:\temp\new"` | itself: `name:back\slash.txt` |
+| `/` | itself: `tag:"a/b"` | itself: `mediatype:image/png` |
+| space, `(`, `)` | itself | can't be part of the value |
+| `*` | matches any number of characters | matches any number of characters |
+| `?` | matches exactly one character | matches exactly one character |
+
+A backslash does not escape anything. `name:"*\"draft\"*"` does not look for a quoted `draft`, it is `name:"*\"` followed by `draft\` and `"*"`.
+
+`*` and `?` are always wildcards, there is no way to search for a literal `*` or `?`.
+
+To build a query from user input, replace every `"` in the input with `""` and put the result in double quotes, for example `name:"*` + input + `*"`. Nothing else needs escaping.
+
+The quotes only decide what the value is. Whether a character takes part in the match depends on the field: `content` and the words of `name` and `title` are matched by their words, so `content:"""draft"""` finds the same documents as `content:"draft"`, while a wildcard on `name` or a tag compares the whole value including its quotes.
 
 ## Query template
 
@@ -137,15 +172,17 @@ opencloud search index --space $SPACE_ID
 It can also be used to re-index all spaces:
 
 ```shell
-opencloud search index --all-spaces --insecure
+opencloud search index --all-spaces
 ```
 
 Please note that a reindex only picks up new or changed files. Files that have already been indexed are not scanned again, even if the configuration or the whole extractor has been changed. To force a full rescan (re-running the extractor on every file) you need to use the `force-rescan` flag:
 
 
 ```shell
-opencloud search index --all-spaces --force-rescan --insecure
+opencloud search index --all-spaces --force-rescan
 ```
+
+The command connects to the service's gRPC address (`SEARCH_GRPC_ADDR`) unless `--endpoint` is given, with the TLS mode set in `OC_GRPC_CLIENT_TLS_MODE`. With `on`, the server certificate is verified against that address, so if `SEARCH_GRPC_ADDR` is a bind address such as `0.0.0.0:9220`, pass `--endpoint` with a host name the certificate is valid for.
 
 ## Metrics
 

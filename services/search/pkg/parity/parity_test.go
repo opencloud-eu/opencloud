@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -112,6 +112,7 @@ func queryGroups() []queryGroup {
 		rangeGroup(),
 		scopeGroup(),
 		invalidGroup(),
+		quotingGroup(),
 	}
 }
 

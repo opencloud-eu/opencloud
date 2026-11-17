@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -18,14 +19,14 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/golang-jwt/jwt/v5"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/auth"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/walker"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/auth"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	sdk "github.com/opencloud-eu/reva/v3/pkg/sdk/common"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/walker"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -46,6 +47,10 @@ const (
 	_spaceTypeProject    = "project"
 	_spaceTypeGrant      = "grant"
 	_slowQueryDuration   = 500 * time.Millisecond
+
+	// facetKeyPrefix is the arbitrary metadata namespace the facets are stored
+	// under. The indexer owns all of it and removes keys it no longer writes.
+	facetKeyPrefix = "libre.graph."
 )
 
 // Searcher is the interface to the SearchService
@@ -342,7 +347,15 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}, nil
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*searchsvc.SearchIndexResponse, error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (res *searchsvc.SearchIndexResponse, err error) {
+	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error().Interface("recover", r).Str("space", space.GetId().GetOpaqueId()).Str("query", req.GetQuery()).Msg("failed to search a space")
+			res, err = nil, errSkipSpace
+		}
+	}()
+
 	if req.Ref != nil &&
 		(req.Ref.ResourceId.StorageId != space.Root.StorageId ||
 			req.Ref.ResourceId.SpaceId != space.Root.SpaceId) {
@@ -447,7 +460,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		PageSize: req.PageSize,
 	}
 	start := time.Now()
-	res, err := s.engine.Search(ctx, searchRequest)
+	res, err = s.engine.Search(ctx, searchRequest)
 	duration := time.Since(start)
 	if err != nil {
 		s.logger.Error().Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
@@ -470,6 +483,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		}
 		match.Entity.ShareRootName = rootName
 		match.Entity.RemoteItemId = remoteItemId
+		match.Entity.Highlights = SanitizeHighlights(match.Entity.GetHighlights())
 
 		isShared := match.GetEntity().GetRef().GetResourceId().GetSpaceId() == utils.ShareStorageSpaceID
 		isMountpoint := isShared && match.GetEntity().GetRef().GetPath() == "."
@@ -720,18 +734,29 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 
 	// determine if metadata needs to be stored in storage as well
 	metadata := map[string]string{}
-	facetToMetadata(metadata, doc.Audio, "libre.graph.audio.")
-	facetToMetadata(metadata, doc.Image, "libre.graph.image.")
-	facetToMetadata(metadata, doc.Location, "libre.graph.location.")
-	facetToMetadata(metadata, doc.Photo, "libre.graph.photo.")
-	facetToMetadata(metadata, doc.Video, "libre.graph.video.")
-	facetToMetadata(metadata, doc.MotionPhoto, "libre.graph.motionPhoto.")
-	facetToMetadata(metadata, doc.LivePhoto, "libre.graph.livePhoto.")
-	if len(metadata) == 0 {
+	facetToMetadata(metadata, doc.Audio, facetKeyPrefix+"audio.")
+	facetToMetadata(metadata, doc.Image, facetKeyPrefix+"image.")
+	facetToMetadata(metadata, doc.Location, facetKeyPrefix+"location.")
+	facetToMetadata(metadata, doc.Photo, facetKeyPrefix+"photo.")
+	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
+	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
+	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
+
+	// the facet keys are ours, so the ones this extraction did not produce
+	// describe content the resource no longer has
+	var stale []string
+	for k, stored := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
+		value, ok := metadata[k]
+		switch {
+		case ok && value == stored:
+			delete(metadata, k)
+		case !ok && strings.HasPrefix(k, facetKeyPrefix):
+			stale = append(stale, k)
+		}
+	}
+	if len(metadata) == 0 && len(stale) == 0 {
 		return
 	}
-
-	s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
 
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
@@ -739,16 +764,49 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 		return
 	}
 
-	resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
-		Ref: ref,
-		ArbitraryMetadata: &provider.ArbitraryMetadata{
-			Metadata: metadata,
-		},
-	})
-	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
-		return
+	if len(metadata) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
+
+		resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
+			Ref: ref,
+			ArbitraryMetadata: &provider.ArbitraryMetadata{
+				Metadata: metadata,
+			},
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
+			return
+		}
 	}
+
+	if len(stale) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Strs("keys", stale).Msg("Removing stale metadata")
+
+		resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
+			Ref:                   ref,
+			ArbitraryMetadataKeys: stale,
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
+		}
+	}
+}
+
+// SanitizeHighlights keeps the <mark> tags and escapes everything else.
+func SanitizeHighlights(highlights string) string {
+	var b strings.Builder
+	for i, open := range strings.Split(highlights, "<mark>") {
+		if i > 0 {
+			b.WriteString("<mark>")
+		}
+		for j, closed := range strings.Split(open, "</mark>") {
+			if j > 0 {
+				b.WriteString("</mark>")
+			}
+			b.WriteString(html.EscapeString(html.UnescapeString(closed)))
+		}
+	}
+	return b.String()
 }
 
 // IsHidden identifies if a node is hidden or not based on its name & path.

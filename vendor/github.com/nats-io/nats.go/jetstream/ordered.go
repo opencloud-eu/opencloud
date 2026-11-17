@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/internal/parser"
 )
 
 type (
@@ -40,10 +42,10 @@ type (
 		doReset           chan struct{}
 		resetInProgress   atomic.Uint32
 		userErrHandler    ConsumeErrHandler
-		stopAfter         int
-		stopAfterMsgsLeft chan int
-		withStopAfter     bool
+		stopAfter         int // StopAfter of Consume or Messages, 0 if not set
+		deliveredMessages int // messages handed to the caller, across resets
 		runningFetch      *fetchResult
+		fetchInProgress   bool
 		subscription      *orderedSubscription
 		sync.Mutex
 	}
@@ -99,15 +101,18 @@ func (c *orderedConsumer) Consume(handler MessageHandler, opts ...PullConsumeOpt
 		return nil, fmt.Errorf("%w: %s", ErrInvalidOption, err)
 	}
 	c.userErrHandler = consumeOpts.ErrHandler
-	opts = append(opts, consumeReconnectNotify(),
-		ConsumeErrHandler(c.errHandler(c.serial)))
-	if consumeOpts.StopAfter > 0 {
-		c.withStopAfter = true
-		c.stopAfter = consumeOpts.StopAfter
-	}
-	c.stopAfterMsgsLeft = make(chan int, 1)
-	if c.stopAfter > 0 {
-		opts = append(opts, consumeStopAfterNotify(c.stopAfter, c.stopAfterMsgsLeft))
+	c.stopAfter = max(consumeOpts.StopAfter, 0)
+	c.deliveredMessages = 0
+	// Preserve the resolved heartbeat when creating the pull consumer.
+	opts = append(opts, PullHeartbeat(consumeOpts.Heartbeat), consumeReconnectNotify())
+	// innerOpts returns the options for the inner pull subscription of the
+	// current serial. Lock should be held when calling it.
+	innerOpts := func() []PullConsumeOpt {
+		o := append(slices.Clip(opts), ConsumeErrHandler(c.errHandler(c.serial)))
+		if c.stopAfter > 0 {
+			o = append(o, StopAfter(c.stopAfter-c.deliveredMessages))
+		}
+		return o
 	}
 	sub := &orderedSubscription{
 		consumer: c,
@@ -122,27 +127,36 @@ func (c *orderedConsumer) Consume(handler MessageHandler, opts ...PullConsumeOpt
 				c.Unlock()
 				return
 			}
-			meta, err := msg.Metadata()
+			tokens, err := msg.(*jetStreamMsg).metadataFields()
 			if err != nil {
 				currentSub := c.currentSub
 				c.Unlock()
 				c.errHandler(serial)(currentSub, err)
 				return
 			}
-			dseq := meta.Sequence.Consumer
+			dseq := parser.ParseNum(tokens[parser.AckConsumerSeqTokenPos])
 			if dseq != c.cursor.deliverSeq+1 {
 				c.Unlock()
 				c.errHandler(serial)(sub, errOrderedSequenceMismatch)
 				return
 			}
+			if c.stopAfter > 0 && c.deliveredMessages >= c.stopAfter {
+				c.Unlock()
+				return
+			}
 			c.cursor.deliverSeq = dseq
-			c.cursor.streamSeq = meta.Sequence.Stream
+			c.cursor.streamSeq = parser.ParseNum(tokens[parser.AckStreamSeqTokenPos])
+			c.deliveredMessages++
+			last := c.stopAfter > 0 && c.deliveredMessages == c.stopAfter
 			c.Unlock()
 			handler(msg)
+			if last {
+				sub.Stop()
+			}
 		}
 	}
 
-	cc, err := c.currentConsumer.Consume(internalHandler(c.serial), opts...)
+	cc, err := c.currentConsumer.Consume(internalHandler(c.serial), innerOpts()...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,35 +166,25 @@ func (c *orderedConsumer) Consume(handler MessageHandler, opts ...PullConsumeOpt
 		for {
 			select {
 			case <-c.doReset:
+				c.Lock()
+				done := c.stopAfter > 0 && c.deliveredMessages >= c.stopAfter
+				c.Unlock()
+				if done {
+					sub.Stop()
+					return
+				}
 				if err := c.reset(); err != nil {
 					if errors.Is(err, errOrderedConsumerClosed) {
 						continue
 					}
 					c.errHandler(c.serial)(c.currentSub, err)
 				}
-				if c.withStopAfter {
-					select {
-					case c.stopAfter = <-c.stopAfterMsgsLeft:
-					default:
-					}
-					if c.stopAfter <= 0 {
-						sub.Stop()
-						return
-					}
-				}
-				if c.stopAfter > 0 {
-					opts = opts[:len(opts)-2]
-				} else {
-					opts = opts[:len(opts)-1]
-				}
-
-				// overwrite the previous err handler to use the new serial
-				opts = append(opts, ConsumeErrHandler(c.errHandler(c.serial)))
-				if c.withStopAfter {
-					opts = append(opts, consumeStopAfterNotify(c.stopAfter, c.stopAfterMsgsLeft))
-				}
-				if cc, err := c.currentConsumer.Consume(internalHandler(c.serial), opts...); err != nil {
-					c.errHandler(c.serial)(cc, err)
+				c.Lock()
+				serial := c.serial
+				consumeOpts := innerOpts()
+				c.Unlock()
+				if cc, err := c.currentConsumer.Consume(internalHandler(serial), consumeOpts...); err != nil {
+					c.errHandler(serial)(cc, err)
 				} else {
 					c.Lock()
 					c.currentSub = cc.(*pullSubscription)
@@ -193,12 +197,6 @@ func (c *orderedConsumer) Consume(handler MessageHandler, opts ...PullConsumeOpt
 					s.Stop()
 					sub.consumer.Unlock()
 				}
-				return
-			case msgsLeft, ok := <-c.stopAfterMsgsLeft:
-				if !ok {
-					close(sub.done)
-				}
-				c.stopAfter = msgsLeft
 				return
 			}
 		}
@@ -260,18 +258,14 @@ func (c *orderedConsumer) Messages(opts ...PullMessagesOpt) (MessagesContext, er
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidOption, err)
 	}
+	// Preserve the resolved heartbeat when creating the pull consumer.
 	opts = append(opts,
+		PullHeartbeat(consumeOpts.Heartbeat),
 		WithMessagesErrOnMissingHeartbeat(true),
 		messagesReconnectNotify())
-	c.stopAfterMsgsLeft = make(chan int, 1)
-	if consumeOpts.StopAfter > 0 {
-		c.withStopAfter = true
-		c.stopAfter = consumeOpts.StopAfter
-	}
+	c.stopAfter = max(consumeOpts.StopAfter, 0)
+	c.deliveredMessages = 0
 	c.userErrHandler = consumeOpts.ErrHandler
-	if c.stopAfter > 0 {
-		opts = append(opts, messagesStopAfterNotify(c.stopAfter, c.stopAfterMsgsLeft))
-	}
 	cc, err := c.currentConsumer.Messages(opts...)
 	if err != nil {
 		return nil, err
@@ -307,58 +301,63 @@ func (s *orderedSubscription) Next(opts ...NextOpt) (Msg, error) {
 				s.Stop()
 				return nil, err
 			}
-			if s.consumer.withStopAfter {
-				select {
-				case s.consumer.stopAfter = <-s.consumer.stopAfterMsgsLeft:
-				default:
-				}
-				if s.consumer.stopAfter <= 0 {
-					s.Stop()
-					return nil, ErrMsgIteratorClosed
-				}
-				s.opts[len(s.opts)-1] = StopAfter(s.consumer.stopAfter)
-			}
-			if err := s.consumer.reset(); err != nil {
-				if errors.Is(err, errOrderedConsumerClosed) {
-					return nil, ErrMsgIteratorClosed
-				}
+			if err := s.resetMessages(); err != nil {
 				return nil, err
 			}
-			cc, err := s.consumer.currentConsumer.Messages(s.opts...)
-			if err != nil {
-				return nil, err
-			}
-			s.consumer.currentSub = cc.(*pullSubscription)
 			continue
 		}
 
-		meta, err := msg.Metadata()
+		tokens, err := msg.(*jetStreamMsg).metadataFields()
 		if err != nil {
 			return nil, err
 		}
-		serial := serialNumberFromConsumer(meta.Consumer)
+		serial := serialNumberFromConsumer(tokens[parser.AckConsumerTokenPos])
 		if serial != s.consumer.serial {
 			continue
 		}
-		dseq := meta.Sequence.Consumer
+		dseq := parser.ParseNum(tokens[parser.AckConsumerSeqTokenPos])
 		if dseq != s.consumer.cursor.deliverSeq+1 {
-			if err := s.consumer.reset(); err != nil {
-				if errors.Is(err, errOrderedConsumerClosed) {
-					return nil, ErrMsgIteratorClosed
-				}
+			if err := s.resetMessages(); err != nil {
 				return nil, err
 			}
-			cc, err := s.consumer.currentConsumer.Messages(s.opts...)
-			if err != nil {
-				return nil, err
-			}
-			s.consumer.currentSub = cc.(*pullSubscription)
 			continue
 		}
 		s.consumer.cursor.deliverSeq = dseq
-		s.consumer.cursor.streamSeq = meta.Sequence.Stream
+		s.consumer.cursor.streamSeq = parser.ParseNum(tokens[parser.AckStreamSeqTokenPos])
+		s.consumer.deliveredMessages++
 		return msg, nil
 	}
+}
+
+// resetMessages replaces the inner iterator with a new one, created on a
+// new consumer which resumes after the last message returned by Next.
+// With StopAfter set, the new iterator is limited to the messages that
+// are left to deliver.
+func (s *orderedSubscription) resetMessages() error {
+	c := s.consumer
+	opts := s.opts
+	if c.stopAfter > 0 {
+		remaining := c.stopAfter - c.deliveredMessages
+		if remaining <= 0 {
+			s.Stop()
+			return ErrMsgIteratorClosed
+		}
+		opts = append(slices.Clip(opts), StopAfter(remaining))
+	}
+	if err := c.reset(); err != nil {
+		if errors.Is(err, errOrderedConsumerClosed) {
+			return ErrMsgIteratorClosed
+		}
+		return err
+	}
+	cc, err := c.currentConsumer.Messages(opts...)
+	if err != nil {
+		return err
+	}
+	c.Lock()
+	c.currentSub = cc.(*pullSubscription)
+	c.Unlock()
+	return nil
 }
 
 func (s *orderedSubscription) Stop() {
@@ -418,13 +417,28 @@ func (s *orderedSubscription) Closed() <-chan struct{} {
 // reset the consumer for each subsequent Fetch call.
 // Consider using [Consumer.Consume] or [Consumer.Messages] instead.
 func (c *orderedConsumer) Fetch(batch int, opts ...FetchOpt) (MessageBatch, error) {
+	return c.fetchWithOpts(batch, true, opts...)
+}
+
+func (c *orderedConsumer) fetchWithOpts(batch int, allowMaxBytes bool, opts ...FetchOpt) (MessageBatch, error) {
+	return c.fetch(func(p *pullConsumer) (MessageBatch, error) {
+		return p.fetchWithOpts(batch, allowMaxBytes, opts...)
+	})
+}
+
+func (c *orderedConsumer) fetch(f func(*pullConsumer) (MessageBatch, error)) (MessageBatch, error) {
 	c.Lock()
 	if c.consumerType == consumerTypeConsume {
 		c.Unlock()
 		return nil, ErrOrderConsumerUsedAsConsume
 	}
+	if c.fetchInProgress {
+		c.Unlock()
+		return nil, ErrOrderedConsumerConcurrentRequests
+	}
 	if c.runningFetch != nil {
 		if !c.runningFetch.closed() {
+			c.Unlock()
 			return nil, ErrOrderedConsumerConcurrentRequests
 		}
 		if c.runningFetch.sseq != 0 {
@@ -437,12 +451,16 @@ func (c *orderedConsumer) Fetch(batch int, opts ...FetchOpt) (MessageBatch, erro
 		done:     make(chan struct{}),
 	}
 	c.subscription = &sub
+	c.fetchInProgress = true
 	c.Unlock()
 	err := c.reset()
-	if err != nil {
-		return nil, err
+	var msgs MessageBatch
+	if err == nil {
+		msgs, err = f(c.currentConsumer)
 	}
-	msgs, err := c.currentConsumer.Fetch(batch, opts...)
+	c.Lock()
+	defer c.Unlock()
+	c.fetchInProgress = false
 	if err != nil {
 		return nil, err
 	}
@@ -458,36 +476,9 @@ func (c *orderedConsumer) Fetch(batch int, opts ...FetchOpt) (MessageBatch, erro
 // reset the consumer for each subsequent Fetch call.
 // Consider using [Consumer.Consume] or [Consumer.Messages] instead.
 func (c *orderedConsumer) FetchBytes(maxBytes int, opts ...FetchOpt) (MessageBatch, error) {
-	c.Lock()
-	if c.consumerType == consumerTypeConsume {
-		c.Unlock()
-		return nil, ErrOrderConsumerUsedAsConsume
-	}
-	if c.runningFetch != nil {
-		if !c.runningFetch.closed() {
-			return nil, ErrOrderedConsumerConcurrentRequests
-		}
-		if c.runningFetch.sseq != 0 {
-			c.cursor.streamSeq = c.runningFetch.sseq
-		}
-	}
-	c.consumerType = consumerTypeFetch
-	sub := orderedSubscription{
-		consumer: c,
-		done:     make(chan struct{}),
-	}
-	c.subscription = &sub
-	c.Unlock()
-	err := c.reset()
-	if err != nil {
-		return nil, err
-	}
-	msgs, err := c.currentConsumer.FetchBytes(maxBytes, opts...)
-	if err != nil {
-		return nil, err
-	}
-	c.runningFetch = msgs.(*fetchResult)
-	return msgs, nil
+	return c.fetch(func(p *pullConsumer) (MessageBatch, error) {
+		return p.FetchBytes(maxBytes, opts...)
+	})
 }
 
 // FetchNoWait is used to retrieve up to a provided number of messages
@@ -499,23 +490,9 @@ func (c *orderedConsumer) FetchBytes(maxBytes int, opts ...FetchOpt) (MessageBat
 // reset the consumer for each subsequent Fetch call.
 // Consider using [Consumer.Consume] or [Consumer.Messages] instead.
 func (c *orderedConsumer) FetchNoWait(batch int) (MessageBatch, error) {
-	if c.consumerType == consumerTypeConsume {
-		return nil, ErrOrderConsumerUsedAsConsume
-	}
-	if c.runningFetch != nil && !c.runningFetch.done {
-		return nil, ErrOrderedConsumerConcurrentRequests
-	}
-	c.consumerType = consumerTypeFetch
-	sub := orderedSubscription{
-		consumer: c,
-		done:     make(chan struct{}),
-	}
-	c.subscription = &sub
-	err := c.reset()
-	if err != nil {
-		return nil, err
-	}
-	return c.currentConsumer.FetchNoWait(batch)
+	return c.fetch(func(p *pullConsumer) (MessageBatch, error) {
+		return p.FetchNoWait(batch)
+	})
 }
 
 // Next is used to retrieve the next message from the stream. This
@@ -526,7 +503,7 @@ func (c *orderedConsumer) FetchNoWait(batch int) (MessageBatch, error) {
 // reset the consumer for each subsequent Fetch call.
 // Consider using [Consumer.Consume] or [Consumer.Messages] instead.
 func (c *orderedConsumer) Next(opts ...FetchOpt) (Msg, error) {
-	res, err := c.Fetch(1, opts...)
+	res, err := c.fetchWithOpts(1, false, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -541,14 +518,11 @@ func (c *orderedConsumer) Next(opts ...FetchOpt) (Msg, error) {
 }
 
 func serialNumberFromConsumer(name string) int {
-	if len(name) == 0 {
+	i := strings.LastIndexByte(name, '_')
+	if i < 0 {
 		return 0
 	}
-	parts := strings.Split(name, "_")
-	if len(parts) < 2 {
-		return 0
-	}
-	serial, err := strconv.Atoi(parts[len(parts)-1])
+	serial, err := strconv.Atoi(name[i+1:])
 	if err != nil {
 		return 0
 	}
@@ -674,22 +648,6 @@ func (c *orderedConsumer) getConsumerConfig() *ConsumerConfig {
 	return cfg
 }
 
-func consumeStopAfterNotify(numMsgs int, msgsLeftAfterStop chan int) PullConsumeOpt {
-	return pullOptFunc(func(opts *consumeOpts) error {
-		opts.StopAfter = numMsgs
-		opts.stopAfterMsgsLeft = msgsLeftAfterStop
-		return nil
-	})
-}
-
-func messagesStopAfterNotify(numMsgs int, msgsLeftAfterStop chan int) PullMessagesOpt {
-	return pullOptFunc(func(opts *consumeOpts) error {
-		opts.StopAfter = numMsgs
-		opts.stopAfterMsgsLeft = msgsLeftAfterStop
-		return nil
-	})
-}
-
 func consumeReconnectNotify() PullConsumeOpt {
 	return pullOptFunc(func(opts *consumeOpts) error {
 		opts.notifyOnReconnect = true
@@ -729,7 +687,7 @@ func (c *orderedConsumer) Info(ctx context.Context) (*ConsumerInfo, error) {
 		return nil, ErrConsumerNotFound
 	}
 
-	c.currentConsumer.info = resp.ConsumerInfo
+	c.currentConsumer.info.Store(resp.ConsumerInfo)
 	return resp.ConsumerInfo, nil
 }
 
@@ -742,7 +700,7 @@ func (c *orderedConsumer) CachedInfo() *ConsumerInfo {
 	if c.currentConsumer == nil {
 		return nil
 	}
-	return c.currentConsumer.info
+	return c.currentConsumer.info.Load()
 }
 
 type backoffOpts struct {

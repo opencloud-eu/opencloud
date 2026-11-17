@@ -208,8 +208,11 @@ func compileFilterSet(filter string, pos int, parent *ber.Packet) (int, error) {
 		pos = newPos
 		parent.AppendChild(child)
 	}
-	if pos == len(filter) {
+	if pos >= len(filter) {
 		return pos, NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
+	}
+	if filter[pos] != ')' {
+		return pos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: expected ')' at position %d", pos))
 	}
 
 	return pos + 1, nil
@@ -235,8 +238,17 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		return nil, 0, NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", newPos))
 	case '(':
 		packet, newPos, err = compileFilter(filter, pos+currentWidth)
+		if err != nil {
+			return nil, newPos, err
+		}
+		if newPos >= len(filter) {
+			return nil, newPos, NewError(ErrorFilterCompile, errors.New("ldap: unexpected end of filter"))
+		}
+		if filter[newPos] != ')' {
+			return nil, newPos, NewError(ErrorFilterCompile, fmt.Errorf("ldap: expected ')' at position %d", newPos))
+		}
 		newPos++
-		return packet, newPos, err
+		return packet, newPos, nil
 	case '&':
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterAnd, nil, FilterMap[FilterAnd])
 		newPos, err = compileFilterSet(filter, pos+currentWidth, packet)
@@ -249,8 +261,11 @@ func compileFilter(filter string, pos int) (*ber.Packet, int, error) {
 		packet = ber.Encode(ber.ClassContext, ber.TypeConstructed, FilterNot, nil, FilterMap[FilterNot])
 		var child *ber.Packet
 		child, newPos, err = compileFilter(filter, pos+currentWidth)
+		if err != nil {
+			return nil, newPos, err
+		}
 		packet.AppendChild(child)
-		return packet, newPos, err
+		return packet, newPos, nil
 	default:
 		const (
 			stateReadingAttr                   = 0

@@ -5,25 +5,25 @@ go 1.26.0
 require (
 	dario.cat/mergo v1.0.2
 	github.com/CiscoM31/godata v1.0.11
-	github.com/KimMachineGun/automemlimit v1.0.0
+	github.com/KimMachineGun/automemlimit v1.0.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/bbalet/stopwords v1.0.0
-	github.com/beevik/etree v1.8.0
+	github.com/beevik/etree v1.8.1
 	github.com/blevesearch/bleve/v2 v2.6.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/cs3org/go-cs3apis v0.0.0-20260424072047-8d9ef7076ae9
-	github.com/davidbyttow/govips/v2 v2.18.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/dutchcoders/go-clamd v0.0.0-20170520113014-b970184f4d9e
 	github.com/gabriel-vasile/mimetype v1.4.15
 	github.com/ggwhite/go-masker v1.1.0
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.4.0
+	github.com/go-chi/httprate v0.16.1
 	github.com/go-chi/render v1.0.3
-	github.com/go-ldap/ldap/v3 v3.4.14
+	github.com/go-ldap/ldap/v3 v3.4.15
 	github.com/go-ldap/ldif v0.0.0-20200320164324-fd88d9b715b3
 	github.com/go-micro/plugins/v4/client/grpc v1.2.1
 	github.com/go-micro/plugins/v4/logger/zerolog v1.2.0
@@ -33,7 +33,7 @@ require (
 	github.com/go-micro/plugins/v4/store/nats-js-kv v0.0.0-20240726082623-6831adfdcdc4
 	github.com/go-micro/plugins/v4/wrapper/monitoring/prometheus v1.2.0
 	github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry v1.2.0
-	github.com/go-playground/validator/v10 v10.30.3
+	github.com/go-playground/validator/v10 v10.30.5
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/gofrs/flock v0.13.1
@@ -45,13 +45,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gookit/config/v2 v2.2.9
 	github.com/gorilla/mux v1.8.1
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
 	github.com/invopop/validation v0.8.0
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/jinzhu/now v1.1.5
 	github.com/justinas/alice v1.2.0
-	github.com/kovidgoyal/imaging v1.8.23
+	github.com/kovidgoyal/imaging v1.9.0
 	github.com/leonelquinteros/gotext v1.7.3-0.20260422134830-b012b4ccae69
 	github.com/libregraph/idm v0.5.0
 	github.com/libregraph/lico v0.67.0
@@ -59,28 +59,28 @@ require (
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/nats-io/nats-server/v2 v2.15.0
-	github.com/nats-io/nats.go v1.54.0
+	github.com/nats-io/nats.go v1.55.0
 	github.com/olekukonko/errors v1.3.0
 	github.com/olekukonko/tablewriter v1.1.5
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/ginkgo/v2 v2.33.0
+	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.43.1
 	github.com/open-policy-agent/opa v1.21.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
-	github.com/opencloud-eu/reva/v2 v2.51.1-0.20261023103014-40a03d16bc92
+	github.com/opencloud-eu/reva/v3 v3.0.1
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.12
-	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/riandyrn/otelchi v0.12.3
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.35.1
-	github.com/shamaton/msgpack/v2 v2.4.2
+	github.com/shamaton/msgpack/v2 v2.4.4
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
@@ -91,7 +91,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/opensearch v0.44.0
 	github.com/thejerf/suture/v4 v4.0.6
-	github.com/tidwall/gjson v1.19.0
+	github.com/tidwall/gjson v1.20.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/tus/tusd/v2 v2.10.0
 	github.com/unrolled/secure v1.16.0
@@ -102,21 +102,21 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.71.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/contrib/zpages v0.71.0
-	go.opentelemetry.io/otel v1.46.0
+	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.46.0
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0
-	go.opentelemetry.io/otel/sdk v1.46.0
-	go.opentelemetry.io/otel/trace v1.46.0
-	golang.org/x/crypto v0.57.0
-	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
-	golang.org/x/image v0.46.0
-	golang.org/x/net v0.59.0
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.47.0
+	go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/trace v1.47.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
+	golang.org/x/image v0.47.0
+	golang.org/x/net v0.62.0
 	golang.org/x/oauth2 v0.37.0
-	golang.org/x/sync v0.23.0
-	golang.org/x/term v0.46.0
-	golang.org/x/text v0.42.0
+	golang.org/x/sync v0.24.0
+	golang.org/x/term v0.47.0
+	golang.org/x/text v0.43.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -209,7 +209,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.9.1 // indirect
 	github.com/go-git/go-git/v5 v5.19.2 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
@@ -218,7 +218,7 @@ require (
 	github.com/go-micro/plugins/v4/store/nats-js v1.2.1 // indirect
 	github.com/go-micro/plugins/v4/store/redis v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/locales v0.14.2 // indirect
 	github.com/go-playground/universal-translator v0.18.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-sql-driver/mysql v1.10.1 // indirect
@@ -259,7 +259,7 @@ require (
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/kovidgoyal/go-parallel v1.1.1 // indirect
 	github.com/kovidgoyal/go-shm v1.0.0 // indirect
-	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/leodido/go-urn v1.5.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/dsig v1.4.0 // indirect
 	github.com/lestrrat-go/dsig-secp256k1 v1.0.0 // indirect
@@ -319,8 +319,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
-	github.com/prometheus/common v0.70.1 // indirect
-	github.com/prometheus/procfs v0.21.1 // indirect
+	github.com/prometheus/common v0.72.0 // indirect
+	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.8 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/rs/xid v1.6.0 // indirect
@@ -372,16 +372,17 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 // indirect
-	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
+	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect

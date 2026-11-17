@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-chi/render"
 	"github.com/gobwas/glob"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"

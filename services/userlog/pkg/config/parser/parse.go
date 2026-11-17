@@ -46,5 +46,9 @@ func Validate(cfg *config.Config) error {
 		return shared.MissingServiceAccountSecret(cfg.Service.Name)
 	}
 
+	if cfg.Events.Disabled && cfg.HTTP.Disabled {
+		return shared.AllComponentsDisabledError(cfg.Service.Name)
+	}
+
 	return nil
 }

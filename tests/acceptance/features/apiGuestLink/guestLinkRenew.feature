@@ -187,7 +187,8 @@ Feature: renew a guest link
 
   @email @env-config
   Scenario: PIN of a previous renewal is invalid after renewing again
-    Given the config "AUTH_GUEST_SESSION_QUOTA_COOLDOWN" has been set to "1ms"
+    Given guest "guest@example.org" has received a new guest link
+    And the config "AUTH_GUEST_SESSION_QUOTA_COOLDOWN" has been set to "1ms"
     And guest "guest@example.org" has verified the guest link from the last email
     And guest "guest@example.org" has requested a new guest link with the guest session
     And guest "guest@example.org" has requested a new guest link with the guest session
@@ -250,7 +251,8 @@ Feature: renew a guest link
 
   @email @env-config
   Scenario: renewing with the guest session is rate limited
-    Given the config "AUTH_GUEST_SESSION_QUOTA_COOLDOWN" has been set to "1h"
+    Given guest "guest@example.org" has received a new guest link
+    And the config "AUTH_GUEST_SESSION_QUOTA_COOLDOWN" has been set to "1h"
     And guest "guest@example.org" has verified the guest link from the last email
     And guest "guest@example.org" has requested a new guest link with the guest session
     When guest "guest@example.org" requests a new guest link with the guest session using the Graph API
@@ -269,7 +271,8 @@ Feature: renew a guest link
 
   @email @env-config
   Scenario: renewing without a session is rate limited
-    Given the config "AUTH_GUEST_QUOTA_COOLDOWN" has been set to "1h"
+    Given guest "guest@example.org" has received a new guest link
+    And the config "AUTH_GUEST_QUOTA_COOLDOWN" has been set to "1h"
     And guest "guest@example.org" has verified the guest link from the last email
     And guest "guest@example.org" has requested a new guest link without a guest session
     And guest "guest@example.org" has verified the guest link from the last email

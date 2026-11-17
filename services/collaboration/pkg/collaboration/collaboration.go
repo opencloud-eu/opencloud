@@ -8,7 +8,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	permissionsapi "github.com/cs3org/go-cs3apis/cs3/permissions/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 )
 
 type Permission string

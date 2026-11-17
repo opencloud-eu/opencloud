@@ -55,18 +55,86 @@ is based on the [OData Specification](https://docs.oasis-open.org/odata/odata/v4
 See the [Libre Graph API](https://docs.opencloud.eu/swagger/libre-graph-api/#/users/ListUsers) for examples
 on the filters supported when querying users.
 
+## Space Images
+
+The image of a space is a file in the space, usually in its `.space` folder. A space manager
+uploads the file, and then assigns it with `PATCH /graph/v1.0/drives/{drive-id}` (or
+`PATCH /graph/v1beta1/drives/{drive-id}`, which works the same way), naming the id of the file in
+the `image` entry of `special`:
+
+```bash
+# upload the image into the .space folder of the space; the response header
+# OC-FileId holds the id of the file
+curl -i -X PUT -H "Authorization: Bearer $TOKEN" --data-binary @image.png \
+  "https://cloud.example.com/dav/spaces/$DRIVE_ID/.space/image.png"
+
+# assign the file as the image of the space
+curl -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"special": [{"specialFolder": {"name": "image"}, "id": "'"$FILE_ID"'"}]}' \
+  "https://cloud.example.com/graph/v1.0/drives/$DRIVE_ID"
+```
+
+Clients only ever show a space image as a thumbnail. A file that is too large for the thumbnail
+generator is therefore never shown at all: the space would keep a broken image, and nobody would
+get an error.
+
+So the graph service looks at the size of the file when it is assigned, and refuses a file above
+the limit with `413 Request Entity Too Large`, without changing the space:
+
+```json
+{
+  "error": {
+    "code": "invalidRequest",
+    "message": "the space image is too large: 73400320 bytes, the maximum is 50000000 bytes",
+    "innererror": {
+      "date": "2026-11-13T15:04:05Z",
+      "request-id": "..."
+    }
+  }
+}
+```
+
+The space keeps the image it had, as long as that is a different file. A client that overwrites the
+file of the current image with the new content has replaced that content already, so the space
+then shows no image.
+
+The limit is the one of the thumbnail generator, which the graph service reads under the same names
+as the webdav and thumbnails services: `OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE`, `50MB` by default.
+An empty value means unlimited.
+
+Setting the limit there sets it for all three services:
+
+```bash
+# space images, and thumbnails in general, up to 100 MB
+OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=100MB
+```
+
+`OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` sets a limit for space images alone. It only
+makes sense to set it lower than the limit of the thumbnail generator: a space image between the two
+would be accepted, but not shown.
+
+```bash
+# thumbnails up to 100 MB, but space images only up to 10 MB
+OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=100MB
+OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=10MB
+```
+
+Only the file size is checked. The thumbnail generator also has limits for the width and the height
+of an image (`THUMBNAILS_MAX_INPUT_WIDTH` and `THUMBNAILS_MAX_INPUT_HEIGHT`), and for the number of
+frames of an animation. The graph service can't check those without reading the whole image, so a
+small file with too many pixels is still accepted, and still not shown. The space readme has no
+size limit.
+
 ## Caching
 
 The `graph` service can use a configured store via `GRAPH_CACHE_STORE`. Possible stores are:
   -   `memory`: Basic in-memory store and the default.
-  -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
   -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store)
   -   `noop`: Stores nothing. Useful for testing. Not recommended in production environments.
 
 Other store types may work but are not supported currently.
 
 Store specific notes:
-  -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
 
@@ -95,6 +163,20 @@ The client that is used to authenticate with keycloak has to be able to list use
 :::note
 These roles are only available to assign if the client is in the `master` realm.
 :::
+
+## Rate Limit For The Personal Data Export
+
+Every personal data export collects the data of the user and writes it to a file in the user's personal space, which takes time and resources. To keep users from starting exports over and over, the number of exports a user can start is limited to 5 per minute. Further requests within the same minute are answered with the HTTP status `429 Too Many Requests` and a `Retry-After` header that tells the client how long to wait at most before trying again.
+
+The limit can be changed with `GRAPH_EXPORT_PERSONAL_DATA_RATE_LIMIT`, for example to allow 2 exports per minute:
+
+```bash
+GRAPH_EXPORT_PERSONAL_DATA_RATE_LIMIT=2
+```
+
+Setting it to `0` disables the limit.
+
+Every instance of the `graph` service counts the requests on its own, in memory. When several instances run behind a load balancer, a user can start up to this number of exports per minute on each of them, and a restart of an instance resets its counts.
 
 ## Translations
 
@@ -178,6 +260,8 @@ opencloud graph list-unified-roles
 
 The output of this command includes the following information for each role:
 
+* `Label`\
+  A short, stable name of the role.
 * `UID`\
   The unique identifier of the role.
 * `Enabled`\

@@ -23,20 +23,22 @@ func (c MFT) String() string {
 
 func (c *MFT) IOSig() (int, int) { return c.in_channels, c.out_channels }
 func (c *MFT) Iter(f func(ChannelTransformer) bool) {
-	if mo, ok := c.matrix.(*MatrixWithOffset); ok {
-		if _, ok := mo.m.(*IdentityMatrix); !ok {
-			if !f(mo.m) {
-				return
+	// the matrix is only used for three input channels, see Type_LUT16_Read() in cmstypes.c
+	if c.in_channels == 3 {
+		if mo, ok := c.matrix.(*MatrixWithOffset); ok {
+			if _, ok := mo.m.(*IdentityMatrix); !ok {
+				if !f(mo.m) {
+					return
+				}
 			}
-		}
-		if tt := mo.Translation(); tt != nil {
-			if !f(tt) {
-				return
+			if tt := mo.Translation(); tt != nil {
+				if !f(tt) {
+					return
+				}
 			}
+		} else if !f(c.matrix) {
+			return
 		}
-
-	} else if !f(c.matrix) {
-		return
 	}
 	if !f(c.input_curve) {
 		return

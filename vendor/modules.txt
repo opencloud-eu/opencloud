@@ -23,7 +23,7 @@ github.com/BurntSushi/toml/internal
 # github.com/CiscoM31/godata v1.0.11
 ## explicit; go 1.19
 github.com/CiscoM31/godata
-# github.com/KimMachineGun/automemlimit v1.0.0
+# github.com/KimMachineGun/automemlimit v1.0.1
 ## explicit; go 1.21.0
 github.com/KimMachineGun/automemlimit/memlimit
 # github.com/Masterminds/goutils v1.1.1
@@ -109,7 +109,7 @@ github.com/asaskevich/govalidator
 # github.com/bbalet/stopwords v1.0.0
 ## explicit
 github.com/bbalet/stopwords
-# github.com/beevik/etree v1.8.0
+# github.com/beevik/etree v1.8.1
 ## explicit; go 1.23.0
 github.com/beevik/etree
 # github.com/beorn7/perks v1.0.1
@@ -361,9 +361,6 @@ github.com/cyphar/filepath-securejoin/internal/consts
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/davidbyttow/govips/v2 v2.18.0
-## explicit; go 1.25.0
-github.com/davidbyttow/govips/v2/vips
 # github.com/deckarep/golang-set v1.8.0
 ## explicit; go 1.17
 github.com/deckarep/golang-set
@@ -458,10 +455,13 @@ github.com/go-acme/lego/v5/challenge
 # github.com/go-asn1-ber/asn1-ber v1.5.8
 ## explicit; go 1.13
 github.com/go-asn1-ber/asn1-ber
-# github.com/go-chi/chi/v5 v5.3.2
-## explicit; go 1.23
+# github.com/go-chi/chi/v5 v5.4.0
+## explicit; go 1.24
 github.com/go-chi/chi/v5
 github.com/go-chi/chi/v5/middleware
+# github.com/go-chi/httprate v0.16.1
+## explicit; go 1.23.0
+github.com/go-chi/httprate
 # github.com/go-chi/render v1.0.3
 ## explicit; go 1.16
 github.com/go-chi/render
@@ -534,7 +534,7 @@ github.com/go-jose/go-jose/v3
 github.com/go-jose/go-jose/v3/cipher
 github.com/go-jose/go-jose/v3/json
 github.com/go-jose/go-jose/v3/jwt
-# github.com/go-jose/go-jose/v4 v4.1.5
+# github.com/go-jose/go-jose/v4 v4.1.6
 ## explicit; go 1.24.0
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
@@ -543,8 +543,8 @@ github.com/go-jose/go-jose/v4/json
 ## explicit; go 1.17
 github.com/go-kit/log
 github.com/go-kit/log/level
-# github.com/go-ldap/ldap/v3 v3.4.14
-## explicit; go 1.25.0
+# github.com/go-ldap/ldap/v3 v3.4.15
+## explicit; go 1.26.0
 github.com/go-ldap/ldap/v3
 # github.com/go-ldap/ldif v0.0.0-20200320164324-fd88d9b715b3
 ## explicit; go 1.14
@@ -596,7 +596,7 @@ github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry
 ## explicit; go 1.12
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
-# github.com/go-playground/locales v0.14.1
+# github.com/go-playground/locales v0.14.2
 ## explicit; go 1.17
 github.com/go-playground/locales
 github.com/go-playground/locales/currency
@@ -604,8 +604,8 @@ github.com/go-playground/locales/en
 # github.com/go-playground/universal-translator v0.18.2
 ## explicit; go 1.26
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.30.3
-## explicit; go 1.25.0
+# github.com/go-playground/validator/v10 v10.30.5
+## explicit; go 1.26.0
 github.com/go-playground/validator/v10
 github.com/go-playground/validator/v10/translations/en
 # github.com/go-redis/redis/v8 v8.11.5
@@ -771,8 +771,8 @@ github.com/gorilla/schema
 ## explicit; go 1.14
 github.com/grpc-ecosystem/go-grpc-middleware
 github.com/grpc-ecosystem/go-grpc-middleware/recovery
-# github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
-## explicit; go 1.25.0
+# github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
+## explicit; go 1.26.0
 github.com/grpc-ecosystem/grpc-gateway/v2/internal/httprule
 github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options
 github.com/grpc-ecosystem/grpc-gateway/v2/runtime
@@ -867,8 +867,8 @@ github.com/kovidgoyal/go-parallel
 # github.com/kovidgoyal/go-shm v1.0.0
 ## explicit; go 1.24.0
 github.com/kovidgoyal/go-shm
-# github.com/kovidgoyal/imaging v1.8.23
-## explicit; go 1.25.0
+# github.com/kovidgoyal/imaging v1.9.0
+## explicit; go 1.26.0
 github.com/kovidgoyal/imaging
 github.com/kovidgoyal/imaging/apng
 github.com/kovidgoyal/imaging/colorconv
@@ -889,8 +889,8 @@ github.com/kovidgoyal/imaging/prism/meta/webpmeta
 github.com/kovidgoyal/imaging/streams
 github.com/kovidgoyal/imaging/types
 github.com/kovidgoyal/imaging/webp
-# github.com/leodido/go-urn v1.4.0
-## explicit; go 1.18
+# github.com/leodido/go-urn v1.5.0
+## explicit; go 1.24.0
 github.com/leodido/go-urn
 github.com/leodido/go-urn/scim/schema
 # github.com/leonelquinteros/gotext v1.7.3-0.20260422134830-b012b4ccae69
@@ -1159,7 +1159,7 @@ github.com/nats-io/nats-server/v2/server/stree
 github.com/nats-io/nats-server/v2/server/sysmem
 github.com/nats-io/nats-server/v2/server/thw
 github.com/nats-io/nats-server/v2/server/tpm
-# github.com/nats-io/nats.go v1.54.0
+# github.com/nats-io/nats.go v1.55.0
 ## explicit; go 1.26.0
 github.com/nats-io/nats.go
 github.com/nats-io/nats.go/encoders/builtin
@@ -1232,7 +1232,7 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/ginkgo/v2 v2.33.0
+# github.com/onsi/ginkgo/v2 v2.33.1
 ## explicit; go 1.25.0
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
@@ -1360,366 +1360,345 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.51.1-0.20261023103014-40a03d16bc92
+# github.com/opencloud-eu/reva/v3 v3.0.1
 ## explicit; go 1.26.0
-github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
-github.com/opencloud-eu/reva/v2/cmd/revad/runtime
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/appctx
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/auth
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/eventsmiddleware
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/loader
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/log
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/prometheus
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/readonly
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/recovery
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/token
-github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/useragent
-github.com/opencloud-eu/reva/v2/internal/grpc/services/applicationauth
-github.com/opencloud-eu/reva/v2/internal/grpc/services/appprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/appregistry
-github.com/opencloud-eu/reva/v2/internal/grpc/services/authprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/authregistry
-github.com/opencloud-eu/reva/v2/internal/grpc/services/datatx
-github.com/opencloud-eu/reva/v2/internal/grpc/services/gateway
-github.com/opencloud-eu/reva/v2/internal/grpc/services/groupprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/helloworld
-github.com/opencloud-eu/reva/v2/internal/grpc/services/helloworld/proto
-github.com/opencloud-eu/reva/v2/internal/grpc/services/loader
-github.com/opencloud-eu/reva/v2/internal/grpc/services/ocmcore
-github.com/opencloud-eu/reva/v2/internal/grpc/services/ocminvitemanager
-github.com/opencloud-eu/reva/v2/internal/grpc/services/ocmproviderauthorizer
-github.com/opencloud-eu/reva/v2/internal/grpc/services/ocmshareprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/permissions
-github.com/opencloud-eu/reva/v2/internal/grpc/services/preferences
-github.com/opencloud-eu/reva/v2/internal/grpc/services/publicshareprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/publicstorageprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/sharesstorageprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/storageregistry
-github.com/opencloud-eu/reva/v2/internal/grpc/services/userprovider
-github.com/opencloud-eu/reva/v2/internal/grpc/services/usershareprovider
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/appctx
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/credential/loader
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/credential/registry
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/credential/strategy/basic
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/credential/strategy/bearer
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/credential/strategy/ocmshares
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/token/loader
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/token/registry
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/token/strategy/bearer
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/token/strategy/header
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/tokenwriter/loader
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/tokenwriter/registry
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/tokenwriter/strategy/header
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/cors
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/loader
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/log
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/prometheus
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/providerauthorizer
-github.com/opencloud-eu/reva/v2/internal/http/interceptors/requestid
-github.com/opencloud-eu/reva/v2/internal/http/services/appprovider
-github.com/opencloud-eu/reva/v2/internal/http/services/archiver
-github.com/opencloud-eu/reva/v2/internal/http/services/archiver/manager
-github.com/opencloud-eu/reva/v2/internal/http/services/datagateway
-github.com/opencloud-eu/reva/v2/internal/http/services/dataprovider
-github.com/opencloud-eu/reva/v2/internal/http/services/helloworld
-github.com/opencloud-eu/reva/v2/internal/http/services/loader
-github.com/opencloud-eu/reva/v2/internal/http/services/mentix
-github.com/opencloud-eu/reva/v2/internal/http/services/metrics
-github.com/opencloud-eu/reva/v2/internal/http/services/ocmd
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/config
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/errors
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/prop
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/propfind
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/spacelookup
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/config
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/data
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/handlers/apps/sharing/sharees
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/handlers/apps/sharing/shares
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/handlers/cloud/capabilities
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/handlers/cloud/user
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/handlers/cloud/users
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/handlers/config
-github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocs/response
-github.com/opencloud-eu/reva/v2/internal/http/services/preferences
-github.com/opencloud-eu/reva/v2/internal/http/services/prometheus
-github.com/opencloud-eu/reva/v2/internal/http/services/reqres
-github.com/opencloud-eu/reva/v2/internal/http/services/reverseproxy
-github.com/opencloud-eu/reva/v2/internal/http/services/sciencemesh
-github.com/opencloud-eu/reva/v2/internal/http/services/sysinfo
-github.com/opencloud-eu/reva/v2/internal/http/services/wellknown
-github.com/opencloud-eu/reva/v2/pkg/app
-github.com/opencloud-eu/reva/v2/pkg/app/provider/demo
-github.com/opencloud-eu/reva/v2/pkg/app/provider/loader
-github.com/opencloud-eu/reva/v2/pkg/app/provider/registry
-github.com/opencloud-eu/reva/v2/pkg/app/provider/wopi
-github.com/opencloud-eu/reva/v2/pkg/app/registry/loader
-github.com/opencloud-eu/reva/v2/pkg/app/registry/micro
-github.com/opencloud-eu/reva/v2/pkg/app/registry/registry
-github.com/opencloud-eu/reva/v2/pkg/app/registry/static
-github.com/opencloud-eu/reva/v2/pkg/appauth
-github.com/opencloud-eu/reva/v2/pkg/appauth/manager/json
-github.com/opencloud-eu/reva/v2/pkg/appauth/manager/jsoncs3
-github.com/opencloud-eu/reva/v2/pkg/appauth/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/appauth/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/appctx
-github.com/opencloud-eu/reva/v2/pkg/auth
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/appauth
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/demo
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/guestlinks
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/impersonator
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/json
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/ldap
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/machine
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/ocmshares
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/oidc
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/publicshares
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/auth/manager/serviceaccounts
-github.com/opencloud-eu/reva/v2/pkg/auth/registry/loader
-github.com/opencloud-eu/reva/v2/pkg/auth/registry/registry
-github.com/opencloud-eu/reva/v2/pkg/auth/registry/static
-github.com/opencloud-eu/reva/v2/pkg/auth/scope
-github.com/opencloud-eu/reva/v2/pkg/bytesize
-github.com/opencloud-eu/reva/v2/pkg/conversions
-github.com/opencloud-eu/reva/v2/pkg/ctx
-github.com/opencloud-eu/reva/v2/pkg/datatx
-github.com/opencloud-eu/reva/v2/pkg/datatx/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/datatx/manager/rclone
-github.com/opencloud-eu/reva/v2/pkg/datatx/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/eosclient
-github.com/opencloud-eu/reva/v2/pkg/eosclient/eosbinary
-github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc
-github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc/eos_grpc
-github.com/opencloud-eu/reva/v2/pkg/errtypes
-github.com/opencloud-eu/reva/v2/pkg/events
-github.com/opencloud-eu/reva/v2/pkg/events/raw
-github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks
-github.com/opencloud-eu/reva/v2/pkg/events/stream
-github.com/opencloud-eu/reva/v2/pkg/group
-github.com/opencloud-eu/reva/v2/pkg/group/manager/json
-github.com/opencloud-eu/reva/v2/pkg/group/manager/ldap
-github.com/opencloud-eu/reva/v2/pkg/group/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/group/manager/null
-github.com/opencloud-eu/reva/v2/pkg/group/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/logger
-github.com/opencloud-eu/reva/v2/pkg/mentix
-github.com/opencloud-eu/reva/v2/pkg/mentix/accservice
-github.com/opencloud-eu/reva/v2/pkg/mentix/config
-github.com/opencloud-eu/reva/v2/pkg/mentix/connectors
-github.com/opencloud-eu/reva/v2/pkg/mentix/connectors/gocdb
-github.com/opencloud-eu/reva/v2/pkg/mentix/entity
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/exporters
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/exporters/cs3api
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/exporters/metrics
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/exporters/prometheus
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/exporters/siteloc
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/exporters/webapi
-github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/importers
-github.com/opencloud-eu/reva/v2/pkg/mentix/meshdata
-github.com/opencloud-eu/reva/v2/pkg/mentix/utils
-github.com/opencloud-eu/reva/v2/pkg/mentix/utils/network
-github.com/opencloud-eu/reva/v2/pkg/metadatacache
-github.com/opencloud-eu/reva/v2/pkg/metrics
-github.com/opencloud-eu/reva/v2/pkg/metrics/config
-github.com/opencloud-eu/reva/v2/pkg/metrics/driver/dummy
-github.com/opencloud-eu/reva/v2/pkg/metrics/driver/json
-github.com/opencloud-eu/reva/v2/pkg/metrics/driver/loader
-github.com/opencloud-eu/reva/v2/pkg/metrics/driver/registry
-github.com/opencloud-eu/reva/v2/pkg/metrics/driver/xcloud
-github.com/opencloud-eu/reva/v2/pkg/metrics/reader
-github.com/opencloud-eu/reva/v2/pkg/mime
-github.com/opencloud-eu/reva/v2/pkg/ocm/client
-github.com/opencloud-eu/reva/v2/pkg/ocm/invite
-github.com/opencloud-eu/reva/v2/pkg/ocm/invite/repository/json
-github.com/opencloud-eu/reva/v2/pkg/ocm/invite/repository/loader
-github.com/opencloud-eu/reva/v2/pkg/ocm/invite/repository/memory
-github.com/opencloud-eu/reva/v2/pkg/ocm/invite/repository/registry
-github.com/opencloud-eu/reva/v2/pkg/ocm/provider
-github.com/opencloud-eu/reva/v2/pkg/ocm/provider/authorizer/json
-github.com/opencloud-eu/reva/v2/pkg/ocm/provider/authorizer/loader
-github.com/opencloud-eu/reva/v2/pkg/ocm/provider/authorizer/mentix
-github.com/opencloud-eu/reva/v2/pkg/ocm/provider/authorizer/open
-github.com/opencloud-eu/reva/v2/pkg/ocm/provider/authorizer/registry
-github.com/opencloud-eu/reva/v2/pkg/ocm/share
-github.com/opencloud-eu/reva/v2/pkg/ocm/share/repository/json
-github.com/opencloud-eu/reva/v2/pkg/ocm/share/repository/loader
-github.com/opencloud-eu/reva/v2/pkg/ocm/share/repository/nextcloud
-github.com/opencloud-eu/reva/v2/pkg/ocm/share/repository/registry
-github.com/opencloud-eu/reva/v2/pkg/ocm/storage/received
-github.com/opencloud-eu/reva/v2/pkg/ocm/user
-github.com/opencloud-eu/reva/v2/pkg/owncloud/ocs
-github.com/opencloud-eu/reva/v2/pkg/password
-github.com/opencloud-eu/reva/v2/pkg/permission
-github.com/opencloud-eu/reva/v2/pkg/permission/manager/demo
-github.com/opencloud-eu/reva/v2/pkg/permission/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/permission/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/plugin
-github.com/opencloud-eu/reva/v2/pkg/preferences
-github.com/opencloud-eu/reva/v2/pkg/preferences/loader
-github.com/opencloud-eu/reva/v2/pkg/preferences/memory
-github.com/opencloud-eu/reva/v2/pkg/preferences/registry
-github.com/opencloud-eu/reva/v2/pkg/publicshare
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/json
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/json/persistence
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/json/persistence/cs3
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/json/persistence/file
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/json/persistence/memory
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/memory
-github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/registry
-github.com/opencloud-eu/reva/v2/pkg/rgrpc
-github.com/opencloud-eu/reva/v2/pkg/rgrpc/status
-github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool
-github.com/opencloud-eu/reva/v2/pkg/rhttp
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/manager/simple
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/manager/spaces
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/manager/tus
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics
-github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/utils/download
-github.com/opencloud-eu/reva/v2/pkg/rhttp/global
-github.com/opencloud-eu/reva/v2/pkg/rhttp/router
-github.com/opencloud-eu/reva/v2/pkg/sdk/common
-github.com/opencloud-eu/reva/v2/pkg/share
-github.com/opencloud-eu/reva/v2/pkg/share/cache
-github.com/opencloud-eu/reva/v2/pkg/share/cache/warmup/loader
-github.com/opencloud-eu/reva/v2/pkg/share/cache/warmup/registry
-github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3
-github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/migrations
-github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/providercache
-github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/receivedsharecache
-github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/sharecache
-github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/shareid
-github.com/opencloud-eu/reva/v2/pkg/share/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/share/manager/memory
-github.com/opencloud-eu/reva/v2/pkg/share/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/sharedconf
-github.com/opencloud-eu/reva/v2/pkg/signedurl
-github.com/opencloud-eu/reva/v2/pkg/storage
-github.com/opencloud-eu/reva/v2/pkg/storage/cache
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposed
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposed/blobstore
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposeds3
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposeds3/blobstore
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/eos
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/eosgrpc
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/eosgrpchome
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/eoshome
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/hello
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/loader
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/local
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/localhome
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/nextcloud
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis/blobstore
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql/filecache
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/blobstore
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/idcache
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/timemanager
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree/assimilation
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng/blobstore
-github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/disk
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/mtimesyncedcache
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/spaceidindex
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/timemanager
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/trashbin
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/upload
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper
-github.com/opencloud-eu/reva/v2/pkg/storage/registry/loader
-github.com/opencloud-eu/reva/v2/pkg/storage/registry/registry
-github.com/opencloud-eu/reva/v2/pkg/storage/registry/spaces
-github.com/opencloud-eu/reva/v2/pkg/storage/registry/static
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/acl
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/chunking
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/aspects
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/lookup
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/metadata
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/metadata/prefixes
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/migrator
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/mtimesyncedcache
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/node
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/options
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/permissions
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/spaceidindex
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/timemanager
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/trashbin
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/tree
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/tree/propagator
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/upload
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/usermapper
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/downloader
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/eosfs
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/filelocks
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/localfs
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/middleware
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/walker
-github.com/opencloud-eu/reva/v2/pkg/storagespace
-github.com/opencloud-eu/reva/v2/pkg/store
-github.com/opencloud-eu/reva/v2/pkg/store/etcd
-github.com/opencloud-eu/reva/v2/pkg/store/memory
-github.com/opencloud-eu/reva/v2/pkg/sysinfo
-github.com/opencloud-eu/reva/v2/pkg/tags
-github.com/opencloud-eu/reva/v2/pkg/tenant
-github.com/opencloud-eu/reva/v2/pkg/tenant/manager/ldap
-github.com/opencloud-eu/reva/v2/pkg/tenant/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/tenant/manager/memory
-github.com/opencloud-eu/reva/v2/pkg/tenant/manager/null
-github.com/opencloud-eu/reva/v2/pkg/tenant/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/token
-github.com/opencloud-eu/reva/v2/pkg/token/manager/demo
-github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt
-github.com/opencloud-eu/reva/v2/pkg/token/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/token/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/trace
-github.com/opencloud-eu/reva/v2/pkg/user
-github.com/opencloud-eu/reva/v2/pkg/user/manager/demo
-github.com/opencloud-eu/reva/v2/pkg/user/manager/json
-github.com/opencloud-eu/reva/v2/pkg/user/manager/ldap
-github.com/opencloud-eu/reva/v2/pkg/user/manager/loader
-github.com/opencloud-eu/reva/v2/pkg/user/manager/memory
-github.com/opencloud-eu/reva/v2/pkg/user/manager/registry
-github.com/opencloud-eu/reva/v2/pkg/utils
-github.com/opencloud-eu/reva/v2/pkg/utils/cfg
-github.com/opencloud-eu/reva/v2/pkg/utils/ldap
-github.com/opencloud-eu/reva/v2/pkg/utils/list
-github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks
+github.com/opencloud-eu/reva/v3/cmd/revad/internal/grace
+github.com/opencloud-eu/reva/v3/cmd/revad/runtime
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/appctx
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/auth
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/eventsmiddleware
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/loader
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/log
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/prometheus
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/readonly
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/recovery
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/token
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/useragent
+github.com/opencloud-eu/reva/v3/internal/grpc/services/applicationauth
+github.com/opencloud-eu/reva/v3/internal/grpc/services/appprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/appregistry
+github.com/opencloud-eu/reva/v3/internal/grpc/services/authprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/authregistry
+github.com/opencloud-eu/reva/v3/internal/grpc/services/datatx
+github.com/opencloud-eu/reva/v3/internal/grpc/services/gateway
+github.com/opencloud-eu/reva/v3/internal/grpc/services/groupprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/helloworld
+github.com/opencloud-eu/reva/v3/internal/grpc/services/helloworld/proto
+github.com/opencloud-eu/reva/v3/internal/grpc/services/loader
+github.com/opencloud-eu/reva/v3/internal/grpc/services/ocmcore
+github.com/opencloud-eu/reva/v3/internal/grpc/services/ocminvitemanager
+github.com/opencloud-eu/reva/v3/internal/grpc/services/ocmproviderauthorizer
+github.com/opencloud-eu/reva/v3/internal/grpc/services/ocmshareprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/permissions
+github.com/opencloud-eu/reva/v3/internal/grpc/services/preferences
+github.com/opencloud-eu/reva/v3/internal/grpc/services/publicshareprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/publicstorageprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/sharesstorageprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/storageprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/storageregistry
+github.com/opencloud-eu/reva/v3/internal/grpc/services/userprovider
+github.com/opencloud-eu/reva/v3/internal/grpc/services/usershareprovider
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/appctx
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/credential/loader
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/credential/registry
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/credential/strategy/basic
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/credential/strategy/bearer
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/credential/strategy/ocmshares
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/token/loader
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/token/registry
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/token/strategy/bearer
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/token/strategy/header
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/tokenwriter/loader
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/tokenwriter/registry
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/tokenwriter/strategy/header
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/cors
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/loader
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/log
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/prometheus
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/providerauthorizer
+github.com/opencloud-eu/reva/v3/internal/http/interceptors/requestid
+github.com/opencloud-eu/reva/v3/internal/http/services/appprovider
+github.com/opencloud-eu/reva/v3/internal/http/services/archiver
+github.com/opencloud-eu/reva/v3/internal/http/services/archiver/manager
+github.com/opencloud-eu/reva/v3/internal/http/services/datagateway
+github.com/opencloud-eu/reva/v3/internal/http/services/dataprovider
+github.com/opencloud-eu/reva/v3/internal/http/services/helloworld
+github.com/opencloud-eu/reva/v3/internal/http/services/loader
+github.com/opencloud-eu/reva/v3/internal/http/services/mentix
+github.com/opencloud-eu/reva/v3/internal/http/services/metrics
+github.com/opencloud-eu/reva/v3/internal/http/services/ocmd
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/config
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/errors
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/net
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/prop
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/propfind
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/spacelookup
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/config
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/data
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/handlers/apps/sharing/sharees
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/handlers/apps/sharing/shares
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/handlers/cloud/capabilities
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/handlers/cloud/user
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/handlers/cloud/users
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/handlers/config
+github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocs/response
+github.com/opencloud-eu/reva/v3/internal/http/services/preferences
+github.com/opencloud-eu/reva/v3/internal/http/services/prometheus
+github.com/opencloud-eu/reva/v3/internal/http/services/reqres
+github.com/opencloud-eu/reva/v3/internal/http/services/reverseproxy
+github.com/opencloud-eu/reva/v3/internal/http/services/sciencemesh
+github.com/opencloud-eu/reva/v3/internal/http/services/sysinfo
+github.com/opencloud-eu/reva/v3/internal/http/services/wellknown
+github.com/opencloud-eu/reva/v3/pkg/app
+github.com/opencloud-eu/reva/v3/pkg/app/provider/demo
+github.com/opencloud-eu/reva/v3/pkg/app/provider/loader
+github.com/opencloud-eu/reva/v3/pkg/app/provider/registry
+github.com/opencloud-eu/reva/v3/pkg/app/provider/wopi
+github.com/opencloud-eu/reva/v3/pkg/app/registry/loader
+github.com/opencloud-eu/reva/v3/pkg/app/registry/micro
+github.com/opencloud-eu/reva/v3/pkg/app/registry/registry
+github.com/opencloud-eu/reva/v3/pkg/app/registry/static
+github.com/opencloud-eu/reva/v3/pkg/appauth
+github.com/opencloud-eu/reva/v3/pkg/appauth/manager/json
+github.com/opencloud-eu/reva/v3/pkg/appauth/manager/jsoncs3
+github.com/opencloud-eu/reva/v3/pkg/appauth/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/appauth/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/appctx
+github.com/opencloud-eu/reva/v3/pkg/auth
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/appauth
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/demo
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/guestlinks
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/impersonator
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/json
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/ldap
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/machine
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/ocmshares
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/oidc
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/publicshares
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/auth/manager/serviceaccounts
+github.com/opencloud-eu/reva/v3/pkg/auth/registry/loader
+github.com/opencloud-eu/reva/v3/pkg/auth/registry/registry
+github.com/opencloud-eu/reva/v3/pkg/auth/registry/static
+github.com/opencloud-eu/reva/v3/pkg/auth/scope
+github.com/opencloud-eu/reva/v3/pkg/bytesize
+github.com/opencloud-eu/reva/v3/pkg/conversions
+github.com/opencloud-eu/reva/v3/pkg/ctx
+github.com/opencloud-eu/reva/v3/pkg/datatx
+github.com/opencloud-eu/reva/v3/pkg/datatx/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/datatx/manager/rclone
+github.com/opencloud-eu/reva/v3/pkg/datatx/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/eosclient
+github.com/opencloud-eu/reva/v3/pkg/eosclient/eosbinary
+github.com/opencloud-eu/reva/v3/pkg/eosclient/eosgrpc
+github.com/opencloud-eu/reva/v3/pkg/eosclient/eosgrpc/eos_grpc
+github.com/opencloud-eu/reva/v3/pkg/errtypes
+github.com/opencloud-eu/reva/v3/pkg/events
+github.com/opencloud-eu/reva/v3/pkg/events/raw
+github.com/opencloud-eu/reva/v3/pkg/events/raw/mocks
+github.com/opencloud-eu/reva/v3/pkg/events/stream
+github.com/opencloud-eu/reva/v3/pkg/group
+github.com/opencloud-eu/reva/v3/pkg/group/manager/json
+github.com/opencloud-eu/reva/v3/pkg/group/manager/ldap
+github.com/opencloud-eu/reva/v3/pkg/group/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/group/manager/null
+github.com/opencloud-eu/reva/v3/pkg/group/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/logger
+github.com/opencloud-eu/reva/v3/pkg/mentix
+github.com/opencloud-eu/reva/v3/pkg/mentix/accservice
+github.com/opencloud-eu/reva/v3/pkg/mentix/config
+github.com/opencloud-eu/reva/v3/pkg/mentix/connectors
+github.com/opencloud-eu/reva/v3/pkg/mentix/connectors/gocdb
+github.com/opencloud-eu/reva/v3/pkg/mentix/entity
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/exporters
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/exporters/cs3api
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/exporters/metrics
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/exporters/prometheus
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/exporters/siteloc
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/exporters/webapi
+github.com/opencloud-eu/reva/v3/pkg/mentix/exchangers/importers
+github.com/opencloud-eu/reva/v3/pkg/mentix/meshdata
+github.com/opencloud-eu/reva/v3/pkg/mentix/utils
+github.com/opencloud-eu/reva/v3/pkg/mentix/utils/network
+github.com/opencloud-eu/reva/v3/pkg/metadatacache
+github.com/opencloud-eu/reva/v3/pkg/metrics
+github.com/opencloud-eu/reva/v3/pkg/metrics/config
+github.com/opencloud-eu/reva/v3/pkg/metrics/driver/dummy
+github.com/opencloud-eu/reva/v3/pkg/metrics/driver/json
+github.com/opencloud-eu/reva/v3/pkg/metrics/driver/loader
+github.com/opencloud-eu/reva/v3/pkg/metrics/driver/registry
+github.com/opencloud-eu/reva/v3/pkg/metrics/driver/xcloud
+github.com/opencloud-eu/reva/v3/pkg/metrics/reader
+github.com/opencloud-eu/reva/v3/pkg/mime
+github.com/opencloud-eu/reva/v3/pkg/ocm/client
+github.com/opencloud-eu/reva/v3/pkg/ocm/invite
+github.com/opencloud-eu/reva/v3/pkg/ocm/invite/repository/json
+github.com/opencloud-eu/reva/v3/pkg/ocm/invite/repository/loader
+github.com/opencloud-eu/reva/v3/pkg/ocm/invite/repository/memory
+github.com/opencloud-eu/reva/v3/pkg/ocm/invite/repository/registry
+github.com/opencloud-eu/reva/v3/pkg/ocm/provider
+github.com/opencloud-eu/reva/v3/pkg/ocm/provider/authorizer/json
+github.com/opencloud-eu/reva/v3/pkg/ocm/provider/authorizer/loader
+github.com/opencloud-eu/reva/v3/pkg/ocm/provider/authorizer/mentix
+github.com/opencloud-eu/reva/v3/pkg/ocm/provider/authorizer/open
+github.com/opencloud-eu/reva/v3/pkg/ocm/provider/authorizer/registry
+github.com/opencloud-eu/reva/v3/pkg/ocm/share
+github.com/opencloud-eu/reva/v3/pkg/ocm/share/repository/json
+github.com/opencloud-eu/reva/v3/pkg/ocm/share/repository/loader
+github.com/opencloud-eu/reva/v3/pkg/ocm/share/repository/nextcloud
+github.com/opencloud-eu/reva/v3/pkg/ocm/share/repository/registry
+github.com/opencloud-eu/reva/v3/pkg/ocm/storage/received
+github.com/opencloud-eu/reva/v3/pkg/ocm/user
+github.com/opencloud-eu/reva/v3/pkg/owncloud/ocs
+github.com/opencloud-eu/reva/v3/pkg/password
+github.com/opencloud-eu/reva/v3/pkg/permission
+github.com/opencloud-eu/reva/v3/pkg/permission/manager/demo
+github.com/opencloud-eu/reva/v3/pkg/permission/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/permission/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/plugin
+github.com/opencloud-eu/reva/v3/pkg/preferences
+github.com/opencloud-eu/reva/v3/pkg/preferences/loader
+github.com/opencloud-eu/reva/v3/pkg/preferences/memory
+github.com/opencloud-eu/reva/v3/pkg/preferences/registry
+github.com/opencloud-eu/reva/v3/pkg/publicshare
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/json
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/json/persistence
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/json/persistence/cs3
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/json/persistence/file
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/json/persistence/memory
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/memory
+github.com/opencloud-eu/reva/v3/pkg/publicshare/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/registry
+github.com/opencloud-eu/reva/v3/pkg/rgrpc
+github.com/opencloud-eu/reva/v3/pkg/rgrpc/status
+github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool
+github.com/opencloud-eu/reva/v3/pkg/rhttp
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/manager/simple
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/manager/spaces
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/manager/tus
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/metrics
+github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/utils/download
+github.com/opencloud-eu/reva/v3/pkg/rhttp/global
+github.com/opencloud-eu/reva/v3/pkg/rhttp/router
+github.com/opencloud-eu/reva/v3/pkg/sdk/common
+github.com/opencloud-eu/reva/v3/pkg/share
+github.com/opencloud-eu/reva/v3/pkg/share/cache
+github.com/opencloud-eu/reva/v3/pkg/share/cache/warmup/loader
+github.com/opencloud-eu/reva/v3/pkg/share/cache/warmup/registry
+github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3
+github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/migrations
+github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/providercache
+github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/receivedsharecache
+github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/sharecache
+github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/shareid
+github.com/opencloud-eu/reva/v3/pkg/share/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/share/manager/memory
+github.com/opencloud-eu/reva/v3/pkg/share/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/sharedconf
+github.com/opencloud-eu/reva/v3/pkg/signedurl
+github.com/opencloud-eu/reva/v3/pkg/storage
+github.com/opencloud-eu/reva/v3/pkg/storage/cache
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposed
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposed/blobstore
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposeds3
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposeds3/blobstore
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/eos
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/eosgrpc
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/eosgrpchome
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/eoshome
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/hello
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/loader
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/local
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/localhome
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/nextcloud
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/owncloudsql
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/owncloudsql/filecache
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/blobstore
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/idcache
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/lookup
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/options
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/timemanager
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/trashbin
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/tree
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/tree/assimilation
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/watcher
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/watcher/natswatcher
+github.com/opencloud-eu/reva/v3/pkg/storage/fs/registry
+github.com/opencloud-eu/reva/v3/pkg/storage/internal/goroutinelock
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/aspects
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/disk
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/mtimesyncedcache
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/options
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/permissions
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/spaceidindex
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/timemanager
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/trashbin
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/tree
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/tree/propagator
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/usermapper
+github.com/opencloud-eu/reva/v3/pkg/storage/registry/loader
+github.com/opencloud-eu/reva/v3/pkg/storage/registry/registry
+github.com/opencloud-eu/reva/v3/pkg/storage/registry/spaces
+github.com/opencloud-eu/reva/v3/pkg/storage/registry/static
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/ace
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/acl
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/chunking
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/downloader
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/eosfs
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/filelocks
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/grants
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/localfs
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/metadata
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/middleware
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/templates
+github.com/opencloud-eu/reva/v3/pkg/storage/utils/walker
+github.com/opencloud-eu/reva/v3/pkg/storagespace
+github.com/opencloud-eu/reva/v3/pkg/store
+github.com/opencloud-eu/reva/v3/pkg/store/etcd
+github.com/opencloud-eu/reva/v3/pkg/store/memory
+github.com/opencloud-eu/reva/v3/pkg/sysinfo
+github.com/opencloud-eu/reva/v3/pkg/tags
+github.com/opencloud-eu/reva/v3/pkg/tenant
+github.com/opencloud-eu/reva/v3/pkg/tenant/manager/ldap
+github.com/opencloud-eu/reva/v3/pkg/tenant/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/tenant/manager/memory
+github.com/opencloud-eu/reva/v3/pkg/tenant/manager/null
+github.com/opencloud-eu/reva/v3/pkg/tenant/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/token
+github.com/opencloud-eu/reva/v3/pkg/token/manager/demo
+github.com/opencloud-eu/reva/v3/pkg/token/manager/jwt
+github.com/opencloud-eu/reva/v3/pkg/token/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/token/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/trace
+github.com/opencloud-eu/reva/v3/pkg/upload
+github.com/opencloud-eu/reva/v3/pkg/user
+github.com/opencloud-eu/reva/v3/pkg/user/manager/demo
+github.com/opencloud-eu/reva/v3/pkg/user/manager/json
+github.com/opencloud-eu/reva/v3/pkg/user/manager/ldap
+github.com/opencloud-eu/reva/v3/pkg/user/manager/loader
+github.com/opencloud-eu/reva/v3/pkg/user/manager/memory
+github.com/opencloud-eu/reva/v3/pkg/user/manager/registry
+github.com/opencloud-eu/reva/v3/pkg/utils
+github.com/opencloud-eu/reva/v3/pkg/utils/cfg
+github.com/opencloud-eu/reva/v3/pkg/utils/ldap
+github.com/opencloud-eu/reva/v3/pkg/utils/list
+github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
@@ -1795,8 +1774,8 @@ github.com/power-devops/perfstat
 ## explicit; go 1.16
 github.com/pquerna/cachecontrol
 github.com/pquerna/cachecontrol/cacheobject
-# github.com/prometheus/client_golang v1.24.1
-## explicit; go 1.25.0
+# github.com/prometheus/client_golang v1.25.0
+## explicit; go 1.26.0
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil/header
 github.com/prometheus/client_golang/prometheus
@@ -1807,15 +1786,15 @@ github.com/prometheus/client_golang/prometheus/promhttp/internal
 # github.com/prometheus/client_model v0.6.3
 ## explicit; go 1.23
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.70.1
-## explicit; go 1.25.0
+# github.com/prometheus/common v0.72.0
+## explicit; go 1.26.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.21.1
+# github.com/prometheus/procfs v0.22.0
 ## explicit; go 1.25.0
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-github.com/prometheus/procfs/internal/util
+github.com/prometheus/procfs/internal/parsers
 # github.com/prometheus/statsd_exporter v0.22.8
 ## explicit; go 1.17
 github.com/prometheus/statsd_exporter/pkg/level
@@ -1954,12 +1933,13 @@ github.com/sethvargo/go-diceware/diceware
 # github.com/sethvargo/go-password v0.4.0
 ## explicit; go 1.25
 github.com/sethvargo/go-password/password
-# github.com/shamaton/msgpack/v2 v2.4.2
+# github.com/shamaton/msgpack/v2 v2.4.4
 ## explicit; go 1.20
 github.com/shamaton/msgpack/v2
 github.com/shamaton/msgpack/v2/def
 github.com/shamaton/msgpack/v2/ext
 github.com/shamaton/msgpack/v2/internal/common
+github.com/shamaton/msgpack/v2/internal/common/decodingutil
 github.com/shamaton/msgpack/v2/internal/decoding
 github.com/shamaton/msgpack/v2/internal/encoding
 github.com/shamaton/msgpack/v2/internal/stream/decoding
@@ -2052,7 +2032,7 @@ github.com/testcontainers/testcontainers-go/modules/opensearch
 # github.com/thejerf/suture/v4 v4.0.6
 ## explicit; go 1.9
 github.com/thejerf/suture/v4
-# github.com/tidwall/gjson v1.19.0
+# github.com/tidwall/gjson v1.20.0
 ## explicit; go 1.23
 github.com/tidwall/gjson
 # github.com/tidwall/match v1.1.1
@@ -2285,8 +2265,8 @@ go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv
 ## explicit; go 1.25.0
 go.opentelemetry.io/contrib/zpages
 go.opentelemetry.io/contrib/zpages/internal
-# go.opentelemetry.io/otel v1.46.0
-## explicit; go 1.25.0
+# go.opentelemetry.io/otel v1.47.0
+## explicit; go 1.26.0
 go.opentelemetry.io/otel
 go.opentelemetry.io/otel/attribute
 go.opentelemetry.io/otel/attribute/internal
@@ -2297,6 +2277,7 @@ go.opentelemetry.io/otel/internal/baggage
 go.opentelemetry.io/otel/internal/errorhandler
 go.opentelemetry.io/otel/internal/global
 go.opentelemetry.io/otel/propagation
+go.opentelemetry.io/otel/propagation/internal/hextable
 go.opentelemetry.io/otel/semconv/internal/metricpool
 go.opentelemetry.io/otel/semconv/internal/v4
 go.opentelemetry.io/otel/semconv/v1.20.0
@@ -2321,20 +2302,24 @@ go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/observ
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/otlpconfig
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/retry
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/x
-# go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0
-## explicit; go 1.25.0
+# go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.47.0
+## explicit; go 1.26.0
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/counter
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/observ
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/x
-# go.opentelemetry.io/otel/metric v1.46.0
-## explicit; go 1.25.0
+# go.opentelemetry.io/otel/log v1.47.0
+## explicit; go 1.26.0
+go.opentelemetry.io/otel/log
+go.opentelemetry.io/otel/log/embedded
+# go.opentelemetry.io/otel/metric v1.47.0
+## explicit; go 1.26.0
 go.opentelemetry.io/otel/metric
 go.opentelemetry.io/otel/metric/embedded
 go.opentelemetry.io/otel/metric/noop
-# go.opentelemetry.io/otel/sdk v1.46.0
-## explicit; go 1.25.0
+# go.opentelemetry.io/otel/sdk v1.47.0
+## explicit; go 1.26.0
 go.opentelemetry.io/otel/sdk
 go.opentelemetry.io/otel/sdk/instrumentation
 go.opentelemetry.io/otel/sdk/internal/attrnorm
@@ -2344,8 +2329,8 @@ go.opentelemetry.io/otel/sdk/trace
 go.opentelemetry.io/otel/sdk/trace/internal/env
 go.opentelemetry.io/otel/sdk/trace/internal/observ
 go.opentelemetry.io/otel/sdk/trace/tracetest
-# go.opentelemetry.io/otel/trace v1.46.0
-## explicit; go 1.25.0
+# go.opentelemetry.io/otel/trace v1.47.0
+## explicit; go 1.26.0
 go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
@@ -2377,7 +2362,7 @@ go.yaml.in/yaml/v2
 # go.yaml.in/yaml/v3 v3.0.5
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/crypto v0.57.0
+# golang.org/x/crypto v0.58.0
 ## explicit; go 1.26.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
@@ -2407,14 +2392,14 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
-# golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
-## explicit; go 1.25.0
+# golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
+## explicit; go 1.26.0
 golang.org/x/exp/maps
 golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
-# golang.org/x/image v0.46.0
+# golang.org/x/image v0.47.0
 ## explicit; go 1.26.0
 golang.org/x/image/bmp
 golang.org/x/image/ccitt
@@ -2436,7 +2421,7 @@ golang.org/x/image/webp
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.59.0
+# golang.org/x/net v0.62.0
 ## explicit; go 1.26.0
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -2465,11 +2450,11 @@ golang.org/x/net/trace
 ## explicit; go 1.26.0
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.23.0
+# golang.org/x/sync v0.24.0
 ## explicit; go 1.26.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.48.0
+# golang.org/x/sys v0.49.0
 ## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -2480,10 +2465,10 @@ golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.46.0
+# golang.org/x/term v0.47.0
 ## explicit; go 1.26.0
 golang.org/x/term
-# golang.org/x/text v0.42.0
+# golang.org/x/text v0.43.0
 ## explicit; go 1.26.0
 golang.org/x/text/cases
 golang.org/x/text/collate
@@ -2513,8 +2498,8 @@ golang.org/x/text/width
 # golang.org/x/time v0.16.0
 ## explicit; go 1.26.0
 golang.org/x/time/rate
-# golang.org/x/tools v0.49.0
-## explicit; go 1.25.0
+# golang.org/x/tools v0.51.0
+## explicit; go 1.26.0
 golang.org/x/tools/cover
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/ast/edge
@@ -2523,7 +2508,6 @@ golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/packages
 golang.org/x/tools/go/types/objectpath
 golang.org/x/tools/imports
-golang.org/x/tools/internal/aliases
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
@@ -2551,8 +2535,8 @@ google.golang.org/genproto/googleapis/api/httpbody
 ## explicit; go 1.26.0
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.84.0
-## explicit; go 1.25.0
+# google.golang.org/grpc v1.85.0
+## explicit; go 1.26.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff

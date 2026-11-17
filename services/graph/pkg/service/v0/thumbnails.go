@@ -6,7 +6,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )

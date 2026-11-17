@@ -83,16 +83,16 @@ func (l *Conn) Add(addRequest *AddRequest) error {
 		return err
 	}
 
-	if len(packet.Children) < 2 {
-		return fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return err
 	}
-	if packet.Children[1].Tag == ApplicationAddResponse {
-		err := GetLDAPError(packet)
-		if err != nil {
+	if protocolOp.Tag == ApplicationAddResponse {
+		if err := GetLDAPError(packet); err != nil {
 			return err
 		}
 	} else {
-		return fmt.Errorf("ldap: unexpected response: %d", packet.Children[1].Tag)
+		return fmt.Errorf("ldap: unexpected response: %d", protocolOp.Tag)
 	}
 	return nil
 }

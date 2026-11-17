@@ -10,10 +10,11 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
@@ -175,6 +176,106 @@ var _ = Describe("Searchprovider", func() {
 			Entry("./", "./", false),
 			Entry("/", "/", false),
 		)
+
+		Context("with facets stored on the resource", func() {
+			var (
+				info  *sprovider.ResourceInfo
+				calls []string
+				set   map[string]string
+				unset []string
+			)
+
+			BeforeEach(func() {
+				calls, set, unset = nil, nil, nil
+				info = &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "photo-opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     "./photo.jpg",
+					ArbitraryMetadata: &sprovider.ArbitraryMetadata{
+						Metadata: map[string]string{
+							"libre.graph.photo.cameraMake":    "Canon",
+							"libre.graph.photo.iso":           "100",
+							"libre.graph.location.altitude":   "12",
+							"http://owncloud.org/ns/favorite": "1",
+						},
+					},
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+				gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+					return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+				})).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   info.GetPath(),
+				}, nil)
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Return(nil)
+				gatewayClient.On("SetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					calls = append(calls, "set")
+					set = args.Get(1).(*sprovider.SetArbitraryMetadataRequest).GetArbitraryMetadata().GetMetadata()
+				}).Return(&sprovider.SetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+				gatewayClient.On("UnsetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					calls = append(calls, "unset")
+					unset = args.Get(1).(*sprovider.UnsetArbitraryMetadataRequest).GetArbitraryMetadataKeys()
+				}).Return(&sprovider.UnsetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+			})
+
+			It("removes the facets the extraction no longer produces after storing the new ones", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo: &libregraph.Photo{CameraMake: libregraph.PtrString("Nikon")},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"set", "unset"}))
+				Expect(set).To(Equal(map[string]string{"libre.graph.photo.cameraMake": "Nikon"}))
+				Expect(unset).To(ConsistOf("libre.graph.photo.iso", "libre.graph.location.altitude"))
+			})
+
+			It("removes all facets when the extraction produces none", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"unset"}))
+				Expect(unset).To(ConsistOf("libre.graph.photo.cameraMake", "libre.graph.photo.iso", "libre.graph.location.altitude"))
+			})
+
+			It("removes keys of facets the indexer no longer knows", func() {
+				info.ArbitraryMetadata.Metadata["libre.graph.retiredFacet.field"] = "value"
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
+					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"unset"}))
+				Expect(unset).To(ConsistOf("libre.graph.retiredFacet.field"))
+			})
+
+			It("writes only the keys whose value changed", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(200)},
+					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12), Latitude: libregraph.PtrFloat64(48.1)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"set"}))
+				Expect(set).To(Equal(map[string]string{
+					"libre.graph.photo.iso":         "200",
+					"libre.graph.location.latitude": "48.1",
+				}))
+			})
+
+			It("does not touch the storage when the extraction still produces every stored facet unchanged", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
+					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(BeEmpty())
+			})
+		})
 	})
 
 	DescribeTable("ExpandQueryTemplate",
@@ -188,6 +289,20 @@ var _ = Describe("Searchprovider", func() {
 		Entry("a personal space fills the personal placeholder", "personal", `(foo) AND NOT id:"storageid$spaceid!spaceid" AND NOT id:"none$none!none"`),
 		Entry("a project space fills the project placeholder", "project", `(foo) AND NOT id:"none$none!none" AND NOT id:"storageid$spaceid!spaceid"`),
 		Entry("a share fills neither", "grant", `(foo) AND NOT id:"none$none!none" AND NOT id:"none$none!none"`),
+	)
+
+	DescribeTable("SanitizeHighlights",
+		func(highlights, expected string) {
+			Expect(search.SanitizeHighlights(highlights)).To(Equal(expected))
+		},
+		Entry("plain text", "foo <mark>bar</mark> baz", "foo <mark>bar</mark> baz"),
+		Entry("raw markup", "<img src=x> <mark>bar</mark>", "&lt;img src=x&gt; <mark>bar</mark>"),
+		Entry("already escaped", "&lt;img src=x&gt; <mark>bar</mark>", "&lt;img src=x&gt; <mark>bar</mark>"),
+		Entry("escaped text from the file stays as typed", "&amp;lt;img src=x&amp;gt; <mark>bar</mark>", "&amp;lt;img src=x&amp;gt; <mark>bar</mark>"),
+		Entry("markup inside a mark", "<mark><b>bar</b></mark>", "<mark>&lt;b&gt;bar&lt;/b&gt;</mark>"),
+		Entry("a mark with attributes", `<mark class="x">bar</mark>`, "&lt;mark class=&#34;x&#34;&gt;bar</mark>"),
+		Entry("an escaped ampersand stays single", "Tom &amp; Jerry", "Tom &amp; Jerry"),
+		Entry("empty", "", ""),
 	)
 
 	DescribeTable("IsHidden",
@@ -236,7 +351,8 @@ var _ = Describe("Searchprovider", func() {
 									StorageId: personalSpace.Root.StorageId,
 									OpaqueId:  "foo-id",
 								},
-								Name: "Foo.pdf",
+								Name:       "Foo.pdf",
+								Highlights: `foo <img src=x> <mark>bar</mark>`,
 							},
 						},
 					},
@@ -245,6 +361,15 @@ var _ = Describe("Searchprovider", func() {
 					Status: status.NewOK(context.Background()),
 					Info:   ri,
 				}, nil)
+			})
+
+			It("escapes the highlights whatever the engine returned", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "bar",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Matches).To(HaveLen(1))
+				Expect(res.Matches[0].Entity.Highlights).To(Equal(`foo &lt;img src=x&gt; <mark>bar</mark>`))
 			})
 
 			It("does not mess with field-based searches", func() {
@@ -266,6 +391,19 @@ var _ = Describe("Searchprovider", func() {
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
 					return req.Query == `(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`
 				}))
+			})
+
+			It("continues with the remaining spaces when one fails", func() {
+				failingClient := &engineMocks.Engine{}
+				failingClient.On("Search", mock.Anything, mock.Anything).Run(func(mock.Arguments) {
+					panic("unexpected")
+				}).Return(nil, nil)
+				s := search.NewService(gatewaySelector, failingClient, extractor, nil, logger, &config.Config{})
+
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.TotalMatches).To(Equal(int32(0)))
+				Expect(res.Matches).To(BeEmpty())
 			})
 
 			It("searches the personal user space", func() {

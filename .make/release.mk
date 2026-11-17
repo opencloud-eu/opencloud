@@ -9,11 +9,7 @@ release-dirs:
 DOCKER_LDFLAGS += -X "$(OC_REPO)/pkg/config/defaults.BaseDataPathType=path" -X "$(OC_REPO)/pkg/config/defaults.BaseDataPathValue=/var/lib/opencloud"
 DOCKER_LDFLAGS += -X "$(OC_REPO)/pkg/config/defaults.BaseConfigPathType=path" -X "$(OC_REPO)/pkg/config/defaults.BaseConfigPathValue=/etc/opencloud"
 
-# We can't link statically when vips is enabled but we still
-# prefer static linking where possible
-ifndef ENABLE_VIPS
-	DOCKER_LDFLAGS += -extldflags "-static"
-endif
+DOCKER_LDFLAGS += -extldflags "-static"
 
 release-linux-docker-amd64: release-dirs
 	GOOS=linux \

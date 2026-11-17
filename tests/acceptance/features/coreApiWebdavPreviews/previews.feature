@@ -236,7 +236,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @need-build-with-VIPS @issue-1451
+  @issue-1451
   Scenario Outline: it should update the preview content if the file content is updated (content with UTF chars)
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
@@ -250,7 +250,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @need-build-with-VIPS @issue-1452
+  @issue-1452
   Scenario Outline: download preview of the text file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
@@ -359,7 +359,7 @@ Feature: previews of files downloaded through the webdav API
       | new              |
       | spaces           |
 
-  @need-build-with-VIPS
+
   Scenario Outline: download previews of an image with different processors
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/testavatar.jpg" to "/testimage.jpg"

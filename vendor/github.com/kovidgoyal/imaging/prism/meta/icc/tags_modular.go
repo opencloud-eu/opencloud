@@ -91,7 +91,7 @@ func modularDecoder(raw []byte, _, output_colorspace ColorSpace) (ans any, err e
 		block := raw[offset:]
 		var c any
 		var consumed int
-		for range inputCh {
+		for range num_curves_reqd {
 			if len(block) < 4 {
 				return nil, errors.New("modular (mAB/mBA) tag too short")
 			}
@@ -121,7 +121,8 @@ func modularDecoder(raw []byte, _, output_colorspace ColorSpace) (ans any, err e
 	if mt.a_curves, err = read_curves(a, IfElse(is_a_to_b, inputCh, outputCh)); err != nil {
 		return nil, err
 	}
-	if mt.m_curves, err = read_curves(m, outputCh); err != nil {
+	// M curves are always on the PCS side
+	if mt.m_curves, err = read_curves(m, IfElse(is_a_to_b, outputCh, inputCh)); err != nil {
 		return nil, err
 	}
 	var temp any

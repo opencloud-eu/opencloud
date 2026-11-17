@@ -8,7 +8,7 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"go-micro.dev/v4"
 	"go-micro.dev/v4/events"
 

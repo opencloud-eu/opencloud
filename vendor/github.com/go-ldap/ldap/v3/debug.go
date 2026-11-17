@@ -14,7 +14,7 @@ func (debug *debugging) Enable(b bool) {
 }
 
 // Printf writes debug output.
-func (debug debugging) Printf(format string, args ...interface{}) {
+func (debug debugging) Printf(format string, args ...any) {
 	if debug {
 		logger.Printf(format, args...)
 	}

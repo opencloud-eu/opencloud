@@ -51,14 +51,14 @@ func Recoverer(next http.Handler) http.Handler {
 // for ability to test the PrintPrettyStack function
 var recovererErrorWriter io.Writer = os.Stderr
 
-func PrintPrettyStack(rvr interface{}) {
+func PrintPrettyStack(rvr any) {
 	printPrettyStack(rvr, true)
 }
 
 // printPrettyStack prints a formatted stack trace to stderr. When useColor is
 // false, ANSI colour codes are suppressed, which is useful for terminals that
 // do not support them (e.g. on Windows) or when output is being captured.
-func printPrettyStack(rvr interface{}, useColor bool) {
+func printPrettyStack(rvr any, useColor bool) {
 	debugStack := debug.Stack()
 	s := prettyStack{}
 	out, err := s.parse(debugStack, rvr, useColor)
@@ -73,7 +73,7 @@ func printPrettyStack(rvr interface{}, useColor bool) {
 type prettyStack struct {
 }
 
-func (s prettyStack) parse(debugStack []byte, rvr interface{}, useColor bool) ([]byte, error) {
+func (s prettyStack) parse(debugStack []byte, rvr any, useColor bool) ([]byte, error) {
 	var err error
 	buf := &bytes.Buffer{}
 

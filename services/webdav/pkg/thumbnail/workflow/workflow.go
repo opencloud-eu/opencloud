@@ -23,12 +23,12 @@ import (
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	grpcmetadata "google.golang.org/grpc/metadata"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/templates"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/dav/requests"
@@ -62,10 +62,10 @@ type SpaceLookup interface {
 // UserResolver resolves users for path-only thumbnail requests. WhoAmI maps an
 // auth token to its user (used for /webdav/... where the URL carries no
 // username); GetUserByClaim maps a username from /dav/files/{user}/... to its
-// user.
+// user, looked up as the requester, whose tenant the user provider searches.
 type UserResolver interface {
 	WhoAmI(ctx context.Context, auth string) (*userv1beta1.User, error)
-	GetUserByClaim(ctx context.Context, claim, value string) (*userv1beta1.User, error)
+	GetUserByClaim(ctx context.Context, claim, value, auth string) (*userv1beta1.User, error)
 }
 
 // ErrFileProcessing is returned when the file is still being processed by the
@@ -394,7 +394,7 @@ func (w *ThumbnailWorkflow) absolutizeUserPath(ctx context.Context, p, identifie
 	)
 	if identifier != "" {
 		// /dav/files/{user}/...: honor the username from the URL.
-		user, err = w.userResolver.GetUserByClaim(ctx, "username", identifier)
+		user, err = w.userResolver.GetUserByClaim(ctx, "username", identifier, auth)
 	} else {
 		// /webdav/...: resolve the token owner.
 		user, err = w.userResolver.WhoAmI(ctx, auth)
@@ -471,10 +471,9 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// imagor's default resize does.
 	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputFormat, noUpscale)
 
-	// Produce the source image to send to the generator, never decoding an image
-	// in webdav: real images (incl. gif) are streamed straight through undecoded;
-	// non-image sources are converted to image bytes here so the generator always
-	// receives an image.
+	// Produce the source to send to the generator, never decoding an image in
+	// webdav: anything without a converter is streamed straight through undecoded,
+	// the few types with one (text, audio, geogebra) are turned into image bytes here.
 	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
@@ -505,17 +504,19 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	return Thumbnail{Data: thumbBytes, ContentType: outputType}, nil
 }
 
-// sourceImage returns a reader over the source image to send to the generator,
-// plus a cleanup func to release any resources (download body, temp buffer). It
-// never decodes an image in webdav:
-//   - real images (image/*, incl. gif) are streamed straight through from storage
-//     undecoded; the generator handles decoding and multi-frame gifs itself.
+// sourceImage returns a reader over the source to send to the generator, plus a
+// cleanup func to release any resources (download body, temp buffer). It never
+// decodes an image in webdav:
+//   - a type without a converter (image/*, incl. gif, and whatever else the source
+//     types announce) is streamed straight through from storage undecoded; the
+//     generator decides whether it can read it.
 //   - text/plain is rendered to an image here (the only true conversion).
 //   - audio and geogebra sources have their embedded image extracted to bytes.
 func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
-	if strings.HasPrefix(m, "image/") {
+	converter := preprocessor.ForType(m, preprocessor.Options{FontMapFile: w.fontMapFile, MaxImageSize: w.maxInputSize})
+	if converter == nil {
 		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 		if err != nil {
 			return nil, "", nil, fmt.Errorf("download: %w", err)
@@ -532,12 +533,6 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	fileBytes, err := io.ReadAll(body)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("read source: %w", err)
-	}
-
-	converter := preprocessor.ForType(mimeType, preprocessor.Options{FontMapFile: w.fontMapFile, MaxImageSize: w.maxInputSize})
-	if converter == nil {
-		logger.Debug().Str("mimetype", mimeType).Msg("no converter for this type")
-		return nil, "", nil, fmt.Errorf("%w: no converter for %s", ErrNotFound, mimeType)
 	}
 
 	img, err := converter.Convert(bytes.NewReader(fileBytes))
@@ -709,11 +704,13 @@ func (g *gatewayUserResolver) WhoAmI(ctx context.Context, auth string) (*userv1b
 	return userRes.GetUser(), nil
 }
 
-func (g *gatewayUserResolver) GetUserByClaim(ctx context.Context, claim, value string) (*userv1beta1.User, error) {
+func (g *gatewayUserResolver) GetUserByClaim(ctx context.Context, claim, value, auth string) (*userv1beta1.User, error) {
 	client, err := g.selector.Next()
 	if err != nil {
 		return nil, fmt.Errorf("get gateway client: %w", err)
 	}
+
+	ctx = grpcmetadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, auth)
 
 	userRes, err := client.GetUserByClaim(ctx, &userv1beta1.GetUserByClaimRequest{Claim: claim, Value: value})
 	if err != nil {

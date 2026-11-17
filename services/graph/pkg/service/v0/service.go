@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,8 +15,10 @@ import (
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/bytesize"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 
+	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
@@ -94,10 +97,13 @@ type Service interface { //nolint:interfacebloat
 	GetDrivesV1(w http.ResponseWriter, r *http.Request)
 	GetDrivesV1Beta1(w http.ResponseWriter, r *http.Request)
 	GetSingleDrive(w http.ResponseWriter, r *http.Request)
+	GetSingleDriveV1Beta1(w http.ResponseWriter, r *http.Request)
 	GetAllDrivesV1(w http.ResponseWriter, r *http.Request)
 	GetAllDrivesV1Beta1(w http.ResponseWriter, r *http.Request)
 	CreateDrive(w http.ResponseWriter, r *http.Request)
+	CreateDriveV1Beta1(w http.ResponseWriter, r *http.Request)
 	UpdateDrive(w http.ResponseWriter, r *http.Request)
+	UpdateDriveV1Beta1(w http.ResponseWriter, r *http.Request)
 	DeleteDrive(w http.ResponseWriter, r *http.Request)
 
 	GetSharedByMe(w http.ResponseWriter, r *http.Request)
@@ -167,7 +173,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		return Graph{}, err
 	}
 
-	driveItemPermissionsService, err := NewDriveItemPermissionsService(options.Logger, options.GatewaySelector, identityCache, options.Config)
+	driveItemPermissionsService, err := NewDriveItemPermissionsService(options.Logger, options.GatewaySelector, identityCache, options.Config, options.TraceProvider)
 	if err != nil {
 		return Graph{}, err
 	}
@@ -197,6 +203,14 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		traceProvider:            options.TraceProvider,
 		valueService:             options.ValueService,
 		natskv:                   options.NatsKeyValue,
+	}
+
+	if raw := strings.TrimSpace(options.Config.Thumbnails.SpaceImageMaxInputImageFileSize); raw != "" {
+		size, err := bytesize.Parse(raw)
+		if err != nil {
+			return svc, fmt.Errorf("invalid thumbnails.space_image_max_input_image_file_size %q: %w", raw, err)
+		}
+		svc.maxSpaceImageSize = size.Bytes()
 	}
 
 	if options.PermissionService == nil {
@@ -250,6 +264,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1_Beta_1))
+				r.Post("/", svc.CreateDriveV1Beta1)
 				r.Route("/{driveID}", func(r chi.Router) {
 					// Rewrites MS Graph colon-syntax lookups (root:/path,
 					// items/{id}:/path) to /items/{resolvedID}... before chi
@@ -257,6 +272,9 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					// /drives/{driveID} sub-router, so it can rewrite the
 					// remaining RoutePath. See graphm.ResolveGraphPath.
 					r.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
+					r.Get("/", svc.GetSingleDriveV1Beta1)
+					r.Patch("/", svc.UpdateDriveV1Beta1)
+					r.Delete("/", svc.DeleteDrive)
 					r.Route("/root", func(r chi.Router) {
 						r.Post("/children", drivesDriveItemApi.CreateDriveItem)
 						r.Post("/invite", driveItemPermissionsApi.SpaceRootInvite)
@@ -264,6 +282,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						r.Route("/permissions", func(r chi.Router) {
 							r.Get("/", driveItemPermissionsApi.ListSpaceRootPermissions)
 							r.Route("/{permissionID}", func(r chi.Router) {
+								r.Get("/", driveItemPermissionsApi.GetSpaceRootPermission)
 								r.Delete("/", driveItemPermissionsApi.DeleteSpaceRootPermission)
 								r.Patch("/", driveItemPermissionsApi.UpdateSpaceRootPermission)
 								r.Post("/setPassword", driveItemPermissionsApi.SetSpaceRootLinkPassword)
@@ -279,6 +298,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						r.Route("/permissions", func(r chi.Router) {
 							r.Get("/", driveItemPermissionsApi.ListPermissions)
 							r.Route("/{permissionID}", func(r chi.Router) {
+								r.Get("/", driveItemPermissionsApi.GetPermission)
 								r.Delete("/", driveItemPermissionsApi.DeletePermission)
 								r.Patch("/", driveItemPermissionsApi.UpdatePermission)
 								r.Post("/setPassword", driveItemPermissionsApi.SetLinkPassword)
@@ -326,7 +346,17 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 				r.Route("/{userID}", func(r chi.Router) {
 					r.Get("/", svc.GetUser)
 					r.Get("/drive", svc.GetUserDrive)
-					r.Post("/exportPersonalData", svc.ExportPersonalData)
+					r.With(
+						// users may only export their own personal data, never
+						// that of another user; this comes before the rate
+						// limit, so that requests for other users are rejected
+						// without counting against anyone's limit
+						graphm.RequireOwnUserID("userID", options.Logger),
+						// every export collects all the data of the user and
+						// writes it into their personal space, which is
+						// expensive: limit how often a user can start one
+						ocmiddleware.RateLimitPerAuthenticatedUser(options.Config.API.ExportPersonalDataRateLimit, time.Minute, exportPersonalDataLimitReached),
+					).Post("/exportPersonalData", svc.ExportPersonalData)
 					r.Post("/teamwork/sendActivityNotification", svc.SendActivityNotification)
 					r.Route("/photo/$value", func(r chi.Router) {
 						r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetSlugValue("userID")))

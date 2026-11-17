@@ -95,6 +95,40 @@ func TestNewClamAV_Scan(t *testing.T) {
 		assert.True(t, <-done)
 	})
 
+	t.Run("returns an error if clamd answers with an error", func(t *testing.T) {
+		for name, reply := range map[string]string{
+			"ERROR":       "stream: Can't write to file ERROR\n",
+			"PARSE ERROR": "stream: Some parse problem PARSE ERROR\n",
+		} {
+			t.Run(name, func(t *testing.T) {
+				ul := newUnixListener(t, net.ListenConfig{}, "PONG\n", reply)
+				defer func() {
+					assert.NoError(t, ul.Close())
+				}()
+
+				scanner, err := scanners.NewClamAV(ul.Addr().String(), 10*time.Second)
+				require.NoError(t, err)
+
+				result, err := scanner.Scan(scanners.Input{Body: strings.NewReader("DATA")})
+				assert.ErrorIs(t, err, scanners.ErrScanFailed)
+				assert.False(t, result.Infected)
+			})
+		}
+	})
+
+	t.Run("returns an error if clamd closes the connection without replying", func(t *testing.T) {
+		ul := newUnixListener(t, net.ListenConfig{}, "PONG\n", "")
+		defer func() {
+			assert.NoError(t, ul.Close())
+		}()
+
+		scanner, err := scanners.NewClamAV(ul.Addr().String(), 10*time.Second)
+		require.NoError(t, err)
+
+		_, err = scanner.Scan(scanners.Input{Body: strings.NewReader("DATA")})
+		assert.ErrorIs(t, err, scanners.ErrScanFailed)
+	})
+
 	t.Run("aborts after a certain time", func(t *testing.T) {
 		ul := newUnixListener(t, net.ListenConfig{}, "PONG\n", "stream: Win.Test.EICAR_HDB-1 FOUND\n")
 		defer func() {

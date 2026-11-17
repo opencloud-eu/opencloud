@@ -6,15 +6,15 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-	enchex "encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"unicode/utf16"
 
 	"github.com/Azure/go-ntlmssp"
 	ber "github.com/go-asn1-ber/asn1-ber"
+	//lint:ignore SA1019 NTLM requires MD4; there is no secure replacement for the protocol.
 	"golang.org/x/crypto/md4" //nolint:staticcheck
 )
 
@@ -77,15 +77,26 @@ func (l *Conn) SimpleBind(simpleBindRequest *SimpleBindRequest) (*SimpleBindResu
 		return nil, err
 	}
 
+	return decodeSimpleBindResult(packet)
+}
+
+// decodeSimpleBindResult decodes a bind response envelope, including any
+// response controls. It is separated from the network loop so the full
+// response decoder can be fuzzed directly.
+func decodeSimpleBindResult(packet *ber.Packet) (*SimpleBindResult, error) {
 	result := &SimpleBindResult{
 		Controls: make([]Control, 0),
 	}
 
-	if len(packet.Children) == 3 {
-		for _, child := range packet.Children[2].Children {
+	controls, ok, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		for _, child := range controls.Children {
 			decodedChild, decodeErr := DecodeControl(child)
 			if decodeErr != nil {
-				return nil, fmt.Errorf("failed to decode child control: %s", decodeErr)
+				return nil, fmt.Errorf("failed to decode child control: %w", decodeErr)
 			}
 			result.Controls = append(result.Controls, decodedChild)
 		}
@@ -196,26 +207,35 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 		Controls: make([]Control, 0),
 	}
 	var params map[string]string
-	if len(packet.Children) == 2 {
-		if len(packet.Children[1].Children) == 4 {
-			child := packet.Children[1].Children[0]
-			if child.Tag != ber.TagEnumerated {
+	_, hasControls, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return nil, err
+	}
+	if !hasControls {
+		challenge, perr := packetChild(packet, 1)
+		if perr == nil {
+			challengeChild, hasChallengeChild, cerr := packetChildIfPresent(challenge, 3)
+			if cerr != nil {
 				return result, GetLDAPError(packet)
 			}
-			if child.Value.(int64) != 14 {
-				return result, GetLDAPError(packet)
-			}
-			child = packet.Children[1].Children[3]
-			if child.Tag != ber.TagObjectDescriptor {
-				return result, GetLDAPError(packet)
-			}
-			if child.Data == nil {
-				return result, GetLDAPError(packet)
-			}
-			data, _ := ioutil.ReadAll(child.Data)
-			params, err = parseParams(string(data))
-			if err != nil {
-				return result, fmt.Errorf("parsing digest-challenge: %s", err)
+			if hasChallengeChild {
+				child, perr := packetChild(challenge, 0)
+				if perr != nil || child.Tag != ber.TagEnumerated {
+					return result, GetLDAPError(packet)
+				}
+				code, perr := packetInt64(child)
+				if perr != nil || code != 14 {
+					return result, GetLDAPError(packet)
+				}
+				child = challengeChild
+				if child.Tag != ber.TagObjectDescriptor || child.Data == nil {
+					return result, GetLDAPError(packet)
+				}
+				data, _ := io.ReadAll(child.Data)
+				params, err = parseParams(string(data))
+				if err != nil {
+					return result, fmt.Errorf("parsing digest-challenge: %s", err)
+				}
 			}
 		}
 	}
@@ -257,30 +277,45 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 			return nil, fmt.Errorf("read packet: %s", err)
 		}
 
-		if len(packet.Children) == 2 {
-			response := packet.Children[1]
-			if response == nil {
+		_, hasControls, err := packetChildIfPresent(packet, 2)
+		if err != nil {
+			return nil, err
+		}
+		if !hasControls {
+			response, rerr := packetChild(packet, 1)
+			if rerr != nil {
 				return result, GetLDAPError(packet)
 			}
-			if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
-				if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
-					resultCode := uint16(response.Children[0].Value.(int64))
-					if resultCode == 14 {
-						msgCtx, err := l.doRequest(digestMD5BindRequest)
-						if err != nil {
-							return nil, err
+			if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed {
+				if _, rerr := packetChildCount(response, 3, -1, "bind response"); rerr == nil {
+					resultCodeChild, rerr := packetChild(response, 0)
+					if rerr != nil {
+						return result, GetLDAPError(packet)
+					}
+					if ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagInteger) || ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagEnumerated) {
+						resultCode, rerr := packetResultCode(resultCodeChild)
+						if rerr != nil {
+							return result, GetLDAPError(packet)
 						}
-						defer l.finishMessage(msgCtx)
-						packetResponse, ok := <-msgCtx.responses
-						if !ok {
-							return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
-						}
-						packet, err = packetResponse.ReadPacket()
-						l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
-						if err != nil {
-							return nil, fmt.Errorf("read packet: %s", err)
+						if resultCode == 14 {
+							msgCtx, err := l.doRequest(digestMD5BindRequest)
+							if err != nil {
+								return nil, err
+							}
+							defer l.finishMessage(msgCtx)
+							packetResponse, ok := <-msgCtx.responses
+							if !ok {
+								return nil, NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
+							}
+							packet, err = packetResponse.ReadPacket()
+							l.Debug.Printf("%d: got response %p", msgCtx.id, packet)
+							if err != nil {
+								return nil, fmt.Errorf("read packet: %s", err)
+							}
 						}
 					}
+				} else {
+					return result, GetLDAPError(packet)
 				}
 			}
 		}
@@ -373,7 +408,7 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	if err != nil {
 		return "", err
 	}
-	cnonce := enchex.EncodeToString(rb)
+	cnonce := hex.EncodeToString(rb)
 	x := username + ":" + params["realm"] + ":" + password
 	y := md5Hash([]byte(x))
 
@@ -384,8 +419,8 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	}
 	a2 := bytes.NewBuffer([]byte("AUTHENTICATE"))
 	a2.WriteString(":" + uri)
-	ha1 := enchex.EncodeToString(md5Hash(a1.Bytes()))
-	ha2 := enchex.EncodeToString(md5Hash(a2.Bytes()))
+	ha1 := hex.EncodeToString(md5Hash(a1.Bytes()))
+	ha2 := hex.EncodeToString(md5Hash(a2.Bytes()))
 
 	kd := ha1
 	kd += ":" + params["nonce"]
@@ -393,7 +428,7 @@ func computeResponse(params map[string]string, uri, username, password string) (
 	kd += ":" + cnonce
 	kd += ":" + qop
 	kd += ":" + ha2
-	resp := enchex.EncodeToString(md5Hash([]byte(kd)))
+	resp := hex.EncodeToString(md5Hash([]byte(kd)))
 	return fmt.Sprintf(
 		`username="%s",realm="%s",nonce="%s",cnonce="%s",nc=00000001,qop=%s,digest-uri="%s",response=%s`,
 		quotedStringEscape(username),
@@ -502,8 +537,8 @@ func (req *NTLMBindRequest) appendTo(envelope *ber.Packet) (err error) {
 	var negMessage []byte
 
 	// generate an NTLMSSP Negotiation message for the  specified domain (it can be blank)
-	switch {
-	case req.Negotiator == nil:
+	switch req.Negotiator {
+	case nil:
 		negMessage, err = ntlmssp.NewNegotiateMessage(req.Domain, "")
 		if err != nil {
 			return fmt.Errorf("create NTLM negotiate message: %s", err)
@@ -596,15 +631,29 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 	var ntlmsspChallenge []byte
 
 	// now find the NTLM Response Message
-	if len(packet.Children) == 2 {
-		if len(packet.Children[1].Children) == 3 {
-			child := packet.Children[1].Children[1]
-			ntlmsspChallenge = child.ByteValue
-			// Check to make sure we got the right message. It will always start with NTLMSSP
-			if len(ntlmsspChallenge) < 7 || !bytes.Equal(ntlmsspChallenge[:7], []byte("NTLMSSP")) {
+	_, hasControls, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return nil, err
+	}
+	if !hasControls {
+		protocolOp, perr := packetChild(packet, 1)
+		if perr == nil {
+			protocolOpChildren, cerr := packetChildCount(protocolOp, 3, -1, "bind response")
+			if cerr != nil {
 				return result, GetLDAPError(packet)
 			}
-			l.Debug.Printf("%d: found ntlmssp challenge", msgCtx.id)
+			if len(protocolOpChildren) == 3 {
+				child, perr := packetChild(protocolOp, 1)
+				if perr != nil {
+					return result, GetLDAPError(packet)
+				}
+				ntlmsspChallenge = child.ByteValue
+				// Check to make sure we got the right message. It will always start with NTLMSSP
+				if len(ntlmsspChallenge) < 7 || !bytes.Equal(ntlmsspChallenge[:7], []byte("NTLMSSP")) {
+					return result, GetLDAPError(packet)
+				}
+				l.Debug.Printf("%d: found ntlmssp challenge", msgCtx.id)
+			}
 		}
 	}
 	if ntlmsspChallenge != nil {
@@ -615,11 +664,12 @@ func (l *Conn) NTLMChallengeBind(ntlmBindRequest *NTLMBindRequest) (*NTLMBindRes
 		case ntlmBindRequest.Hash == "" && ntlmBindRequest.Password == "" && !ntlmBindRequest.AllowEmptyPassword:
 			err = fmt.Errorf("need a password or hash to generate reply")
 		case ntlmBindRequest.Negotiator == nil && ntlmBindRequest.Hash != "":
-			responseMessage, err = ntlmssp.ProcessChallengeWithHash(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash)
+			responseMessage, err = ntlmssp.NewAuthenticateMessage(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Hash, &ntlmssp.AuthenticateMessageOptions{
+				PasswordHashed: true,
+			})
 		case ntlmBindRequest.Negotiator == nil && (ntlmBindRequest.Password != "" || ntlmBindRequest.AllowEmptyPassword):
 			// generate a response message to the challenge with the given Username/Password if password is provided
-			_, _, domainNeeded := ntlmssp.GetDomain(ntlmBindRequest.Username)
-			responseMessage, err = ntlmssp.ProcessChallenge(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password, domainNeeded)
+			responseMessage, err = ntlmssp.NewAuthenticateMessage(ntlmsspChallenge, ntlmBindRequest.Username, ntlmBindRequest.Password, nil)
 		default:
 			hash := ntlmBindRequest.Hash
 			if len(hash) == 0 {
@@ -739,7 +789,7 @@ func (l *Conn) GSSAPIBindRequest(client GSSAPIClient, req *GSSAPIBindRequest) er
 	return l.GSSAPIBindRequestWithAPOptions(client, req, []int{})
 }
 
-// GSSAPIBindRequest performs the GSSAPI SASL bind using the provided GSSAPI client.
+// GSSAPIBindRequestWithAPOptions performs the GSSAPI SASL bind using the provided GSSAPI client and AP options.
 func (l *Conn) GSSAPIBindRequestWithAPOptions(client GSSAPIClient, req *GSSAPIBindRequest, APOptions []int) error {
 	//nolint:errcheck
 	defer client.DeleteSecContext()
@@ -819,33 +869,40 @@ func (l *Conn) saslBindTokenExchange(reqControls []Control, reqToken []byte) ([]
 	// packet is an envelope
 	// child 0 is message id
 	// child 1 is protocolOp
-	if len(packet.Children) != 2 {
+	if _, err := packetChildCount(packet, 2, 2, "bind response"); err != nil {
 		return nil, fmt.Errorf("bad bind response")
 	}
 
-	protocolOp := packet.Children[1]
+	protocolOp, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, fmt.Errorf("bad bind response")
+	}
 RESP:
 	switch protocolOp.Description {
 	case "Bind Response": // Bind Response
 		// Bind Reponse is an LDAP Response (https://www.rfc-editor.org/rfc/rfc4511#section-4.1.9)
 		// with an additional optional serverSaslCreds string (https://www.rfc-editor.org/rfc/rfc4511#section-4.2.2)
 		// child 0 is resultCode
-		resultCode := protocolOp.Children[0]
-		if resultCode.Tag != ber.TagEnumerated {
+		resultCode, rcErr := packetChild(protocolOp, 0)
+		if rcErr != nil || resultCode.Tag != ber.TagEnumerated {
 			break RESP
 		}
-		switch resultCode.Value.(int64) {
+		code, rcErr := packetInt64(resultCode)
+		if rcErr != nil {
+			break RESP
+		}
+		switch code {
 		case 14: // Sasl bind in progress
-			if len(protocolOp.Children) < 3 {
+			referral, ok, refErr := packetChildIfPresent(protocolOp, 3)
+			if refErr != nil || !ok {
 				break RESP
 			}
-			referral := protocolOp.Children[3]
 			switch referral.Description {
 			case "Referral":
-				if referral.ClassType != ber.ClassContext || referral.Tag != ber.TagObjectDescriptor {
+				if referral.ClassType != ber.ClassContext || referral.Tag != ber.TagObjectDescriptor || referral.Data == nil {
 					break RESP
 				}
-				return ioutil.ReadAll(referral.Data)
+				return io.ReadAll(referral.Data)
 			}
 			// Optional:
 			//if len(protocolOp.Children) == 4 {

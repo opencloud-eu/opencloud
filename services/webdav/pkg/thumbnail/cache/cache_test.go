@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -495,8 +496,10 @@ var _ = Describe("FileCache", func() {
 		Expect(os.MkdirAll(watchDir, 0700)).To(Succeed())
 
 		done := make(chan struct{})
-		sawTempFile := false
+		watcherStopped := make(chan struct{})
+		var sawTempFile atomic.Bool
 		go func() {
+			defer close(watcherStopped)
 			for {
 				select {
 				case <-done:
@@ -505,7 +508,7 @@ var _ = Describe("FileCache", func() {
 					entries, _ := os.ReadDir(watchDir)
 					for _, e := range entries {
 						if strings.HasPrefix(e.Name(), "tmpthumb") {
-							sawTempFile = true
+							sawTempFile.Store(true)
 						}
 					}
 					time.Sleep(1 * time.Millisecond)
@@ -517,11 +520,12 @@ var _ = Describe("FileCache", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		close(done)
+		<-watcherStopped
 
 		data, err := cache.Get(key)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(data)).To(Equal(1024 * 1024))
-		_ = sawTempFile
+		_ = sawTempFile.Load()
 	})
 
 	It("should handle disk write error gracefully", func() {

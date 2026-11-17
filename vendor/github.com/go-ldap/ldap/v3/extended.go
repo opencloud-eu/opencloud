@@ -32,13 +32,23 @@ func (er ExtendedRequest) appendTo(envelope *ber.Packet) error {
 	pkt := ber.Encode(ber.ClassApplication, ber.TypeConstructed, ApplicationExtendedRequest, nil, "Extended Request")
 	pkt.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, ber.TagEOC, er.Name, "Extended Request Name"))
 	if er.Value != nil {
-		pkt.AppendChild(er.Value)
+		pkt.AppendChild(encodeExtendedRequestValue(er.Value))
 	}
 	envelope.AppendChild(pkt)
 	if len(er.Controls) > 0 {
 		envelope.AppendChild(encodeControls(er.Controls))
 	}
 	return nil
+}
+
+// encodeExtendedRequestValue wraps the caller payload as RFC 4511 requestValue
+// [1] OCTET STRING. Callers that already built that field (context class, tag 1)
+// are left unchanged so Password Modify-style packets are not double-wrapped.
+func encodeExtendedRequestValue(value *ber.Packet) *ber.Packet {
+	if value.ClassType == ber.ClassContext && value.Tag == 1 {
+		return value
+	}
+	return ber.NewString(ber.ClassContext, ber.TypePrimitive, 1, string(value.Bytes()), "Extended Request Value")
 }
 
 // ExtendedResponse represents the response from the directory server
@@ -72,16 +82,24 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = GetLDAPError(packet); err != nil {
+
+	return decodeExtendedResponse(packet)
+}
+
+// decodeExtendedResponse decodes an extended response envelope, including any
+// response controls. It is separated from the network loop so the full
+// response decoder can be fuzzed directly.
+func decodeExtendedResponse(packet *ber.Packet) (*ExtendedResponse, error) {
+	if err := GetLDAPError(packet); err != nil {
 		return nil, err
 	}
 
-	extResp := packet.Children[1]
-	if len(extResp.Children) < 3 {
-		return nil, fmt.Errorf(
-			"ldap: malformed extended response: expected at least 3 children, got %d",
-			len(packet.Children),
-		)
+	extResp, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := packetChildCount(extResp, 3, -1, "extended response"); err != nil {
+		return nil, err
 	}
 
 	response := &ExtendedResponse{
@@ -99,17 +117,25 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 		}
 		switch child.Tag {
 		case ber.TagEnumerated:
-			response.Name = child.Data.String()
+			name, err := packetData(child)
+			if err != nil {
+				return nil, err
+			}
+			response.Name = string(name)
 		case ber.TagEmbeddedPDV:
 			response.Value = child
 		}
 	}
 
-	if len(packet.Children) == 3 {
-		for _, child := range packet.Children[2].Children {
+	controlsChild, ok, err := packetChildIfPresent(packet, 2)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		for _, child := range controlsChild.Children {
 			decodedChild, decodeErr := DecodeControl(child)
 			if decodeErr != nil {
-				return nil, fmt.Errorf("failed to decode child control: %s", decodeErr)
+				return nil, fmt.Errorf("failed to decode child control: %w", decodeErr)
 			}
 			response.Controls = append(response.Controls, decodedChild)
 		}

@@ -1406,7 +1406,10 @@ func (e *Element) Index() int {
 // Remove attempts to remove the element from the parent element that contains
 // it. If the element has no parent, the function returns false.
 func (e *Element) Remove() bool {
-	return e.Parent().RemoveChild(e) != nil
+	if e.parent == nil {
+		return false
+	}
+	return e.parent.RemoveChild(e) != nil
 }
 
 // WriteTo serializes the element to the writer w.
@@ -1658,7 +1661,10 @@ func (c *CharData) Index() int {
 // contains it. If the CharData token has no parent, the function returns
 // false.
 func (c *CharData) Remove() bool {
-	return c.Parent().RemoveChild(c) != nil
+	if c.parent == nil {
+		return false
+	}
+	return c.parent.RemoveChild(c) != nil
 }
 
 // WriteTo serializes CharData token to the writer.
@@ -1747,7 +1753,10 @@ func (c *Comment) Index() int {
 // Remove attempts to remove the comment from the parent element that contains
 // it. If the comment has no parent, the function returns false.
 func (c *Comment) Remove() bool {
-	return c.Parent().RemoveChild(c) != nil
+	if c.parent == nil {
+		return false
+	}
+	return c.parent.RemoveChild(c) != nil
 }
 
 // WriteTo serializes the comment to the writer.
@@ -1818,7 +1827,10 @@ func (d *Directive) Index() int {
 // Remove attempts to remove the XML directive from the parent element that
 // contains it. If the directive has no parent, the function returns false.
 func (d *Directive) Remove() bool {
-	return d.Parent().RemoveChild(d) != nil
+	if d.parent == nil {
+		return false
+	}
+	return d.parent.RemoveChild(d) != nil
 }
 
 // WriteTo serializes the XML directive to the writer.
@@ -1893,7 +1905,10 @@ func (p *ProcInst) Index() int {
 // element that contains it. If the processing instruction has no parent, the
 // function returns false.
 func (p *ProcInst) Remove() bool {
-	return p.Parent().RemoveChild(p) != nil
+	if p.parent == nil {
+		return false
+	}
+	return p.parent.RemoveChild(p) != nil
 }
 
 // WriteTo serializes the XML processing instruction to the writer.

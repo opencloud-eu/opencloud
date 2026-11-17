@@ -12,10 +12,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
-	decomposedbs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposed/blobstore"
-	decomposeds3bs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposeds3/blobstore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	decomposedbs "github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposed/blobstore"
+	decomposeds3bs "github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposeds3/blobstore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 
 	"github.com/spf13/cobra"
 )
@@ -24,8 +24,6 @@ var (
 	// _nodesGlobPattern is the glob pattern to find all nodes
 	_nodesGlobPattern = "spaces/*/*/nodes/"
 )
-
-const posixDriver = "posix"
 
 // RevisionsCommand is the entrypoint for the revisions command.
 func RevisionsCommand(cfg *config.Config) *cobra.Command {
@@ -88,7 +86,7 @@ func PurgeRevisionsCommand(cfg *config.Config) *cobra.Command {
 				mechanism = "glob"
 			}
 
-			var posix = cfg.StorageUsers.Driver == posixDriver
+			posix := isPosixStorage(basePath, cfg.StorageUsers.Driver)
 
 			var ch <-chan string
 			switch mechanism {

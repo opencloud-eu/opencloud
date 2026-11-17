@@ -3,6 +3,7 @@ package kql
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/now"
@@ -68,6 +69,12 @@ func toString(in any) (string, error) {
 	default:
 		return "", fmt.Errorf("can't convert '%T' to string", v)
 	}
+}
+
+// unquote returns the value of a quoted string token: the surrounding quotes
+// go and every doubled quote inside stands for one quote.
+func unquote(text []byte) string {
+	return strings.ReplaceAll(string(text[1:len(text)-1]), `""`, `"`)
 }
 
 func toTime(in any) (time.Time, error) {

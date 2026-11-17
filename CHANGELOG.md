@@ -1,5 +1,131 @@
 # Changelog
 
+## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
+
+### ❤️ Thanks to all contributors! ❤️
+
+@JammingBen, @RyoKusnadi, @aduffeck, @butonic, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer, @v-scharf
+
+### 🔒 Security
+
+- fix(chore): upd deprecated chi RealIP middelware [[#3464](https://github.com/opencloud-eu/opencloud/pull/3464)]
+- Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
+
+### 🐛 Bug Fixes
+
+- fix(proxy): allow blob: in media-src for motion and live photo playback [[#3896](https://github.com/opencloud-eu/opencloud/pull/3896)]
+- fix(middleware): do not build the XFF middleware without trusted proxies [[#3937](https://github.com/opencloud-eu/opencloud/pull/3937)]
+- fix(auth-guest): add missing guest link logout endpoint [[#3932](https://github.com/opencloud-eu/opencloud/pull/3932)]
+- Remove redis-sentinel from store descriptions [[#3936](https://github.com/opencloud-eu/opencloud/pull/3936)]
+- Bound the memory of bleve indexing [[#3900](https://github.com/opencloud-eu/opencloud/pull/3900)]
+- fix: filter health checks from the pod ip [[#3914](https://github.com/opencloud-eu/opencloud/pull/3914)]
+- fix: keep the health checks out of the access log [[#3908](https://github.com/opencloud-eu/opencloud/pull/3908)]
+- fix(tracing): set the global text map propagator [[#3906](https://github.com/opencloud-eu/opencloud/pull/3906)]
+- fix(proxy): answer 403 instead of 500 when the role claim is missing [[#3894](https://github.com/opencloud-eu/opencloud/pull/3894)]
+- fix(webdav): stream announced types without a converter to the generator [[#3884](https://github.com/opencloud-eu/opencloud/pull/3884)]
+- fix(search): normalize KQL path once [[#3516](https://github.com/opencloud-eu/opencloud/pull/3516)]
+- fix(search): report rejected documents when indexing to OpenSearch [[#3142](https://github.com/opencloud-eu/opencloud/pull/3142)]
+- fix(graph): expose allowedValues on driveItem children [[#3476](https://github.com/opencloud-eu/opencloud/pull/3476)]
+- fix(search): index resources with out-of-range coordinates without a geopoint [[#3496](https://github.com/opencloud-eu/opencloud/pull/3496)]
+- perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
+
+### 📈 Enhancement
+
+- ability to disable http and/or event consumer for user log service [[#3285](https://github.com/opencloud-eu/opencloud/pull/3285)]
+
+### 📚 Documentation
+
+- docs: add audit logging ADR [[#3855](https://github.com/opencloud-eu/opencloud/pull/3855)]
+
+### 📦️ Dependencies
+
+- [full-ci] chore: bump reva to 2.52.2 [[#3955](https://github.com/opencloud-eu/opencloud/pull/3955)]
+- [full-ci] chore: bump web to v8.2.2 [[#3962](https://github.com/opencloud-eu/opencloud/pull/3962)]
+- [full-ci] chore: bump web to v8.2.2-beta.1 [[#3923](https://github.com/opencloud-eu/opencloud/pull/3923)]
+- build(deps): bump github.com/prometheus/client_golang from 1.24.1 to 1.25.0 [[#3897](https://github.com/opencloud-eu/opencloud/pull/3897)]
+- build(deps): bump github.com/nats-io/nats.go from 1.54.0 to 1.55.0 [[#3904](https://github.com/opencloud-eu/opencloud/pull/3904)]
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.23 to 1.9.0 [[#3898](https://github.com/opencloud-eu/opencloud/pull/3898)]
+- build(deps): bump google.golang.org/grpc from 1.84.0 to 1.85.0 [[#3885](https://github.com/opencloud-eu/opencloud/pull/3885)]
+- build(deps): bump github.com/KimMachineGun/automemlimit from 1.0.0 to 1.0.1 [[#3886](https://github.com/opencloud-eu/opencloud/pull/3886)]
+- build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.14 to 3.4.15 [[#3887](https://github.com/opencloud-eu/opencloud/pull/3887)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.46.0 to 1.47.0 [[#3860](https://github.com/opencloud-eu/opencloud/pull/3860)]
+- build(deps): bump golang.org/x/image from 0.46.0 to 0.47.0 [[#3861](https://github.com/opencloud-eu/opencloud/pull/3861)]
+- build(deps): bump golang.org/x/net from 0.61.0 to 0.62.0 [[#3880](https://github.com/opencloud-eu/opencloud/pull/3880)]
+- build(deps): bump golang.org/x/net from 0.59.0 to 0.61.0 [[#3851](https://github.com/opencloud-eu/opencloud/pull/3851)]
+- build(deps): bump go.opentelemetry.io/otel/sdk from 1.46.0 to 1.47.0 [[#3850](https://github.com/opencloud-eu/opencloud/pull/3850)]
+- build(deps): bump github.com/tidwall/gjson from 1.19.0 to 1.20.0 [[#3852](https://github.com/opencloud-eu/opencloud/pull/3852)]
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.19.0 to 2.20.0 [[#3847](https://github.com/opencloud-eu/opencloud/pull/3847)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.33.0 to 2.33.1 [[#3846](https://github.com/opencloud-eu/opencloud/pull/3846)]
+- build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.2 to 2.4.4 [[#3848](https://github.com/opencloud-eu/opencloud/pull/3848)]
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.30.0 to 2.31.0 [[#3676](https://github.com/opencloud-eu/opencloud/pull/3676)]
+- chore(deps): bump github.com/beevik/etree from 1.8.0 to 1.8.1 [[#3675](https://github.com/opencloud-eu/opencloud/pull/3675)]
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.18.0 to 2.19.0 [[#3597](https://github.com/opencloud-eu/opencloud/pull/3597)]
+
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-27
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
+
+### 💥 Breaking changes
+
+- Push based thumbnailer architecture [[#3397](https://github.com/opencloud-eu/opencloud/pull/3397)]
+- feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
+### 🐛 Bug Fixes
+
+- Skip extraction for directories before checking the size limit [[#3832](https://github.com/opencloud-eu/opencloud/pull/3832)]
+- log errors when a personal space is deleted [[#3710](https://github.com/opencloud-eu/opencloud/pull/3710)]
+- fix(cli): detect storage driver from storage path in revisions and trash commands [[#3776](https://github.com/opencloud-eu/opencloud/pull/3776)]
+- fix(idp): show keyboard focus on every control [[#3732](https://github.com/opencloud-eu/opencloud/pull/3732)]
+- fix: show the lilac logo on the login page [[#3773](https://github.com/opencloud-eu/opencloud/pull/3773)]
+- fix(frontend): report content search only when full-text search is enabled [[#3760](https://github.com/opencloud-eu/opencloud/pull/3760)]
+- fix: allow guests to list role definitions [[#3729](https://github.com/opencloud-eu/opencloud/pull/3729)]
+- fix: nats checks were missing the configured auth [[#3724](https://github.com/opencloud-eu/opencloud/pull/3724)]
+- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
+- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
+- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
+
+### 📈 Enhancement
+
+- feat: new mail notifications based on design system [[#3789](https://github.com/opencloud-eu/opencloud/pull/3789)]
+- feat(search): configurable query filter, leaves the personal space root and .space out by default [[#3787](https://github.com/opencloud-eu/opencloud/pull/3787)]
+- feat: expose the default project space quota in the capabilities [[#3719](https://github.com/opencloud-eu/opencloud/pull/3719)]
+- feat(collaboration): close the CheckFileInfo gaps for the office apps [[#3730](https://github.com/opencloud-eu/opencloud/pull/3730)]
+- fix(proxy): allow guest link auth for app open and new endpoints [[#3737](https://github.com/opencloud-eu/opencloud/pull/3737)]
+- feat: make space2share migration repeatable [[#3669](https://github.com/opencloud-eu/opencloud/pull/3669)]
+- feat: run the decomposed drivers on foreign metadata via metadata_prefix [[#3670](https://github.com/opencloud-eu/opencloud/pull/3670)]
+- feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
+- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
+
+### ✅ Tests
+
+- ci: disable async uploads for litmus tests [[#3777](https://github.com/opencloud-eu/opencloud/pull/3777)]
+- tests: add acceptance tests for renewing guest links [[#3753](https://github.com/opencloud-eu/opencloud/pull/3753)]
+- tests: check that a guest can only access the shared resource [[#3752](https://github.com/opencloud-eu/opencloud/pull/3752)]
+- tests: add acceptance tests for sharing with guests via email [[#3751](https://github.com/opencloud-eu/opencloud/pull/3751)]
+- Bump reva and add some tests for new features [[#3715](https://github.com/opencloud-eu/opencloud/pull/3715)]
+- api-test: check PROPFIND/REPORT has-preview [[#3714](https://github.com/opencloud-eu/opencloud/pull/3714)]
+- test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
+- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
+- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
+
+### 📚 Documentation
+
+- docs: update unified Roles [[#3738](https://github.com/opencloud-eu/opencloud/pull/3738)]
+- fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
+
+### 📦️ Dependencies
+
+- [full-ci] chore: bump web to v8.2.1 [[#3834](https://github.com/opencloud-eu/opencloud/pull/3834)]
+- [full-ci] chore: bump web to v8.2.0 [[#3816](https://github.com/opencloud-eu/opencloud/pull/3816)]
+- chore: bump reva to latest main [[#3720](https://github.com/opencloud-eu/opencloud/pull/3720)]
+- chore: bump reva to latest main [[#3713](https://github.com/opencloud-eu/opencloud/pull/3713)]
+- chore: bump reva to latest main [[#3700](https://github.com/opencloud-eu/opencloud/pull/3700)]
+- chore: bump reva to latest main [[#3685](https://github.com/opencloud-eu/opencloud/pull/3685)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.1 to 2.33.0 [[#3596](https://github.com/opencloud-eu/opencloud/pull/3596)]
+- build(deps): bump github.com/open-policy-agent/opa from 1.19.1 to 1.21.1 [[#3599](https://github.com/opencloud-eu/opencloud/pull/3599)]
+
 ## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-10-05
 
 ### ❤️ Thanks to all contributors! ❤️

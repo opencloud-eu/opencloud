@@ -26,7 +26,7 @@ type Config struct {
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"FRONTEND_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 
 	MaxQuota                       uint64 `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;FRONTEND_MAX_QUOTA" desc:"Set the global max quota value in bytes. A value of 0 equals unlimited. The value is provided via capabilities." introductionVersion:"1.0.0"`
-	DefaultQuota                   string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA" desc:"Set the default quota in bytes for new project spaces. A value of 0 or an invalid value means no default quota. The value is provided via capabilities and must match the default quota of the graph service." introductionVersion:"%%NEXT%%"`
+	DefaultQuota                   string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA" desc:"Set the default quota in bytes for new project spaces. A value of 0 or an invalid value means no default quota. The value is provided via capabilities and must match the default quota of the graph service." introductionVersion:"9.0.0"`
 	UploadMaxChunkSize             int    `yaml:"upload_max_chunk_size" env:"FRONTEND_UPLOAD_MAX_CHUNK_SIZE" desc:"Sets the max chunk sizes in bytes for uploads via the clients." introductionVersion:"1.0.0"`
 	UploadHTTPMethodOverride       string `yaml:"upload_http_method_override" env:"FRONTEND_UPLOAD_HTTP_METHOD_OVERRIDE" desc:"Advise TUS to replace PATCH requests by POST requests." introductionVersion:"1.0.0"`
 	DefaultUploadProtocol          string `yaml:"default_upload_protocol" env:"FRONTEND_DEFAULT_UPLOAD_PROTOCOL" desc:"The default upload protocol to use in clients. Currently only 'tus' is available. See the developer API documentation for more details about TUS." introductionVersion:"1.0.0"`
@@ -60,6 +60,8 @@ type Config struct {
 	PasswordPolicy PasswordPolicy `yaml:"password_policy"`
 
 	ConfigurableNotifications bool `yaml:"configurable_notifications" env:"FRONTEND_CONFIGURABLE_NOTIFICATIONS" desc:"Allow configuring notifications via web client." introductionVersion:"1.0.0"`
+
+	ServerManagedSpaces bool `yaml:"server_managed_spaces" env:"OC_CLAIM_MANAGED_SPACES_ENABLED" desc:"Mark spaces as managed by the server. Clients like the web UI then block adding or removing users to or from spaces. See the text description for more details." introductionVersion:"%%NEXT%%"`
 
 	Groupware Groupware `yaml:"groupware"`
 
@@ -125,7 +127,7 @@ type OCS struct {
 	SharePrefix                   string        `yaml:"share_prefix" env:"FRONTEND_OCS_SHARE_PREFIX" desc:"Path prefix for shares as part of a CS3 resource. Note that the path must start with '/'." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The OCS API is deprecated" deprecationReplacement:""`
 	HomeNamespace                 string        `yaml:"home_namespace" env:"FRONTEND_OCS_PERSONAL_NAMESPACE" desc:"Home namespace identifier." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The OCS API is deprecated" deprecationReplacement:""`
 	AdditionalInfoAttribute       string        `yaml:"additional_info_attribute" env:"FRONTEND_OCS_ADDITIONAL_INFO_ATTRIBUTE" desc:"Additional information attribute for the user like {{.Mail}}." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The OCS API is deprecated" deprecationReplacement:""`
-	StatCacheType                 string        `yaml:"stat_cache_type" env:"OC_CACHE_STORE;FRONTEND_OCS_STAT_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'redis-sentinel', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_OCS_STAT_CACHE_STORE, the OCS API is deprecated" deprecationReplacement:""`
+	StatCacheType                 string        `yaml:"stat_cache_type" env:"OC_CACHE_STORE;FRONTEND_OCS_STAT_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_OCS_STAT_CACHE_STORE, the OCS API is deprecated" deprecationReplacement:""`
 	StatCacheNodes                []string      `yaml:"stat_cache_nodes" env:"OC_CACHE_STORE_NODES;FRONTEND_OCS_STAT_CACHE_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_OCS_STAT_CACHE_STORE_NODES, the OCS API is deprecated" deprecationReplacement:""`
 	StatCacheDatabase             string        `yaml:"stat_cache_database" env:"OC_CACHE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	StatCacheTable                string        `yaml:"stat_cache_table" env:"FRONTEND_OCS_STAT_CACHE_TABLE" desc:"The database table the store should use." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The OCS API is deprecated" deprecationReplacement:""`
@@ -232,5 +234,5 @@ type Groupware struct {
 // Thumbnails is what oc:has-preview is answered with. The names match the ones
 // the webdav service uses for the same list.
 type Thumbnails struct {
-	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"%%NEXT%%"`
+	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
 }

@@ -779,6 +779,125 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 * @param string $query
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user looks up the single space :spaceName using the Graph API version :apiVersion')]
+	#[When('user :user looks up the single space :spaceName using the Graph API version :apiVersion with query :query')]
+	public function theUserLooksUpTheSingleSpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $apiVersion,
+		string $query = ''
+	): void {
+		$space = $this->getSpaceByName($user, $spaceName);
+		Assert::assertNotEmpty($space["id"]);
+		$this->featureContext->setResponse(
+			GraphHelper::getSingleSpace(
+				$this->featureContext->getBaseUrl(),
+				$user,
+				$this->featureContext->getPasswordForUser($user),
+				$space["id"],
+				$query !== '' ? '?' . $query : '',
+				$this->featureContext->getStepLineRef(),
+				[],
+				[],
+				$apiVersion
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $spaceType
+	 * @param string $quota
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('user :user creates a space :spaceName of type :spaceType with quota :quota using the Graph API version :apiVersion')]
+	public function theUserCreatesASpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $spaceType,
+		string $quota,
+		string $apiVersion
+	): void {
+		$space = ["name" => $spaceName, "driveType" => $spaceType, "quota" => ["total" => (int)$quota]];
+		$this->featureContext->setResponse(
+			$this->createSpace($user, $space, '', $apiVersion)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $newName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('user :user changes the name of the :spaceName space to :newName using the Graph API version :apiVersion')]
+	public function updateSpaceNameUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $newName,
+		string $apiVersion
+	): void {
+		$this->featureContext->setResponse(
+			$this->updateSpace($user, $spaceName, ["Name" => $newName], '', $apiVersion)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user disables a space :spaceName using the Graph API version :apiVersion')]
+	public function userDisablesSpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$this->featureContext->setResponse(
+			$this->disableSpace($user, $spaceName, '', $apiVersion)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user deletes a space :spaceName using the Graph API version :apiVersion')]
+	public function userDeletesSpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$this->featureContext->setResponse(
+			$this->deleteSpace($user, $spaceName, '', $apiVersion)
+		);
+	}
+
+	/**
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -802,6 +921,30 @@ class SpacesContext implements Context {
 		$body = json_encode($space);
 		$this->featureContext->setResponse(
 			$this->createSpace($user, $space, $body)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $spaceType
+	 * @param string $spaceId
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	#[When('/^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with id "([^"]*)" using the Graph API$/')]
+	public function theUserCreatesASpaceWithIdUsingTheGraphApi(
+		string $user,
+		string $spaceName,
+		string $spaceType,
+		string $spaceId
+	): void {
+		$space = ["name" => $spaceName, "driveType" => $spaceType, "id" => $spaceId];
+		$this->featureContext->setResponse(
+			$this->createSpace($user, $space)
 		);
 	}
 
@@ -1554,6 +1697,7 @@ class SpacesContext implements Context {
 	 * @param string $spaceName
 	 * @param array $bodyData
 	 * @param string $owner
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1563,7 +1707,8 @@ class SpacesContext implements Context {
 		string $user,
 		string $spaceName,
 		array $bodyData,
-		string $owner = ''
+		string $owner = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		if ($spaceName === "non-existing") {
 			// check sending invalid data
@@ -1581,7 +1726,9 @@ class SpacesContext implements Context {
 			$this->featureContext->getPasswordForUser($user),
 			$body,
 			$spaceId,
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			[],
+			$apiVersion
 		);
 	}
 
@@ -1634,6 +1781,30 @@ class SpacesContext implements Context {
 		$this->featureContext->setResponse(
 			$this->updateSpace($user, $spaceName, $bodyData, $owner)
 		);
+	}
+
+	/**
+	 * Like updateSpaceName, but the new name is written with JSON escape sequences,
+	 * e.g. "\u200b" for a zero-width space. Characters such as invisible or unusual
+	 * spaces can't be told apart from ordinary spaces, or can't be seen at all, when
+	 * written directly into a feature file.
+	 *
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $escapedNewName
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to the escaped name "([^"]*)"$/')]
+	public function updateSpaceNameEscaped(
+		string $user,
+		string $spaceName,
+		string $escapedNewName
+	): void {
+		$newName = json_decode('"' . $escapedNewName . '"', false, 512, JSON_THROW_ON_ERROR);
+		$this->updateSpaceName($user, $spaceName, $newName);
 	}
 
 	/**
@@ -1904,6 +2075,7 @@ class SpacesContext implements Context {
 	 * @param string $user
 	 * @param array $space
 	 * @param string $body
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1912,7 +2084,8 @@ class SpacesContext implements Context {
 	public function createSpace(
 		string $user,
 		array $space,
-		string $body = ''
+		string $body = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		$body = $body !== '' ? $body : json_encode($space, JSON_THROW_ON_ERROR);
 		$response = GraphHelper::createSpace(
@@ -1920,7 +2093,9 @@ class SpacesContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$body,
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			[],
+			$apiVersion
 		);
 		if ($response->getStatusCode() === 201) {
 			$this->addCreatedSpace($user, $response);
@@ -2965,6 +3140,7 @@ class SpacesContext implements Context {
 	 * @param  string $user
 	 * @param  string $spaceName
 	 * @param  string $owner
+	 * @param  string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -2972,7 +3148,8 @@ class SpacesContext implements Context {
 	public function disableSpace(
 		string $user,
 		string $spaceName,
-		string $owner = ''
+		string $owner = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		$space = $this->getSpaceByName(($owner !== "") ? $owner : $user, $spaceName);
 		return GraphHelper::disableSpace(
@@ -2980,7 +3157,8 @@ class SpacesContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$space["id"],
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			$apiVersion
 		);
 	}
 
@@ -3055,6 +3233,7 @@ class SpacesContext implements Context {
 	 * @param  string $user
 	 * @param  string $spaceName
 	 * @param string $owner
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -3062,7 +3241,8 @@ class SpacesContext implements Context {
 	public function deleteSpace(
 		string $user,
 		string $spaceName,
-		string $owner = ''
+		string $owner = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		$space = $this->getSpaceByName(($owner !== "") ? $owner : $user, $spaceName);
 
@@ -3071,7 +3251,8 @@ class SpacesContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$space["id"],
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			$apiVersion
 		);
 	}
 

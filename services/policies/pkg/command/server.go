@@ -22,7 +22,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/policies/pkg/server/debug"
 	svcEvent "github.com/opencloud-eu/opencloud/services/policies/pkg/service/event"
 	svcGRPC "github.com/opencloud-eu/opencloud/services/policies/pkg/service/grpc"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/spf13/cobra"

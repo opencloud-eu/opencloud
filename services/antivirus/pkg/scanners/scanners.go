@@ -9,6 +9,8 @@ import (
 var (
 	// ErrScanTimeout is returned when a scan times out
 	ErrScanTimeout = errors.New("time out waiting for clamav to respond while scanning")
+	// ErrScanFailed is returned when the scanner answers with an error instead of a verdict
+	ErrScanFailed = errors.New("scanner failed to scan the file")
 	// ErrScannerNotReachable is returned when the scanner is not reachable
 	ErrScannerNotReachable = errors.New("failed to reach the scanner")
 )

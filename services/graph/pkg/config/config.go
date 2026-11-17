@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 )
 
 // Config combines all available configuration parts.
@@ -55,7 +55,7 @@ type Config struct {
 type Spaces struct {
 	WebDavBase                      string `yaml:"webdav_base" env:"OC_URL;GRAPH_SPACES_WEBDAV_BASE" desc:"The public facing URL of WebDAV." introductionVersion:"1.0.0"`
 	WebDavPath                      string `yaml:"webdav_path" env:"GRAPH_SPACES_WEBDAV_PATH" desc:"The WebDAV sub-path for spaces." introductionVersion:"1.0.0"`
-	DefaultQuota                    string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA;GRAPH_SPACES_DEFAULT_QUOTA" desc:"The default quota in bytes." introductionVersion:"1.0.0" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"GRAPH_SPACES_DEFAULT_QUOTA is deprecated and will be removed in a future version. Please use OC_SPACES_DEFAULT_QUOTA instead." deprecationReplacement:"OC_SPACES_DEFAULT_QUOTA"`
+	DefaultQuota                    string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA;GRAPH_SPACES_DEFAULT_QUOTA" desc:"The default quota in bytes." introductionVersion:"1.0.0" deprecationVersion:"9.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"GRAPH_SPACES_DEFAULT_QUOTA is deprecated and will be removed in a future version. Please use OC_SPACES_DEFAULT_QUOTA instead." deprecationReplacement:"OC_SPACES_DEFAULT_QUOTA"`
 	ExtendedSpacePropertiesCacheTTL int    `yaml:"extended_space_properties_cache_ttl" env:"GRAPH_SPACES_EXTENDED_SPACE_PROPERTIES_CACHE_TTL" desc:"Max TTL in seconds for the spaces property cache." introductionVersion:"1.0.0"`
 	UsersCacheTTL                   int    `yaml:"users_cache_ttl" env:"GRAPH_SPACES_USERS_CACHE_TTL" desc:"Max TTL in seconds for the spaces users cache." introductionVersion:"1.0.0"`
 	GroupsCacheTTL                  int    `yaml:"groups_cache_ttl" env:"GRAPH_SPACES_GROUPS_CACHE_TTL" desc:"Max TTL in seconds for the spaces groups cache." introductionVersion:"1.0.0"`
@@ -136,11 +136,12 @@ type Identity struct {
 
 // API represents API configuration parameters.
 type API struct {
-	GroupMembersPatchLimit  int    `yaml:"group_members_patch_limit" env:"GRAPH_GROUP_MEMBERS_PATCH_LIMIT" desc:"The amount of group members allowed to be added with a single patch request." introductionVersion:"1.0.0"`
-	UsernameMatch           string `yaml:"graph_username_match" env:"GRAPH_USERNAME_MATCH" desc:"Apply restrictions to usernames. Supported values are 'default' and 'none'. When set to 'default', user names must not start with a number and are restricted to ASCII characters. When set to 'none', no restrictions are applied. The default value is 'default'." introductionVersion:"1.0.0"`
-	AssignDefaultUserRole   bool   `yaml:"graph_assign_default_user_role" env:"GRAPH_ASSIGN_DEFAULT_USER_ROLE" desc:"Whether to assign newly created users the default role 'User'. Set this to 'false' if you want to assign roles manually, or if the role assignment should happen at first login. Set this to 'true' (the default) to assign the role 'User' when creating a new user." introductionVersion:"1.0.0"`
-	IdentitySearchMinLength int    `yaml:"graph_identity_search_min_length" env:"GRAPH_IDENTITY_SEARCH_MIN_LENGTH" desc:"The minimum length the search term needs to have for unprivileged users when searching for users or groups." introductionVersion:"1.0.0"`
-	ShowUserEmailInResults  bool   `yaml:"show_email_in_results" env:"OC_SHOW_USER_EMAIL_IN_RESULTS" desc:"Include user email addresses in responses. If absent or set to false emails will be omitted from results. Please note that admin users can always see all email addresses." introductionVersion:"1.0.0"`
+	GroupMembersPatchLimit      int    `yaml:"group_members_patch_limit" env:"GRAPH_GROUP_MEMBERS_PATCH_LIMIT" desc:"The amount of group members allowed to be added with a single patch request." introductionVersion:"1.0.0"`
+	UsernameMatch               string `yaml:"graph_username_match" env:"GRAPH_USERNAME_MATCH" desc:"Apply restrictions to usernames. Supported values are 'default' and 'none'. When set to 'default', user names must not start with a number and are restricted to ASCII characters. When set to 'none', no restrictions are applied. The default value is 'default'." introductionVersion:"1.0.0"`
+	AssignDefaultUserRole       bool   `yaml:"graph_assign_default_user_role" env:"GRAPH_ASSIGN_DEFAULT_USER_ROLE" desc:"Whether to assign newly created users the default role 'User'. Set this to 'false' if you want to assign roles manually, or if the role assignment should happen at first login. Set this to 'true' (the default) to assign the role 'User' when creating a new user." introductionVersion:"1.0.0"`
+	IdentitySearchMinLength     int    `yaml:"graph_identity_search_min_length" env:"GRAPH_IDENTITY_SEARCH_MIN_LENGTH" desc:"The minimum length the search term needs to have for unprivileged users when searching for users or groups." introductionVersion:"1.0.0"`
+	ShowUserEmailInResults      bool   `yaml:"show_email_in_results" env:"OC_SHOW_USER_EMAIL_IN_RESULTS" desc:"Include user email addresses in responses. If absent or set to false emails will be omitted from results. Please note that admin users can always see all email addresses." introductionVersion:"1.0.0"`
+	ExportPersonalDataRateLimit int    `yaml:"export_personal_data_rate_limit" env:"GRAPH_EXPORT_PERSONAL_DATA_RATE_LIMIT" desc:"The maximum number of personal data exports a user can start per minute. Each instance of the graph service counts on its own, so with several instances, a user can start up to this number of exports on each of them. Set it to 0 to disable the limit." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.
@@ -212,8 +213,12 @@ type Store struct {
 	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;GRAPH_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
 }
 
-// Thumbnails is what this service announces a preview for. The names match the
-// ones the webdav service uses for the same list.
+// Thumbnails is what this service announces a preview for, and which space
+// images it accepts, since a space image is only ever shown as a thumbnail. The
+// names match the ones the webdav service uses for the same settings.
 type Thumbnails struct {
-	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"%%NEXT%%"`
+	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
+	// read under the same names as by webdav and the thumbnails service, so that
+	// graph doesn't accept a space image no thumbnail can be made of
+	SpaceImageMaxInputImageFileSize string `yaml:"space_image_max_input_image_file_size" env:"OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"The maximum file size of an image that can be set as the image of a space. A larger one is refused with HTTP 413, because no thumbnail can be made of it, and space images are only shown as thumbnails. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB], example: 50MB. An empty value means unlimited." introductionVersion:"%%NEXT%%"`
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
+	"github.com/opencloud-eu/reva/v3/pkg/logger"
 )
 
 const (
@@ -34,7 +34,7 @@ var (
 	// LatestTag is the latest released version plus the dev meta version.
 	// Will be overwritten by the release pipeline
 	// Needs a manual change for every tagged release
-	LatestTag = "8.1.0+dev"
+	LatestTag = "9.1.0+dev"
 
 	// Date indicates the build date.
 	// This has been removed, it looks like you can only replace static strings with recent go versions

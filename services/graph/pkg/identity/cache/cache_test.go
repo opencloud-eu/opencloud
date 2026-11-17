@@ -8,7 +8,7 @@ import (
 	cs3User "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 )
 
 // mockGatewaySelector is a mock implementation of pool.Selectable[gateway.GatewayAPIClient]

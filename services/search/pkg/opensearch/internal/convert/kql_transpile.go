@@ -119,26 +119,27 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 		}
 
 		field, value := node.Key, node.Value
-		if query.FieldIsPath(node.Key) {
-			value = strings.TrimSuffix(value, "/")
-		}
 		if node.CaseInsensitive {
 			field += mapping.LowercaseSuffix
 			value = strings.ToLower(value)
 		}
 
 		if isWildcard := strings.ContainsAny(value, "*?"); isWildcard {
+			// a backslash escapes the next character in a wildcard pattern, the
+			// value means a plain one
+			pattern := strings.ReplaceAll(value, `\`, `\\`)
+
 			// a wildcard on a word-broken field forgives a missing extension:
 			// *report also matches Report.txt
 			if query.FieldIsWordBroken(node.Key) && !strings.HasSuffix(value, "*") {
 				return osu.NewBoolQuery().
 					Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 					Should(
-						osu.NewWildcardQuery(field).Value(value),
-						osu.NewWildcardQuery(field).Value(value+".*"),
+						osu.NewWildcardQuery(field).Value(pattern),
+						osu.NewWildcardQuery(field).Value(pattern+".*"),
 					), nil
 			}
-			return osu.NewWildcardQuery(field).Value(value), nil
+			return osu.NewWildcardQuery(field).Value(pattern), nil
 		}
 
 		// = matches the whole value, on the lowercased sibling for

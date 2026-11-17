@@ -20,17 +20,20 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	olog "github.com/opencloud-eu/opencloud/pkg/log"
+	opencloudstorage "github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storage"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/registry"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/upload"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 const (
@@ -81,7 +84,8 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var err error
-			f, ok := registry.NewFuncs[cfg.Driver]
+			driver := opencloudstorage.EffectiveDriver(cfg.Driver)
+			f, ok := registry.NewFuncs[driver]
 			if !ok {
 				fmt.Fprintf(os.Stderr, "Unknown filesystem driver '%s'\n", cfg.Driver)
 				os.Exit(1)
@@ -92,10 +96,12 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				// We need to init the posix driver with 'scanfs' disabled
 				posixDrivers := revaconfig.Posix(cfg, false, false)
 				// Disable async file uploads: this command only lists sessions and publishes
-				// events, but with async uploads enabled the driver would join the "dcfs"
-				// JetStream queue group. Events routed to this short-lived CLI member are
-				// auto-acked by the nats client and lost when the process exits, so the
-				// clean/restart/resume events published below would never reach the daemon.
+				// events, but with async uploads enabled the driver would join the
+				// "dcfs-revisions" JetStream queue group. Events routed to this short-lived
+				// CLI member are auto-acked by the nats client and lost when the process
+				// exits, so the daemon would miss them. The coordinator built below does not
+				// subscribe to postprocessing events, so the clean/restart/resume events
+				// published below reach the daemon.
 				posixDrivers["asyncfileuploads"] = false
 				drivers["posix"] = posixDrivers
 				// Also posix refuses to start without an events stream
@@ -106,15 +112,21 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			fs, err := f(drivers[cfg.Driver].(map[string]any), fsStream, nil)
+			driverConf, ok := drivers[driver].(map[string]any)
+			if !ok {
+				fmt.Fprintf(os.Stderr, "No configuration found for filesystem driver '%s'\n", cfg.Driver)
+				os.Exit(1)
+			}
+			fs, err := f(driverConf, fsStream, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s'\n", cfg.Driver)
 				return err
 			}
 
-			managingFS, ok := fs.(storage.UploadSessionLister)
-			if !ok {
-				fmt.Fprintf(os.Stderr, "'%s' storage does not support listing upload sessions\n", cfg.Driver)
+			logger := olog.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
+			coord, err := upload.NewCoordinatorFromConfig("", driverConf, fs, nil, &logger.Logger, false)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to initialize the upload coordinator: %v\n", err)
 				os.Exit(1)
 			}
 
@@ -133,7 +145,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			}
 
 			filter := buildFilter(cmd)
-			uploads, err := managingFS.ListUploadSessions(cmd.Context(), filter)
+			uploads, err := coord.ListUploadSessions(cmd.Context(), filter)
 			if err != nil {
 				return err
 			}
@@ -238,6 +250,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 	listUploadSessionsCmd.Flags().Bool("processing", false, "filter sessions by processing status")
 	listUploadSessionsCmd.Flags().Bool("expired", false, "filter sessions by expired status")
 	listUploadSessionsCmd.Flags().Bool("has-virus", false, "filter sessions by virus scan result")
+	listUploadSessionsCmd.Flags().Bool("orphaned", false, "filter sessions by whether their node metadata is unreadable. Such sessions can never finish processing and can be removed with --clean")
 	listUploadSessionsCmd.Flags().Bool("json", false, "output as json")
 	listUploadSessionsCmd.Flags().Bool("restart", false, "send restart event for all listed sessions. Only one of resume/restart/clean can be set.")
 	listUploadSessionsCmd.Flags().Bool("resume", false, "send resume event for all listed sessions. Only one of resume/restart/clean can be set.")
@@ -258,6 +271,10 @@ func buildFilter(cmd *cobra.Command) storage.UploadSessionFilter {
 	if cmd.Flag("has-virus").Changed {
 		infectedValue, _ := cmd.Flags().GetBool("has-virus")
 		filter.HasVirus = &infectedValue
+	}
+	if cmd.Flag("orphaned").Changed {
+		orphanedValue, _ := cmd.Flags().GetBool("orphaned")
+		filter.Orphaned = &orphanedValue
 	}
 	if cmd.Flag("id").Changed {
 		idValue, _ := cmd.Flags().GetString("id")
@@ -317,6 +334,24 @@ func buildInfo(filter storage.UploadSessionFilter) string {
 		}
 	}
 
+	if filter.Orphaned != nil {
+		if b.Len() != 0 {
+			b.WriteString(", ")
+		}
+		if !*filter.Orphaned {
+			if b.Len() == 0 {
+				b.WriteString("Not ")
+			} else {
+				b.WriteString("not ")
+			}
+		}
+		if b.Len() == 0 {
+			b.WriteString("Orphaned")
+		} else {
+			b.WriteString("orphaned")
+		}
+	}
+
 	if b.Len() == 0 {
 		b.WriteString("Session")
 	} else {
@@ -343,8 +378,12 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			root, prefix, err := staleNodesStorage(cfg)
+			if err != nil {
+				return err
+			}
 			// the command reads the node metadata itself, without starting the driver that sets the prefix
-			if err := prefixes.SetOcPrefix(cfg.Drivers.Decomposed.MetadataPrefix); err != nil {
+			if err := prefixes.SetOcPrefix(prefix); err != nil {
 				return err
 			}
 
@@ -359,7 +398,7 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 				spaceIDs = append(spaceIDs, spaceID)
 			} else {
 				fmt.Println("Scanning all spaces for stale processing nodes...")
-				spaceIDs = globSpaceIDs(cfg)
+				spaceIDs = globSpaceIDs(root)
 			}
 
 			if verbose {
@@ -380,7 +419,7 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 
 			staleCount := 0
 			for _, spaceID := range spaceIDs {
-				staleCount += deleteStaleUploads(cfg, spaceID, dryRun, verbose, stream)
+				staleCount += deleteStaleUploads(root, spaceID, dryRun, verbose, stream)
 			}
 
 			if verbose {
@@ -397,12 +436,28 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 	return deleteStaleNodesCmd
 }
 
+// staleNodesStorage selects the on-disk metadata location and namespace for the configured driver.
+func staleNodesStorage(cfg *config.Config) (string, string, error) {
+	switch cfg.Driver {
+	case "decomposed":
+		return cfg.Drivers.Decomposed.Root, cfg.Drivers.Decomposed.MetadataPrefix, nil
+	case "decomposeds3":
+		return cfg.Drivers.DecomposedS3.Root, cfg.Drivers.DecomposedS3.MetadataPrefix, nil
+	case "ocis":
+		return cfg.Drivers.Decomposed.Root, opencloudstorage.LegacyMetadataPrefix(), nil
+	case "s3ng":
+		return cfg.Drivers.DecomposedS3.Root, opencloudstorage.LegacyMetadataPrefix(), nil
+	default:
+		return "", "", fmt.Errorf("stale node cleanup is not supported for driver %q", cfg.Driver)
+	}
+}
+
 // globSpaceIDs returns a list of all space IDs in the storage root
-func globSpaceIDs(cfg *config.Config) []string {
-	fsys := os.DirFS(cfg.Drivers.Decomposed.Root)
+func globSpaceIDs(root string) []string {
+	fsys := os.DirFS(root)
 	dirs, err := fs.Glob(fsys, "spaces/*/*/nodes")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error globbing spaces root directory %s: %v\n", cfg.Drivers.Decomposed.Root, err)
+		fmt.Fprintf(os.Stderr, "Error globbing spaces root directory %s: %v\n", root, err)
 		return []string{}
 	}
 
@@ -416,13 +471,13 @@ func globSpaceIDs(cfg *config.Config) []string {
 }
 
 // delete stale processing nodes for a given spaceID
-func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose bool, stream events.Stream) int {
+func deleteStaleUploads(root string, spaceID string, dryRun bool, verbose bool, stream events.Stream) int {
 	if verbose {
 		fmt.Printf("\nDeleting stale processing nodes for space: %s\n", spaceID)
 	}
 
 	// Find .mpk files in space directory
-	spaceRoot := filepath.Join(cfg.Drivers.Decomposed.Root, "spaces", lookup.Pathify(spaceID, 1, 2))
+	spaceRoot := filepath.Join(root, "spaces", lookup.Pathify(spaceID, 1, 2))
 	mpkFiles := []string{}
 	err := filepath.Walk(spaceRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -446,7 +501,7 @@ func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose
 
 	staleCount := 0
 	for _, path := range mpkFiles {
-		staleCount += deleteStaleNode(cfg, path, dryRun, verbose, stream)
+		staleCount += deleteStaleNode(root, path, dryRun, verbose, stream)
 	}
 
 	if verbose {
@@ -458,7 +513,7 @@ func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose
 
 // deleteStaleNode deletes a stale node: if it is not referenced by any upload session
 // returns 1 if the node stale node was detected for deletion, 0 otherwise, for counting purposes
-func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool, stream events.Stream) int {
+func deleteStaleNode(root string, path string, dryRun bool, verbose bool, stream events.Stream) int {
 	nodeDir := filepath.Dir(path)
 
 	// Read .mpk file to get processing info
@@ -481,7 +536,7 @@ func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool,
 	// Construct path to upload info file:
 	// i.e. ~/.ocis/storage/users/uploads/5329c14b-b786-4b27-8f7d-7429f03009d7.info
 	// And pass only the .info file not exists: err is ErrNotExist
-	pathUploadInfo := filepath.Join(cfg.Drivers.Decomposed.Root, "uploads", processingID) + ".info"
+	pathUploadInfo := filepath.Join(root, "uploads", processingID) + ".info"
 	_, infoStatErr := os.Stat(pathUploadInfo)
 	if infoStatErr == nil {
 		return 0

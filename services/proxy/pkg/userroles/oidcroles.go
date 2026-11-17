@@ -3,6 +3,7 @@ package userroles
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"go-micro.dev/v4/metadata"
 )
 
@@ -81,12 +82,13 @@ func (ra oidcRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *c
 
 	claimRoles, err := extractRoles(ra.rolesClaim, claims)
 	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrRoleClaim, err)
 		logger.Error().Err(err).Msg("Error mapping role names to role ids")
 		return nil, err
 	}
 
 	if len(claimRoles) == 0 {
-		err := errors.New("no roles set in claim")
+		err := fmt.Errorf("%w: no roles set in claim", ErrRoleClaim)
 		logger.Error().Err(err).Msg("")
 		return nil, err
 	}
@@ -104,7 +106,7 @@ func (ra oidcRoleAssigner) UpdateUserRoleAssignment(ctx context.Context, user *c
 	}
 
 	if roleIDFromClaim == "" {
-		err := errors.New("no role in claim maps to an OpenCloud role")
+		err := fmt.Errorf("%w: no role in claim maps to an OpenCloud role", ErrRoleClaim)
 		logger.Error().Err(err).Msg("")
 		return nil, err
 	}

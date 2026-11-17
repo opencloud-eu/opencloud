@@ -19,6 +19,9 @@ var (
 	ErrCanNotDecode           = fmt.Errorf("%winvalid code", ErrMsgpack)
 	ErrCanNotSetSliceAsMapKey = fmt.Errorf("%wcan not set slice as map key", ErrMsgpack)
 	ErrCanNotSetMapAsMapKey   = fmt.Errorf("%wcan not set map as map key", ErrMsgpack)
+	ErrCanNotSetBinAsMapKey   = fmt.Errorf("%wcan not set bin as map key", ErrMsgpack)
+	ErrUnhashableMapKey       = fmt.Errorf("%wunhashable map key", ErrMsgpack)
+	ErrExceededMaxDepth       = fmt.Errorf("%wexceeded max nesting depth", ErrMsgpack)
 
 	// encoding errors
 

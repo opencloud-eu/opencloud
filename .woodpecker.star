@@ -8,7 +8,7 @@ docker_repo_slug = "opencloudeu/opencloud"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
-APACHE_TIKA = "apache/tika:4.1.0-full"
+APACHE_TIKA = "apache/tika:4.2.1-SNAPSHOT"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
@@ -805,20 +805,6 @@ def testOpencloud(ctx):
             ],
         },
         {
-            # the only run that covers the resize code the official docker
-            # images ship
-            # FIXME: run it with the libvips those images ship, see issue 3746
-            "name": "test-thumbnail-parity-vips",
-            "image": OC_CI_GOLANG,
-            "environment": {
-                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
-                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
-            },
-            "commands": [
-                "go test -tags enable_vips ./services/thumbnails/pkg/parity/...",
-            ],
-        },
-        {
             "name": "codacy-coverage",
             "image": CODACY_COVERAGE_REPORTER,
             "environment": {
@@ -1523,6 +1509,8 @@ def e2eTestPipeline(ctx):
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
+        # keep the indexed content as written, the e2e tests check the found content in the search
+        "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS": False,
     }
 
     e2e_trigger = [
@@ -1676,6 +1664,8 @@ def multiServiceE2ePipeline(ctx):
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
+        # keep the indexed content as written, the e2e tests check the found content in the search
+        "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS": False,
     }
 
     storage_users_environment = {
@@ -2643,7 +2633,7 @@ def build():
             "name": "build",
             "image": OC_CI_GOLANG,
             "commands": [
-                "for i in $(seq 3); do make -C opencloud build ENABLE_VIPS=1 && break || sleep 1; done",
+                "for i in $(seq 3); do make -C opencloud build && break || sleep 1; done",
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
@@ -2929,7 +2919,8 @@ def litmus(ctx, storage):
         "name": "test-litmus",
         "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                 opencloudServer(storage) +
+                 # litmus does a GET right after a PUT, which fails with 425 Too Early while postprocessing is still running
+                 opencloudServer(storage, extra_server_environment = {"OC_ASYNC_UPLOADS": False}) +
                  setupForLitmus() +
                  [
                      {
@@ -3558,6 +3549,11 @@ def onlyofficeService():
             "environment": {
                 "WOPI_ENABLED": True,
                 "USE_UNAUTHORIZED_STORAGE": True,  # self signed certificates
+                # the image comes with the fonts already generated: regenerating them
+                # restarts the document server about 30 s after it is first ready, and
+                # the collaboration service can fail to fetch the discovery during that
+                # restart (https://github.com/opencloud-eu/opencloud/issues/3994)
+                "GENERATE_FONTS": False,
             },
             "commands": [
                 "cp %s/tests/config/woodpecker/only-office.json /etc/onlyoffice/documentserver/local.json" % dirs["base"],

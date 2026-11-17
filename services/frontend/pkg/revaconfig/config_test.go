@@ -24,6 +24,20 @@ func TestContentSearchCapabilityFollowsFullTextSearch(t *testing.T) {
 	}
 }
 
+func TestServerManagedCapabilityFollowsServerManagedSpaces(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		cfg := defaults.FullDefaultConfig()
+		cfg.Commons = &shared.Commons{}
+		cfg.ServerManagedSpaces = enabled
+
+		rcfg, err := FrontendConfigFromStruct(cfg, log.NopLogger())
+		require.NoError(t, err)
+
+		got := dig(t, rcfg, "http", "services", "ocs", "capabilities", "capabilities", "spaces")["server_managed"]
+		require.Equal(t, enabled, got)
+	}
+}
+
 func dig(t *testing.T, m map[string]any, keys ...string) map[string]any {
 	t.Helper()
 	for _, k := range keys {

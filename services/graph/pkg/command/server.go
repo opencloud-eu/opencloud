@@ -20,8 +20,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
 	evc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/events"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/nats-io/nats.go"

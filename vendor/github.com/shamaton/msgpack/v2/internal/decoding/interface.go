@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/shamaton/msgpack/v2/def"
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
 func (d *decoder) asInterface(offset int, k reflect.Kind) (interface{}, int, error) {
@@ -112,6 +113,9 @@ func (d *decoder) asInterface(offset int, k reflect.Kind) (interface{}, int, err
 			return nil, 0, err
 		}
 
+		if err = d.enter(); err != nil {
+			return nil, 0, err
+		}
 		v := make([]interface{}, l)
 		for i := 0; i < l; i++ {
 			vv, o2, err := d.asInterface(o, k)
@@ -121,6 +125,7 @@ func (d *decoder) asInterface(offset int, k reflect.Kind) (interface{}, int, err
 			v[i] = vv
 			o = o2
 		}
+		d.depth--
 		offset = o
 		return v, offset, nil
 
@@ -132,14 +137,23 @@ func (d *decoder) asInterface(offset int, k reflect.Kind) (interface{}, int, err
 		if err = d.hasRequiredLeastMapSize(o, l); err != nil {
 			return nil, 0, err
 		}
+		if err = d.enter(); err != nil {
+			return nil, 0, err
+		}
 		v := make(map[interface{}]interface{}, l)
 		for i := 0; i < l; i++ {
 			if err := d.canSetAsMapKey(o); err != nil {
 				return nil, 0, err
 			}
+			extKey := decodingutil.IsExtCode(d.data[o])
 			key, o2, err := d.asInterface(o, k)
 			if err != nil {
 				return nil, 0, err
+			}
+			if extKey {
+				if err := decodingutil.CheckMapKey(key); err != nil {
+					return nil, 0, err
+				}
 			}
 			value, o2, err := d.asInterface(o2, k)
 			if err != nil {
@@ -148,6 +162,7 @@ func (d *decoder) asInterface(offset int, k reflect.Kind) (interface{}, int, err
 			v[key] = value
 			o = o2
 		}
+		d.depth--
 		offset = o
 		return v, offset, nil
 	}
@@ -191,6 +206,8 @@ func (d *decoder) canSetAsMapKey(index int) error {
 		return fmt.Errorf("%w. code: %x", def.ErrCanNotSetSliceAsMapKey, code)
 	case d.isFixMap(code), code == def.Map16, code == def.Map32:
 		return fmt.Errorf("%w. code: %x", def.ErrCanNotSetMapAsMapKey, code)
+	case code == def.Bin8, code == def.Bin16, code == def.Bin32:
+		return fmt.Errorf("%w. code: %x", def.ErrCanNotSetBinAsMapKey, code)
 	}
 	return nil
 }

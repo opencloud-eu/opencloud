@@ -11,9 +11,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	searchMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/service/event"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
-	rawMocks "github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	rawMocks "github.com/opencloud-eu/reva/v3/pkg/events/raw/mocks"
 	"github.com/stretchr/testify/mock"
 )
 

@@ -48,7 +48,7 @@ type HTTPServiceTLS struct {
 }
 
 type Cache struct {
-	Store                string        `yaml:"store" env:"OC_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'redis-sentinel', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"nodes" env:"OC_CACHE_STORE_NODES" desc:"A comma separated list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store." introductionVersion:"1.0.0"`
 	Database             string        `yaml:"database" env:"OC_CACHE_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	Table                string        `yaml:"table" env:"OC_CACHE_STORE_TABLE" desc:"The database table the store should use." introductionVersion:"1.0.0"`
@@ -80,7 +80,7 @@ type Commons struct {
 	SystemUserAPIKey   string          `mask:"password" yaml:"system_user_api_key" env:"SYSTEM_USER_API_KEY" desc:"API key for all system users." introductionVersion:"1.0.0"`
 	AdminUserID        string          `yaml:"admin_user_id" env:"OC_ADMIN_USER_ID" desc:"ID of a user, that should receive admin privileges. Consider that the UUID can be encoded in some LDAP deployment configurations like in .ldif files. These need to be decoded beforehand." introductionVersion:"1.0.0"`
 	MultiTenantEnabled bool            `yaml:"multi_tenant_enabled" env:"OC_MULTI_TENANT_ENABLED" desc:"Set this to true to enable multi-tenant support." introductionVersion:"4.0.0"`
-	EnableGuestLinks   bool            `yaml:"enable_guest_links" env:"OC_ENABLE_GUEST_LINKS" desc:"Enables the guest links feature: creating shares to mail addresses and redeeming guest link invitations. Disabled by default." introductionVersion:"%%NEXT%%"`
+	EnableGuestLinks   bool            `yaml:"enable_guest_links" env:"OC_ENABLE_GUEST_LINKS" desc:"Enables the guest links feature: creating shares to mail addresses and redeeming guest link invitations. Disabled by default." introductionVersion:"9.0.0"`
 
 	// NOTE: you will not fing GRPCMaxReceivedMessageSize size being used in the code. The envvar is actually extracted in revas `pool` package: https://github.com/cs3org/reva/blob/edge/pkg/rgrpc/todo/pool/connection.go
 	// It is mentioned here again so it is documented

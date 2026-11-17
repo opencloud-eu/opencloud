@@ -6,18 +6,22 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
+	"github.com/mohae/deepcopy"
 	"github.com/spf13/afero"
 )
 
 // KV is a generic key-value map.
 type KV map[string]any
 
-// MergeKV merges the given key-value maps.
+// MergeKV merges the given key-value maps into a new one, the given maps are not modified.
 func MergeKV(values ...KV) (KV, error) {
 	var kv KV
 
 	for _, v := range values {
-		err := mergo.Merge(&kv, v, mergo.WithOverride)
+		// mergo reuses the nested maps of a source in the destination and merges later sources into them,
+		// so it must only see a copy; otherwise shared inputs like themeDefaults get modified,
+		// concurrently when requests run in parallel.
+		err := mergo.Merge(&kv, deepcopy.Copy(v).(KV), mergo.WithOverride)
 		if err != nil {
 			return nil, err
 		}

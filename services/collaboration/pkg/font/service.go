@@ -17,8 +17,8 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/go-playground/validator/v10"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	"golang.org/x/image/font"

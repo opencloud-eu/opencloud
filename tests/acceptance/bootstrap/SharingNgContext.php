@@ -1725,6 +1725,27 @@ class SharingNgContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $space
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user gets the last link permission of space :space using root endpoint of the Graph API')]
+	public function userGetsTheLastLinkPermissionOfSpaceUsingRootEndpointOfTheGraphApi(string $user, string $space): void {
+		$this->featureContext->setResponse(
+			GraphHelper::getDrivePermission(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getStepLineRef(),
+				$user,
+				$this->featureContext->getPasswordForUser($user),
+				($this->spacesContext->getSpaceByName($user, $space))["id"],
+				$this->featureContext->shareNgGetLastCreatedLinkShareID()
+			)
+		);
+	}
+
+	/**
 	 *
 	 * @param string $user
 	 * @param TableNode $table

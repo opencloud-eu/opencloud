@@ -222,6 +222,10 @@ sequenceDiagram
    before the next attempt; after the maximum number of failed attempts the PIN
    is invalidated and while the backoff is active the endpoint answers `429`.
    Verifying the PIN does not consume the magic link.
+5. **Log out** — the guest posts to
+   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/logout`, which
+   clears the session cookie. Sessions are stateless JWTs, so the session token
+   itself stays valid until it expires.
 
 ### Endpoints
 
@@ -264,9 +268,14 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
   `404 shareNotFound`, `410 shareExpired`, `429 tooManyRequests` (with
   `Retry-After`), `500 internalError`
 
+#### `POST .../guestLinks/logout`
+
+- **Request body:** none
+- **Success:** `204`, clears the session cookie, also without a session cookie
+
 ## Frontend integration
 
-The three endpoints are unauthenticated and rely on cookies, so the client must
+The endpoints are unauthenticated and rely on cookies, so the client must
 send credentials with every request (for example `credentials: 'include'` in
 `fetch`). Cross-origin deployments also need the service CORS to allow the
 origin and credentials; the default `AUTH_GUEST_CORS_ALLOW_ORIGINS` of `*` is

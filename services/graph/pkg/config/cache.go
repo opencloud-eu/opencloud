@@ -4,7 +4,7 @@ import "time"
 
 // Cache defines the available configuration for a cache store
 type Cache struct {
-	Store                string        `yaml:"store" env:"OC_CACHE_STORE;GRAPH_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'redis-sentinel', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_CACHE_STORE;GRAPH_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"nodes" env:"OC_CACHE_STORE_NODES;GRAPH_CACHE_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store are configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	Database             string        `yaml:"database" env:"GRAPH_CACHE_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	Table                string        `yaml:"table" env:"GRAPH_CACHE_STORE_TABLE" desc:"The database table the store should use." introductionVersion:"1.0.0"`

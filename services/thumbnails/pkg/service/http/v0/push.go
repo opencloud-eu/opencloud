@@ -136,12 +136,14 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	noUpscale := filterPresent(filtersSegment, "no_upscale")
 	// The box and operation are chosen by webdav (the sizing brain); this service
 	// is a dumb, imagor-like executor that just fits within the given box.
-	req := resizeRequest{Width: width, Height: height, Operation: operation, NoUpscale: noUpscale, Smart: smart}
+	req := resizeRequest{
+		Width: width, Height: height, Operation: operation, NoUpscale: noUpscale, Smart: smart,
+		MaxOutWidth: s.maxOutWidth, MaxOutHeight: s.maxOutHeight,
+	}
 
-	// An animated gif is the one source both builds treat the same way: neither
-	// libvips nor the pure Go path has anything better for a paletted animation,
-	// so it never reaches a backend. Asking for a still format flattens it, and
-	// that is a backend's job again.
+	// An animated gif never reaches the still image backend, it is resized
+	// frame by frame. Asking for a still format flattens it, and that is the
+	// backend's job again.
 	if bytes.HasPrefix(imgData, gifMagic) && (ext == "gif" || !hasFormat) {
 		s.serveAnimation(w, imgData, req)
 
@@ -177,6 +179,11 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	processed, err := resizeSource(src, req)
+	if errors.Is(err, errBoxTooLarge) {
+		writeMaxResolution(w)
+
+		return
+	}
 	if err != nil {
 		writeNotAcceptable(w, "failed to process image")
 		return
@@ -264,8 +271,15 @@ func (s Thumbnails) serveAnimation(w http.ResponseWriter, imgData []byte, req re
 		return
 	}
 
+	resized, err := resizeGIF(g, req)
+	if err != nil {
+		writeMaxResolution(w)
+
+		return
+	}
+
 	var buf bytes.Buffer
-	if err := gif.EncodeAll(&buf, resizeGIF(g, req)); err != nil {
+	if err := gif.EncodeAll(&buf, resized); err != nil {
 		s.logger.Error().Err(err).Msg("could not encode the gif")
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, "failed to encode image")
@@ -461,10 +475,13 @@ func filterPresent(segment, name string) bool {
 
 // resizeRequest is what the executor is asked to do. webdav chose the box and
 // the operation; noUpscale and smart mirror imagor's filters of those names.
+// MaxOutWidth and MaxOutHeight bound a box a free axis resolves to.
 type resizeRequest struct {
-	Width     int
-	Height    int
-	Operation string
-	NoUpscale bool
-	Smart     bool
+	Width        int
+	Height       int
+	Operation    string
+	NoUpscale    bool
+	Smart        bool
+	MaxOutWidth  int
+	MaxOutHeight int
 }
