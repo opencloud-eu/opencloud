@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @jmrplens, @micbar, @v-scharf
+@aduffeck, @jmrplens, @kulmann, @micbar, @v-scharf
 
 ### 🔒 Security
 
@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- [stable-9.1][full-ci] chore: bump web to v8.2.3 [[#4021](https://github.com/opencloud-eu/opencloud/pull/4021)]
 - [stable-9.1] chore: bump reva to latest stable-2.52 [[#3980](https://github.com/opencloud-eu/opencloud/pull/3980)]
 
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
