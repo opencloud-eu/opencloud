@@ -1,10 +1,14 @@
 # Changelog
 
-## [9.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.1) - 2026-11-13
+## [9.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.1) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @aduffeck, @jmrplens, @micbar, @v-scharf
+
+### 🔒 Security
+
+- [stable-9.1] chore: bump reva to latest stable-2.52 [[#4024](https://github.com/opencloud-eu/opencloud/pull/4024)]
 
 ### 🐛 Bug Fixes
 
