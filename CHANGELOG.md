@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.0.10](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.10) - 2026-11-17
+
+### ❤️ Thanks to all contributors! ❤️
+
+@kulmann, @rhafer
+
+### 🔒 Security
+
+- [stable-4.0] bump reva to 2.40.6 [[#4044](https://github.com/opencloud-eu/opencloud/pull/4044)]
+
+### 📦️ Dependencies
+
+- [full-ci] chore: bump web to v4.2.4 [[#4023](https://github.com/opencloud-eu/opencloud/pull/4023)]
+
 ## [4.0.9](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.9) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
