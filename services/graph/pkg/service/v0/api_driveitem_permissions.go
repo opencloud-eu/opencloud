@@ -900,7 +900,12 @@ func (s DriveItemPermissionsService) UpdateSpaceRootPermission(ctx context.Conte
 
 // GetPermission returns a single permission of a drive item.
 // It reuses ListPermissions, so only permissions visible in the listing of the item can be retrieved.
-func (s DriveItemPermissionsService) GetPermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string) (libregraph.Permission, error) {
+func (s DriveItemPermissionsService) GetPermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string) (_ libregraph.Permission, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "GetPermission")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
+	// ListPermissions logs its own failures
 	collection, err := s.ListPermissions(ctx, itemID, ListPermissionsQueryOptions{})
 	if err != nil {
 		return libregraph.Permission{}, err
@@ -912,23 +917,33 @@ func (s DriveItemPermissionsService) GetPermission(ctx context.Context, itemID *
 		}
 	}
 
+	logger.Debug().Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("permission not found")
 	return libregraph.Permission{}, errorcode.New(errorcode.ItemNotFound, "permission not found")
 }
 
 // GetSpaceRootPermission returns a single permission on the root item of a project space
-func (s DriveItemPermissionsService) GetSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string) (libregraph.Permission, error) {
+func (s DriveItemPermissionsService) GetSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string) (_ libregraph.Permission, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "GetSpaceRootPermission")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not select next gateway client")
 		return libregraph.Permission{}, err
 	}
 
 	space, err := utils.GetSpace(ctx, storagespace.FormatResourceID(driveID), gatewayClient)
 	if err != nil {
-		return libregraph.Permission{}, errorcode.FromUtilsStatusCodeError(err)
+		spaceErr := errorcode.FromUtilsStatusCodeError(err)
+		errorEvent(&logger, spaceErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not get space")
+		return libregraph.Permission{}, spaceErr
 	}
 
 	if space.GetSpaceType() != _spaceTypeProject {
-		return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		spaceTypeErr := errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		logger.Debug().Err(spaceTypeErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Str(_logKeySpaceType, space.GetSpaceType()).Msg("unsupported space type")
+		return libregraph.Permission{}, spaceTypeErr
 	}
 
 	return s.GetPermission(ctx, space.GetRoot(), permissionID)
