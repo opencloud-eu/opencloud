@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck
+@aduffeck, @kulmann
 
 ### 🔒 Security
 
 - [stable-7.2] chore: bump reva to 2.46.10 [[#4026](https://github.com/opencloud-eu/opencloud/pull/4026)]
+
+### 📦️ Dependencies
+
+- [stable-7.2][full-ci] chore: bump web to v7.1.7 [[#4022](https://github.com/opencloud-eu/opencloud/pull/4022)]
 
 ## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-11-11
 
