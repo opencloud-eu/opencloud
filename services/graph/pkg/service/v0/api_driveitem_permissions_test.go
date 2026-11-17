@@ -4151,6 +4151,9 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			Entry("space root, only the roles", true,
 				"$select=@libre.graph.permissions.roles.allowedValues",
 				[]string{"@libre.graph.permissions.roles.allowedValues"}),
+			Entry("space root, only the actions with $top=0, as the web client sends it", true,
+				"$select=@libre.graph.permissions.actions.allowedValues&$top=0",
+				[]string{"@libre.graph.permissions.actions.allowedValues"}),
 		)
 		DescribeTable("passes $select together with the other query options to the service",
 			func(query url.Values, wantOptions svc.ListPermissionsQueryOptions) {
@@ -4191,6 +4194,79 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 					"$select": {"@libre.graph.permissions.actions.allowedValues"},
 				},
 				svc.ListPermissionsQueryOptions{Count: true, NoValues: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			// $top=0 without $count is what the web client sends when it wants all permissions
+			Entry("$top=0 without $count, as the web client sends it",
+				url.Values{
+					"$top":    {"0"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("the federated roles filter with $top=0, as the web client sends it",
+				url.Values{
+					"$filter": {`@libre.graph.permissions.roles.allowedValues/rolePermissions/any(p:contains(p/condition, '@Subject.UserType=="Federated"'))`},
+					"$select": {"@libre.graph.permissions.roles.allowedValues"},
+					"$top":    {"0"},
+				},
+				svc.ListPermissionsQueryOptions{FilterFederatedRoles: true, SelectedAttrs: []string{"@libre.graph.permissions.roles.allowedValues"}}),
+			Entry("the filter without link permissions with $top=0",
+				url.Values{
+					"$filter": {"grantedToV2 ne ''"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+					"$top":    {"0"},
+				},
+				svc.ListPermissionsQueryOptions{NoLinkPermissions: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("$count=false with $top=0",
+				url.Values{
+					"$count":  {"false"},
+					"$top":    {"0"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+		)
+		It("passes no query options to the service for $top=0 alone, as the web client sends it to list all permissions", func() {
+			rCTX.URLParams.Add("itemID", "1$2!3")
+			// no selected attributes, as nil or as an empty list, mean the same to the service
+			noOptions := mock.MatchedBy(func(got svc.ListPermissionsQueryOptions) bool {
+				return !got.Count && !got.NoValues && !got.NoLinkPermissions && !got.FilterFederatedRoles && len(got.SelectedAttrs) == 0
+			})
+			mockProvider.On("ListPermissions", mock.Anything, mock.Anything, noOptions).
+				Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Once()
+
+			responseRecorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/?"+url.Values{"$top": {"0"}}.Encode(), nil).
+				WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+			httpAPI.ListPermissions(responseRecorder, request)
+
+			Expect(responseRecorder.Code).To(Equal(http.StatusOK))
+			mockProvider.AssertExpectations(GinkgoT())
+		})
+		DescribeTable("rejects a $top other than 0 without calling the service",
+			func(spaceRoot bool, query url.Values) {
+				method, handler := "ListPermissions", httpAPI.ListPermissions
+				if spaceRoot {
+					method, handler = "ListSpaceRootPermissions", httpAPI.ListSpaceRootPermissions
+				} else {
+					rCTX.URLParams.Add("itemID", "1$2!3")
+				}
+				// answers like the service would, so that a request passed on shows in the status code
+				mockProvider.On(method, mock.Anything, mock.Anything, mock.Anything).
+					Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Maybe()
+
+				responseRecorder := httptest.NewRecorder()
+				request := httptest.NewRequest(http.MethodGet, "/?"+query.Encode(), nil).
+					WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+				handler(responseRecorder, request)
+
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+				Expect(gjson.Get(responseRecorder.Body.String(), "error.code").String()).To(Equal(errorcode.InvalidRequest.String()))
+				Expect(gjson.Get(responseRecorder.Body.String(), "error.message").String()).To(ContainSubstring("$top"))
+				mockProvider.AssertNotCalled(GinkgoT(), method, mock.Anything, mock.Anything, mock.Anything)
+			},
+			Entry("item, $top=5", false, url.Values{"$top": {"5"}}),
+			Entry("item, $top=5 with $count=true", false, url.Values{"$top": {"5"}, "$count": {"true"}}),
+			Entry("item, $top=1 with $select", false, url.Values{"$top": {"1"}, "$select": {"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("item, negative $top", false, url.Values{"$top": {"-1"}}),
+			Entry("space root, $top=5", true, url.Values{"$top": {"5"}}),
 		)
 		DescribeTable("rejects an invalid query with $select without calling the service",
 			func(query url.Values) {
@@ -4210,6 +4286,10 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			}),
 			Entry("a $select path with several segments", url.Values{
 				"$select": {"@libre.graph.permissions.roles.allowedValues/id"},
+			}),
+			Entry("a $top that is not a number", url.Values{
+				"$top":    {"abc"},
+				"$select": {"@libre.graph.permissions.actions.allowedValues"},
 			}),
 		)
 		It("renders the error of the service when only the actions of a space root are selected", func() {
