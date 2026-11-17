@@ -42,6 +42,10 @@
 - feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
 - feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
+### 📦️ Dependencies
+
+- [full-ci] chore: bump web to v8.3.0 [[#4027](https://github.com/opencloud-eu/opencloud/pull/4027)]
+
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
