@@ -1,5 +1,15 @@
 # Changelog
 
+## [9.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.1) - 2026-11-17
+
+### ❤️ Thanks to all contributors! ❤️
+
+@asaah262
+
+### 🐛 Bug Fixes
+
+- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
 ## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
