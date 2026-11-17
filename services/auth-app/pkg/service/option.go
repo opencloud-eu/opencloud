@@ -8,7 +8,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"go.opentelemetry.io/otel/trace"
 )
 

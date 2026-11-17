@@ -26,8 +26,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/server/grpc"
 	svcEvent "github.com/opencloud-eu/opencloud/services/search/pkg/service/event"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/spf13/cobra"
 
 	"github.com/nats-io/nats.go/jetstream"

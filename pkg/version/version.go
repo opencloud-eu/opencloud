@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
+	"github.com/opencloud-eu/reva/v3/pkg/logger"
 )
 
 const (

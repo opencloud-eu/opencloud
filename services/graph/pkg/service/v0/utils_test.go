@@ -10,11 +10,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	rConversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	rConversions "github.com/opencloud-eu/reva/v3/pkg/conversions"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"

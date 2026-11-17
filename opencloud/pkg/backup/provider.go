@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

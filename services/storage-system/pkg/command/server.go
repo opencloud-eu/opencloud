@@ -16,7 +16,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/storage-system/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-system/pkg/revaconfig"
 	"github.com/opencloud-eu/opencloud/services/storage-system/pkg/server/debug"
-	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
+	"github.com/opencloud-eu/reva/v3/cmd/revad/runtime"
 
 	"github.com/spf13/cobra"
 )

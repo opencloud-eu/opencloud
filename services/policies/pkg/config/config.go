@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 )
 
 // Config combines all available configuration parts.

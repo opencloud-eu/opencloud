@@ -4,7 +4,7 @@
 
 OpenCloud is a self-hosted file sync and share platform written in Go. It runs as one binary that starts many services. Only the proxy is meant to be reachable from the outside.
 - Many users share one instance. Each user's files must stay within their personal space, spaces that they are member of and what was shared with them, at the permissions of the share.
-- Storage, sharing and WebDAV come from Reva (`github.com/opencloud-eu/reva/v2`), which is vendored under `vendor/`.
+- Storage, sharing and WebDAV come from Reva (`github.com/opencloud-eu/reva/v3`), which is vendored under `vendor/`.
 
 Untrusted input enters through the proxy on port 9200:
 - Unauthenticated requests: public links (`/s/<token>`, `/remote.php/dav/public-files/<token>`), the IDP login and OIDC endpoints (`/signin`, `/konnect`, `/.well-known/openid-configuration`), `/status.php`, capabilities and webfinger.
@@ -84,5 +84,5 @@ Examples from published advisories:
 - One report per root cause, naming the principal, the boundary crossed, and every affected route (WebDAV, Graph, OCS).
 - The build fills `services/idp/assets` and `services/web/assets` in `/src`. Leave them out of patches.
 - Include a reproducer: HTTP requests against the instance above, or a Go test that fails before the fix.
-- For a bug in Reva, patch the file under `vendor/github.com/opencloud-eu/reva/v2` and say so. The fix then goes upstream to opencloud-eu/reva.
+- For a bug in Reva, patch the file under `vendor/github.com/opencloud-eu/reva/v3` and say so. The fix then goes upstream to opencloud-eu/reva.
 - Patches should be minimal and fix the check where it is enforced, not in one caller. Say whether sibling routes have the same gap. Run `gofmt`, and match the surrounding code.

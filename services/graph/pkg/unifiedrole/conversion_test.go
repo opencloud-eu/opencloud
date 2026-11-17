@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	cs3Conversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
+	cs3Conversions "github.com/opencloud-eu/reva/v3/pkg/conversions"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
