@@ -13,6 +13,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/single"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
+	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -102,10 +103,13 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 	return matchToResource(res.Hits[0]), nil
 }
 
-func searchResourcesByPath(rootID string, lookupPath string, index bleve.Index) ([]*search.Resource, error) {
+// searchResourcesByPath returns the descendants of lookupPath in the given trash
+// state: a trashed folder keeps its path, so a live folder can take the same one
+func searchResourcesByPath(rootID string, lookupPath string, deleted bool, index bleve.Index) ([]*search.Resource, error) {
 	q := bleve.NewConjunctionQuery(
 		bleve.NewQueryStringQuery("RootID:"+rootID),
 		bleve.NewQueryStringQuery("Path:"+escapeQuery(lookupPath+"/*")),
+		&query.BoolFieldQuery{FieldVal: "Deleted", Bool: deleted},
 	)
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Size = math.MaxInt
@@ -128,12 +132,14 @@ func searchAndUpdateResourcesDeletionState(id string, state bool, index bleve.In
 	if err != nil {
 		return nil, err
 	}
+	// the descendants are the ones in the root's trash state from before the change
+	wasDeleted := rootResource.Deleted
 	rootResource.Deleted = state
 
 	resources := []*search.Resource{rootResource}
 
 	if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-		descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, index)
+		descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, wasDeleted, index)
 		if err != nil {
 			return nil, err
 		}
