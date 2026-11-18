@@ -402,6 +402,8 @@ config = {
         "production": {
             # NOTE: need to be updated if new production releases are determined
             "tags": ["2.0", "4.0"],
+            # only the newest production branch may move the "latest" tag
+            "tag_latest": False,
             "repo": docker_repo_slug,
             "build_type": "production",
         },
@@ -1835,7 +1837,13 @@ def dockerRelease(ctx, repo, build_type):
 
         # if a tag has something appended with "-" i.e. alpha, beta, rc1...
         # set the entire string as tag, else tag with latest (same as empty with current plugin)
-        hard_tag = tag_version if len(tag_parts) > 1 else "latest"
+        if len(tag_parts) > 1:
+            hard_tag = tag_version
+        elif build_type == "production" and not config["dockerReleases"]["production"].get("tag_latest", True):
+            # older production branch: auto_tag already adds X, X.Y and X.Y.Z, don't touch latest
+            hard_tag = tag_version
+        else:
+            hard_tag = "latest"
 
     depends_on = getPipelineNames(getGoBinForTesting(ctx))
 
