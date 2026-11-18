@@ -355,7 +355,7 @@ Feature: move (rename) file
       | Viewer           |
 
 
-  Scenario Outline: sharee moves a file within a Shares space (Editor/Uploader permissions)
+  Scenario Outline: sharee moves a file within a Shares space (Editor permissions)
     Given user "Brian" has created folder "testshare"
     And user "Brian" has created folder "testshare/child"
     And user "Brian" has uploaded file with content "test file content" to "/testshare/testfile.txt"
@@ -374,19 +374,18 @@ Feature: move (rename) file
     Examples:
       | permissions-role |
       | Editor           |
-      | Uploader         |
 
 
-  Scenario: sharee moves a file within a Shares space (viewer permissions)
+  Scenario Outline: sharee tries to move a file within a Shares space (Viewer/Uploader permissions)
     Given user "Brian" has created folder "testshare"
     And user "Brian" has created folder "testshare/child"
     And user "Brian" has uploaded file with content "test file content" to "/testshare/testfile.txt"
     And user "Brian" has sent the following resource share invitation:
-      | resource        | testshare |
-      | space           | Personal  |
-      | sharee          | Alice     |
-      | shareType       | user      |
-      | permissionsRole | Viewer    |
+      | resource        | testshare          |
+      | space           | Personal           |
+      | sharee          | Alice              |
+      | shareType       | user               |
+      | permissionsRole | <permissions-role> |
     And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "testshare/testfile.txt" from space "Shares" to "testshare/child/testfile.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "403"
@@ -394,6 +393,10 @@ Feature: move (rename) file
       | testfile.txt |
     But for user "Alice" folder "testshare" of the space "Shares" should contain these entries:
       | testfile.txt |
+    Examples:
+      | permissions-role |
+      | Viewer           |
+      | Uploader         |
 
   @issue-1976
   Scenario Outline: sharee tries to move a file into same shared folder with same name

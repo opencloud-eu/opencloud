@@ -110,7 +110,7 @@ Feature: propfind a file using file id
     And as user "Brian" the PROPFIND response should contain a resource "<<FILEID>>" with these key and value pairs:
       | key            | value        |
       | oc:name        | textfile.txt |
-      | oc:permissions | SNVW         |
+      | oc:permissions | SW           |
     Examples:
       | dav-path               |
       | /dav/spaces/<<FILEID>> |

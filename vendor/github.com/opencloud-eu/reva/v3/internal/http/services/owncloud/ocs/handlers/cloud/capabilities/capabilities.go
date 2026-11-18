@@ -144,6 +144,9 @@ func (h *Handler) Init(c *config.Config) {
 
 	// h.c.Capabilities.FilesSharing.IsPublic.Enabled is boolean
 	h.c.Capabilities.FilesSharing.Public.Enabled = true
+	if c.DisableNewPublicLinks {
+		h.c.Capabilities.FilesSharing.Public.Enabled = false
+	}
 
 	if h.c.Capabilities.FilesSharing.Public.Password == nil {
 		h.c.Capabilities.FilesSharing.Public.Password = &ocs.CapabilitiesFilesSharingPublicPassword{}
@@ -175,6 +178,10 @@ func (h *Handler) Init(c *config.Config) {
 		h.c.Capabilities.FilesSharing.User = &ocs.CapabilitiesFilesSharingUser{}
 	}
 
+	h.c.Capabilities.FilesSharing.User.Enabled = true
+	if c.DisableNewUserShares {
+		h.c.Capabilities.FilesSharing.User.Enabled = false
+	}
 	// h.c.Capabilities.FilesSharing.User.SendMail is boolean
 
 	// h.c.Capabilities.FilesSharing.Resharing is boolean
@@ -189,6 +196,9 @@ func (h *Handler) Init(c *config.Config) {
 	}
 
 	// h.c.Capabilities.FilesSharing.UserEnumeration.Enabled is boolean
+	if c.DisableNewUserShares {
+		h.c.Capabilities.FilesSharing.UserEnumeration.Enabled = false
+	}
 	// h.c.Capabilities.FilesSharing.UserEnumeration.GroupMembersOnly is boolean
 
 	if h.c.Capabilities.FilesSharing.DefaultPermissions == 0 {

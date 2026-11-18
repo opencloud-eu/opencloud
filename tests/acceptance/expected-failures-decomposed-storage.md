@@ -157,7 +157,7 @@
 
 - [apiSpacesShares/moveSpaces.feature:69](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L69)
 - [apiSpacesShares/moveSpaces.feature:70](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L70)
-- [apiSpacesShares/moveSpaces.feature:416](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L416)
+- [apiSpacesShares/moveSpaces.feature:419](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L419)
 - [apiSpacesDavOperation/moveByFileId.feature:61](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L61)
 - [apiSpacesDavOperation/moveByFileId.feature:174](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L174)
 - [apiSpacesDavOperation/moveByFileId.feature:175](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L175)
@@ -177,10 +177,6 @@
 #### [OCM. server crash after deleting share for ocm user](https://github.com/owncloud/ocis/issues/10213)
 
 - [apiOcm/deleteFederatedConnections.feature:102](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiOcm/deleteFederatedConnections.feature#L102)
-
-#### [Shares Jail PROPFIND returns different File IDs for the same item](https://github.com/owncloud/ocis/issues/9933)
-
-- [apiSharingNg1/propfindShares.feature:149](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/propfindShares.feature#L149)
 
 #### [Readiness check for some services returns 500 status code](https://github.com/owncloud/ocis/issues/10661)
 
