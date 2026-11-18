@@ -6,6 +6,10 @@
 
 @AlexAndBear, @asaah262, @butonic, @dschmidt, @pbleser-oc
 
+### ✅ Tests
+
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
+
 ### 🐛 Bug Fixes
 
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
