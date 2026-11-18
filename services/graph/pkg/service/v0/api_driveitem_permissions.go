@@ -226,6 +226,11 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		return libregraph.Permission{}, err
 	}
 
+	// adding members to a space is not a new share
+	if s.config.API.DisableNewUserShares && !utils.IsSpaceRoot(statResponse.GetInfo()) {
+		return libregraph.Permission{}, errorcode.New(errorcode.NotAllowed, "creating new user shares is disabled")
+	}
+
 	var condition string
 	if condition, err = roleConditionForResourceType(statResponse.GetInfo()); err != nil {
 		logger.Debug().Err(err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("unsupported resource type")

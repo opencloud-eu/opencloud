@@ -360,8 +360,10 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 							"productversion": version.GetString(),
 						},
 					},
-					"include_ocm_sharees":   cfg.OCS.IncludeOCMSharees,
-					"show_email_in_results": cfg.OCS.ShowUserEmailInResults,
+					"include_ocm_sharees":      cfg.OCS.IncludeOCMSharees,
+					"show_email_in_results":    cfg.OCS.ShowUserEmailInResults,
+					"disable_new_user_shares":  cfg.DisableNewUserShares,
+					"disable_new_public_links": cfg.DisableNewPublicLinks,
 				},
 				"ocdav": map[string]any{
 					"prefix":           cfg.OCDav.Prefix,

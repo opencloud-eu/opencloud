@@ -868,6 +868,12 @@ func (s *service) ListContainer(ctx context.Context, req *provider.ListContainer
 				SpaceId:   utils.ShareStorageSpaceID,
 				OpaqueId:  share.GetShare().GetId().GetOpaqueId(),
 			}
+			// overwrite parent id with the share jail root
+			info.ParentId = &provider.ResourceId{
+				StorageId: utils.ShareStorageProviderID,
+				SpaceId:   utils.ShareStorageSpaceID,
+				OpaqueId:  utils.ShareStorageSpaceID,
+			}
 			info.Path = filepath.Base(share.MountPoint.Path)
 			info.Name = info.Path
 

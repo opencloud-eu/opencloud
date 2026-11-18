@@ -137,10 +137,11 @@ type OCMCoreJSONDriver struct {
 }
 
 type OCMShareProvider struct {
-	Driver         string                  `yaml:"driver" env:"OCM_OCM_SHARE_PROVIDER_DRIVER" desc:"Driver to be used for the OCM share provider. Supported value is only 'json'." introductionVersion:"1.0.0"`
-	Drivers        OCMShareProviderDrivers `yaml:"drivers"`
-	Insecure       bool                    `yaml:"insecure" env:"OCM_OCM_SHARE_PROVIDER_INSECURE" desc:"Disable TLS certificate validation for the OCM connections. Do not set this in production environments." introductionVersion:"1.0.0"`
-	WebappTemplate string                  `yaml:"webapp_template" env:"OCM_WEBAPP_TEMPLATE" desc:"Template for the webapp url." introductionVersion:"1.0.0"`
+	Driver               string                  `yaml:"driver" env:"OCM_OCM_SHARE_PROVIDER_DRIVER" desc:"Driver to be used for the OCM share provider. Supported value is only 'json'." introductionVersion:"1.0.0"`
+	Drivers              OCMShareProviderDrivers `yaml:"drivers"`
+	Insecure             bool                    `yaml:"insecure" env:"OCM_OCM_SHARE_PROVIDER_INSECURE" desc:"Disable TLS certificate validation for the OCM connections. Do not set this in production environments." introductionVersion:"1.0.0"`
+	WebappTemplate       string                  `yaml:"webapp_template" env:"OCM_WEBAPP_TEMPLATE" desc:"Template for the webapp url." introductionVersion:"1.0.0"`
+	DisableNewUserShares bool                    `yaml:"disable_new_user_shares" env:"OC_DISABLE_NEW_USER_SHARES" desc:"Reject the creation of new federated shares. Existing shares keep working." introductionVersion:"%%NEXT%%"`
 }
 
 type OCMShareProviderDrivers struct {

@@ -41,6 +41,7 @@ type Handler struct {
 	additionalInfoAttribute string
 	includeOCMSharees       bool
 	showUserEmailInResults  bool
+	disableNewUserShares    bool
 }
 
 // Init initializes this and any contained handlers
@@ -49,6 +50,7 @@ func (h *Handler) Init(c *config.Config) {
 	h.additionalInfoAttribute = c.AdditionalInfoAttribute
 	h.includeOCMSharees = c.IncludeOCMSharees
 	h.showUserEmailInResults = c.ShowEmailInResults
+	h.disableNewUserShares = c.DisableNewUserShares
 }
 
 // FindSharees implements the /apps/files_sharing/api/v1/sharees endpoint
@@ -58,6 +60,21 @@ func (h *Handler) FindSharees(w http.ResponseWriter, r *http.Request) {
 
 	if term == "" {
 		response.WriteOCSError(w, r, response.MetaBadRequest.StatusCode, "search must not be empty", nil)
+		return
+	}
+
+	// nobody can be shared with, so there is nobody to find
+	if h.disableNewUserShares {
+		response.WriteOCSSuccess(w, r, &conversions.ShareeData{
+			Exact: &conversions.ExactMatchesData{
+				Users:   []*conversions.MatchData{},
+				Groups:  []*conversions.MatchData{},
+				Remotes: []*conversions.MatchData{},
+			},
+			Users:   []*conversions.MatchData{},
+			Groups:  []*conversions.MatchData{},
+			Remotes: []*conversions.MatchData{},
+		})
 		return
 	}
 

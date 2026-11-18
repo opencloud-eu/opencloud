@@ -1201,6 +1201,20 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err = service.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).To(MatchError(unifiedrole.ErrUnknownRole))
 		})
+
+		It("rejects new user shares when they are disabled", func() {
+			cfg := defaults.FullDefaultConfig()
+			cfg.API.DisableNewUserShares = true
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
+			}
+			_, err = service.Invite(ctx, driveItemId, driveItemInvite)
+			Expect(err).To(MatchError(errorcode.New(errorcode.NotAllowed, "creating new user shares is disabled")))
+			gatewayClient.AssertNotCalled(GinkgoT(), "CreateShare", mock.Anything, mock.Anything)
+		})
 	})
 	Describe("SpaceRootInvite", func() {
 		var (
@@ -1273,6 +1287,36 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(permission.GetExpirationDateTime().Equal(*driveItemInvite.ExpirationDateTime)).To(BeTrue())
 			Expect(permission.GrantedToV2.User.GetDisplayName()).To(Equal(getUserResponse.User.DisplayName))
 			Expect(permission.GrantedToV2.User.GetId()).To(Equal("1"))
+		})
+		It("still adds a user to a space when new user shares are disabled", func() {
+			cfg := defaults.FullDefaultConfig()
+			cfg.API.DisableNewUserShares = true
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			listSpacesResponse.StorageSpaces[0].SpaceType = "project"
+			listSpacesResponse.StorageSpaces[0].Root = &provider.ResourceId{
+				StorageId: "1",
+				SpaceId:   "2",
+				OpaqueId:  "3",
+			}
+			statResponse.Info.Id = listSpacesResponse.StorageSpaces[0].Root
+			statResponse.Info.Space = &provider.StorageSpace{
+				Root: listSpacesResponse.StorageSpaces[0].Root,
+			}
+
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
+			}
+			createShareResponse.Share = &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: "123"}}
+
+			permission, err := service.SpaceRootInvite(ctx, driveId, driveItemInvite)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permission.GetId()).To(Equal("123"))
 		})
 		It("records a SpaceRootInvite span as the parent of the Invite span", func() {
 			sr, tp := newSpanRecorder()

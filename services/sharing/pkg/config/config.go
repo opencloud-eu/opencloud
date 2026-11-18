@@ -31,6 +31,8 @@ type Config struct {
 	PublicShareMustHavePassword    bool                 `yaml:"public_sharing_share_must_have_password" env:"OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD;SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" desc:"Set this to true if you want to enforce passwords on all public shares." introductionVersion:"1.0.0"`
 	EnableExpiredSharesCleanup     bool                 `yaml:"enable_expired_shares_cleanup"`
 	PasswordPolicy                 PasswordPolicy       `yaml:"password_policy"`
+	DisableNewUserShares           bool                 `yaml:"disable_new_user_shares" env:"OC_DISABLE_NEW_USER_SHARES" desc:"Reject the creation of new user and group shares. Existing shares keep working. Adding members to spaces is not affected." introductionVersion:"%%NEXT%%"`
+	DisableNewPublicLinks          bool                 `yaml:"disable_new_public_links" env:"OC_DISABLE_NEW_PUBLIC_LINKS" desc:"Reject the creation of new public links and turning internal links into public links. Internal links and existing public links keep working." introductionVersion:"%%NEXT%%"`
 
 	Context context.Context `yaml:"-"`
 }

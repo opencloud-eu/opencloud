@@ -350,10 +350,15 @@ func (e *ACE) grantPermissionSet() *provider.ResourcePermissions {
 		p.InitiateFileDownload = true
 		p.ListContainer = true
 	}
+	// d
+	if strings.Contains(e.permissions, "d") {
+		p.Delete = true
+	}
+	// D ?
 	// w
 	if strings.Contains(e.permissions, "w") {
 		p.InitiateFileUpload = true
-		if p.InitiateFileDownload {
+		if p.InitiateFileDownload && p.Delete {
 			p.Move = true
 		}
 	}
@@ -366,12 +371,6 @@ func (e *ACE) grantPermissionSet() *provider.ResourcePermissions {
 	if strings.Contains(e.permissions, "x") {
 		p.ListContainer = true
 	}
-	// d
-	if strings.Contains(e.permissions, "d") {
-		p.Delete = true
-	}
-	// D ?
-
 	// sharing
 	if strings.Contains(e.permissions, "C") {
 		p.AddGrant = true
