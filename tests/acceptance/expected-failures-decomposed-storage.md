@@ -182,6 +182,11 @@
 
 - [apiSharingNg1/propfindShares.feature:149](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/propfindShares.feature#L149)
 
+#### [Share jail should not expose the same resource under several paths](https://github.com/opencloud-eu/opencloud/issues/4055)
+
+- [apiSharingNg1/shareJailContainment.feature:14](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/shareJailContainment.feature#L14)
+- [apiSharingNg1/shareJailContainment.feature:80](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/shareJailContainment.feature#L80)
+
 #### [Readiness check for some services returns 500 status code](https://github.com/owncloud/ocis/issues/10661)
 
 - [apiServiceAvailability/serviceAvailabilityCheck.feature:123](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiServiceAvailability/serviceAvailabilityCheck.feature#L123)
