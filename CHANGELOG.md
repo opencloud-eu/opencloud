@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.2.7](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.7) - 2026-11-18
+
+### ❤️ Thanks to all contributors! ❤️
+
+@micbar
+
+
+
 ## [7.2.6](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.6) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
