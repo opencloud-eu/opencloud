@@ -197,26 +197,38 @@ Feature: clean up old file versions according to a cleanup strategy
     Then the number of versions of file "textfile.txt" for user "Alice" should eventually be "2"
     And the content of file "textfile.txt" for user "Alice" should be "version 5"
 
-  # The age of a version is the time its content was written, i.e. the modification time the
-  # file had before it was changed, not the time of that change: "version 1" is 60 days old
-  # as soon as it becomes a version.
-  Scenario Outline: the configured strategy measures the age of a version by the time its content was written
+  # The age of a version is the time it was created, i.e. when its content was replaced, not
+  # the modification time of its content, which the client chooses: "version 1" and "version 2"
+  # are only seconds old as versions, although their content is dated 60 and 50 days ago.
+  Scenario: the configured strategy measures the age of a version by the time it was created
     Given the following configs have been set:
-      | config                        | value      |
-      | OC_REVISIONS_CLEANUP_STRATEGY | <strategy> |
-      | OC_REVISIONS_CLEANUP_ASYNC    | false      |
+      | config                        | value |
+      | OC_REVISIONS_CLEANUP_STRATEGY | 30d   |
+      | OC_REVISIONS_CLEANUP_ASYNC    | false |
     And user "Alice" has uploaded a file with content "version 1" and mtime "-60 days" to "textfile.txt"
     And user "Alice" has uploaded a file with content "version 2" and mtime "-50 days" to "textfile.txt"
     And user "Alice" has uploaded file with content "version 3" to "textfile.txt"
     When user "Alice" gets the number of versions of file "textfile.txt"
     Then the HTTP status code should be "207"
-    And the number of versions should be "<versions>"
+    And the number of versions should be "2"
     And the content of file "textfile.txt" for user "Alice" should be "version 3"
-    Examples:
-      | strategy | versions |
-      | 30d      | 0        |
-      | 1,30d    | 1        |
-      | 90d      | 2        |
+
+  # The versions are ordered by the time they were created as well: a version whose content
+  # is dated years ahead doesn't count as the newest one, so "1" keeps the version created
+  # last, "version 2", and not "version 1".
+  Scenario: a version with content dated in the future doesn't take the place of the newest one
+    Given the following configs have been set:
+      | config                        | value |
+      | OC_REVISIONS_CLEANUP_STRATEGY | 1     |
+      | OC_REVISIONS_CLEANUP_ASYNC    | false |
+    And user "Alice" has uploaded a file with content "version 1" and mtime "+10 years" to "textfile.txt"
+    And user "Alice" has uploaded file with content "version 2" to "textfile.txt"
+    And user "Alice" has uploaded file with content "version 3" to "textfile.txt"
+    When user "Alice" gets the number of versions of file "textfile.txt"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "1"
+    And the content of version index "1" of file "textfile.txt" for user "Alice" should be "version 2"
+    And the content of file "textfile.txt" for user "Alice" should be "version 3"
 
   # A restore makes the content from before the restore a version, which the cleanup keeps
   # whatever the strategy, so that the restore can be undone. The restored version itself
