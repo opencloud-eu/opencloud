@@ -11,6 +11,7 @@ import (
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	ocldap "github.com/opencloud-eu/opencloud/pkg/ldap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
@@ -110,16 +111,16 @@ func CreateIdentityBackends(name string, cfg *config.Config, logger *log.Logger,
 		var eduBackend EducationBackend = lb
 
 		if !cfg.Identity.Metrics.Disabled && registrer != nil {
-			backendApiOperationDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			backendApiOperationDuration := prometheus.NewHistogramVec(ocmetrics.DualHistogramOpts(prometheus.HistogramOpts{
 				Namespace: metrics.Namespace,
 				Subsystem: metrics.Subsystem,
 				Name:      "identity_backend_api_duration_seconds",
 				Help:      "Duration of API operations performed by the Graph service identity backend in seconds.",
-				Buckets:   prometheus.DefBuckets,
+				Buckets:   ocmetrics.RequestDurationBuckets,
 				ConstLabels: prometheus.Labels{
 					MetricLabelType: name,
 				},
-			}, []string{MetricLabelOperation, metrics.LabelResult})
+			}), []string{MetricLabelOperation, metrics.LabelResult})
 
 			if err := registrer.Register(backendApiOperationDuration); err != nil {
 				logger.Warn().Err(err).Msg("failed to register backend API operation duration metric")

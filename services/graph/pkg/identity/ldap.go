@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
@@ -196,17 +197,17 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger, name
 
 		// a metric that tracks the duration of the LDAP operations we perform as an LDAP client,
 		// will be passed to a Prometheus wrapper around LdapClient below
-		ldapEgressDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		ldapEgressDuration := prometheus.NewHistogramVec(ocmetrics.DualHistogramOpts(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
 			Name:      "ldap_client_operation_duration_seconds",
 			Help:      "Duration of LDAP operations performed by the Graph service in seconds.",
-			Buckets:   prometheus.DefBuckets,
+			Buckets:   ocmetrics.FastOperationDurationBuckets,
 			ConstLabels: prometheus.Labels{
 				MetricLabelUri:   config.URI,
 				MetricLabelWrite: write,
 			},
-		}, []string{MetricLabelOperation, metrics.LabelResult})
+		}), []string{MetricLabelOperation, metrics.LabelResult})
 		if err := registry.Register(ldapEgressDuration); err != nil {
 			logger.Warn().Err(err).Msg("failed to register LDAP egress duration metric")
 		}
