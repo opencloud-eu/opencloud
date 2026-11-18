@@ -375,6 +375,8 @@ Durations in days or weeks can use an uppercase unit, `D` or `W`, to count from 
 | `X1, auto, X2` | Keep everything within `X1`, delete everything beyond `X2`, thin out in between | `7d, auto, 90d`, `1D, auto, 30d` |
 | `disabled` | Never delete revisions | `disabled` |
 
+A restore keeps the revision of the content it replaced as long as the file has the restored content: the strategy doesn't apply to that one revision, not even an age limit like `30d`, until the file is changed again, by an upload, another restore or, with `posix`, a change on disk.
+
 Note that the age of a revision is the time its content was written, i.e. the modification time the file had before it was changed, which is also the date the version list shows for it. It is not the time the file was changed, which turned that content into a revision. A document that was unchanged for two months gets a revision that is two months old when it is changed, and e.g. `30d` deletes that revision right away. Combine a duration with a number of revisions, e.g. `5, 30d`, to always keep the newest ones.
 
 #### Selecting the Files
