@@ -319,3 +319,18 @@ Feature: Tag
       | finance     |
       | hr          |
       | qa          |
+
+
+  Scenario: user tries to create a tag that is longer than the maximum tag length
+    When user "Alice" creates the following tags for folder "folderMain" of space "use-tag":
+      | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0123456789 |
+    Then the HTTP status code should be "400"
+    When user "Alice" creates the following tags for folder "folderMain" of space "use-tag":
+      | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0123456789 |
+    Then the HTTP status code should be "200"
+    When user "Alice" lists all available tags via the Graph API
+    Then the HTTP status code should be "200"
+    And the response should contain following tags:
+      | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0123456789 |
+    And the response should not contain following tags:
+      | bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0123456789 |

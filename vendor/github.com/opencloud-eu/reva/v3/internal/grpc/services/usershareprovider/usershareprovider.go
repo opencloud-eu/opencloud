@@ -71,6 +71,7 @@ type config struct {
 	Drivers               map[string]map[string]interface{} `mapstructure:"drivers"`
 	GatewayAddr           string                            `mapstructure:"gateway_addr"`
 	AllowedPathsForShares []string                          `mapstructure:"allowed_paths_for_shares"`
+	DisableNewUserShares  bool                              `mapstructure:"disable_new_user_shares" docs:"false;Reject the creation of new user and group shares. Existing shares and space memberships are not affected."`
 }
 
 func (c *config) init() {
@@ -83,6 +84,7 @@ type service struct {
 	sm                    share.Manager
 	gatewaySelector       pool.Selectable[gateway.GatewayAPIClient]
 	allowedPathsForShares []*regexp.Regexp
+	disableNewUserShares  bool
 }
 
 func getShareManager(c *config, logger *zerolog.Logger) (share.Manager, error) {
@@ -143,15 +145,16 @@ func NewDefault(m map[string]any, ss *grpc.Server, logger *zerolog.Logger) (rgrp
 		return nil, err
 	}
 
-	return New(gatewaySelector, sm, allowedPathsForShares), nil
+	return New(gatewaySelector, sm, allowedPathsForShares, c.DisableNewUserShares), nil
 }
 
 // New creates a new user share provider svc
-func New(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], sm share.Manager, allowedPathsForShares []*regexp.Regexp) rgrpc.Service {
+func New(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], sm share.Manager, allowedPathsForShares []*regexp.Regexp, disableNewUserShares bool) rgrpc.Service {
 	service := &service{
 		sm:                    sm,
 		gatewaySelector:       gatewaySelector,
 		allowedPathsForShares: allowedPathsForShares,
+		disableNewUserShares:  disableNewUserShares,
 	}
 
 	return service
@@ -264,6 +267,13 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 
 	isSpaceRoot := utils.IsSpaceRoot(sRes.GetInfo())
 	var noEvent bool
+
+	// space memberships are managed via shares on the space root, they are not affected
+	if s.disableNewUserShares && !isSpaceRoot {
+		return &collaboration.CreateShareResponse{
+			Status: status.NewPermissionDenied(ctx, nil, "creating new user shares is disabled"),
+		}, nil
+	}
 
 	if isSpaceRoot {
 		if sRes.GetInfo().GetSpace().GetSpaceType() == _spaceTypePersonal || sRes.GetInfo().GetSpace().GetSpaceType() == _spaceTypeVirtual {

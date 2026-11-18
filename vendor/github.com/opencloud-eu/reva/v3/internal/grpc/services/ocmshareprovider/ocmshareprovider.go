@@ -58,14 +58,15 @@ func init() {
 }
 
 type config struct {
-	Driver         string                            `mapstructure:"driver"`
-	Drivers        map[string]map[string]interface{} `mapstructure:"drivers"`
-	ClientTimeout  int                               `mapstructure:"client_timeout"`
-	ClientInsecure bool                              `mapstructure:"client_insecure"`
-	GatewaySVC     string                            `mapstructure:"gatewaysvc"      validate:"required"`
-	ProviderDomain string                            `mapstructure:"provider_domain" validate:"required" docs:"The same domain registered in the provider authorizer"`
-	WebDAVEndpoint string                            `mapstructure:"webdav_endpoint" validate:"required"`
-	WebappTemplate string                            `mapstructure:"webapp_template"`
+	Driver               string                            `mapstructure:"driver"`
+	Drivers              map[string]map[string]interface{} `mapstructure:"drivers"`
+	ClientTimeout        int                               `mapstructure:"client_timeout"`
+	ClientInsecure       bool                              `mapstructure:"client_insecure"`
+	GatewaySVC           string                            `mapstructure:"gatewaysvc"      validate:"required"`
+	ProviderDomain       string                            `mapstructure:"provider_domain" validate:"required" docs:"The same domain registered in the provider authorizer"`
+	WebDAVEndpoint       string                            `mapstructure:"webdav_endpoint" validate:"required"`
+	WebappTemplate       string                            `mapstructure:"webapp_template"`
+	DisableNewUserShares bool                              `mapstructure:"disable_new_user_shares" docs:"false;Reject the creation of new federated shares. Existing shares are not affected."`
 }
 
 type service struct {
@@ -219,6 +220,12 @@ func (s *service) getProtocols(ctx context.Context, share *ocm.Share) ocmd.Proto
 }
 
 func (s *service) CreateOCMShare(ctx context.Context, req *ocm.CreateOCMShareRequest) (*ocm.CreateOCMShareResponse, error) {
+	if s.conf.DisableNewUserShares {
+		return &ocm.CreateOCMShareResponse{
+			Status: status.NewPermissionDenied(ctx, nil, "creating new federated shares is disabled"),
+		}, nil
+	}
+
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
 		return nil, err

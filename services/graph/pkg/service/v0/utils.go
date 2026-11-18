@@ -286,6 +286,8 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 				driveItem.SetETag(etag)
 			}
 
+			driveItem.SetLibreGraphMeFollowing(isFollowing(ctx, shareStat.GetInfo()))
+
 			// connect the dots
 			{
 				if mTime := shareStat.GetInfo().GetMtime(); mTime != nil {

@@ -916,6 +916,10 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 		drive.Root.Permissions, _ = g.cs3SpacePermissionsToLibreGraph(ctx, space, false, apiVersion)
 	}
 
+	if rootInfo := space.GetRootInfo(); rootInfo != nil {
+		drive.Root.SetLibreGraphMeFollowing(isFollowing(ctx, rootInfo))
+	}
+
 	if _, ok := fieldMask["@libre.graph.hasTrashedItems"]; ok {
 		drive.LibreGraphHasTrashedItems = &space.HasTrashedItems
 	}

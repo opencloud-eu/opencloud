@@ -285,6 +285,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
 			return err
 		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
+		Entry("GetSpaceRootPermission", "GetSpaceRootPermission", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
+			_, err := s.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
+			return err
+		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 	)
 
 	It("does not mark the span of an expected client error as error, but records its error code", func() {
@@ -419,6 +423,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
 			return err
 		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}),
+		Entry("GetSpaceRootPermission", "personal", func(s svc.DriveItemPermissionsService) error {
+			_, err := s.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
+			return err
+		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}),
 	)
 
 	var (
@@ -435,6 +443,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		}
 		updateSpaceRootPermission = func(s svc.DriveItemPermissionsService) error {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
+			return err
+		}
+		getSpaceRootPermission = func(s svc.DriveItemPermissionsService) error {
+			_, err := s.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
 			return err
 		}
 		missingSpaceResponse = &provider.ListStorageSpacesResponse{Status: status.NewOK(context.Background())}
@@ -505,6 +517,12 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, missingSpaceResponse, missingSpaceErr, "debug"),
 		Entry("UpdateSpaceRootPermission: internal gateway error", updateSpaceRootPermission,
 			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, internalSpaceResponse, internalSpaceErr, "error"),
+		Entry("GetSpaceRootPermission: missing space", getSpaceRootPermission,
+			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, missingSpaceResponse, missingSpaceErr, "debug"),
+		Entry("GetSpaceRootPermission: internal gateway error", getSpaceRootPermission,
+			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, internalSpaceResponse, internalSpaceErr, "error"),
+		Entry("GetSpaceRootPermission: transport error", getSpaceRootPermission,
+			map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, nil, transportSpaceErr, "error"),
 	)
 
 	Describe("Invite", func() {
@@ -1183,6 +1201,20 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err = service.Invite(ctx, driveItemId, driveItemInvite)
 			Expect(err).To(MatchError(unifiedrole.ErrUnknownRole))
 		})
+
+		It("rejects new user shares when they are disabled", func() {
+			cfg := defaults.FullDefaultConfig()
+			cfg.API.DisableNewUserShares = true
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
+			}
+			_, err = service.Invite(ctx, driveItemId, driveItemInvite)
+			Expect(err).To(MatchError(errorcode.New(errorcode.NotAllowed, "creating new user shares is disabled")))
+			gatewayClient.AssertNotCalled(GinkgoT(), "CreateShare", mock.Anything, mock.Anything)
+		})
 	})
 	Describe("SpaceRootInvite", func() {
 		var (
@@ -1255,6 +1287,36 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(permission.GetExpirationDateTime().Equal(*driveItemInvite.ExpirationDateTime)).To(BeTrue())
 			Expect(permission.GrantedToV2.User.GetDisplayName()).To(Equal(getUserResponse.User.DisplayName))
 			Expect(permission.GrantedToV2.User.GetId()).To(Equal("1"))
+		})
+		It("still adds a user to a space when new user shares are disabled", func() {
+			cfg := defaults.FullDefaultConfig()
+			cfg.API.DisableNewUserShares = true
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			listSpacesResponse.StorageSpaces[0].SpaceType = "project"
+			listSpacesResponse.StorageSpaces[0].Root = &provider.ResourceId{
+				StorageId: "1",
+				SpaceId:   "2",
+				OpaqueId:  "3",
+			}
+			statResponse.Info.Id = listSpacesResponse.StorageSpaces[0].Root
+			statResponse.Info.Space = &provider.StorageSpace{
+				Root: listSpacesResponse.StorageSpaces[0].Root,
+			}
+
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
+			}
+			createShareResponse.Share = &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: "123"}}
+
+			permission, err := service.SpaceRootInvite(ctx, driveId, driveItemInvite)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permission.GetId()).To(Equal("123"))
 		})
 		It("records a SpaceRootInvite span as the parent of the Invite span", func() {
 			sr, tp := newSpanRecorder()
@@ -2311,6 +2373,72 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := driveItemPermissionsService.GetPermission(ctx, driveItemId, "aaaaaaaaaaaaaaa")
 			Expect(errorcode.IsErrorCode(err, errorcode.AccessDenied)).To(BeTrue())
 		})
+
+		It("logs a permission that is not listed for the item as debug and records the not found in its span", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil)
+			listPublicSharesResponse.Share = []*link.PublicShare{viewLink("aaaaaaaaaaaaaaa")}
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+			var logBuf bytes.Buffer
+			sr, tp := newSpanRecorder()
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = service.GetPermission(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), driveItemId, "ccccccccccccccc")
+			Expect(err).To(MatchError(errorcode.New(errorcode.ItemNotFound, "permission not found")))
+
+			entries := logEntries(&logBuf)
+			Expect(entries).To(ContainElement(SatisfyAll(
+				HaveKeyWithValue("level", "debug"),
+				HaveKeyWithValue("message", "permission not found"),
+				HaveKeyWithValue("request-id", "request-42"),
+				HaveKeyWithValue("itemID", "1$2!3"),
+				HaveKeyWithValue("permissionID", "ccccccccccccccc"),
+			)))
+			Expect(entries).ToNot(ContainElement(HaveKeyWithValue("level", BeElementOf("error", "warn"))))
+
+			// a not found is an expected client error: recorded by its code, the span is not marked as error
+			span := endedSpan(sr, "GetPermission")
+			Expect(span.Status().Code).To(Equal(codes.Unset))
+			Expect(span.Attributes()).To(ContainElement(attribute.String("error.type", "itemNotFound")))
+			// the listing succeeded, its span records no error
+			list := endedSpan(sr, "ListPermissions")
+			Expect(list.Parent().SpanID()).To(Equal(span.SpanContext().SpanID()))
+			Expect(list.Attributes()).ToNot(ContainElement(HaveField("Key", attribute.Key("error.type"))))
+		})
+
+		It("logs a failure of the listing once and marks both spans as error", func() {
+			gatewayErr := errors.New("no gateway available at 10.0.0.42")
+			gatewaySelector.EXPECT().Next().Unset()
+			gatewaySelector.EXPECT().Next().Return(nil, gatewayErr)
+			var logBuf bytes.Buffer
+			sr, tp := newSpanRecorder()
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = service.GetPermission(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), driveItemId, "permissionid")
+			Expect(err).To(MatchError(gatewayErr))
+
+			// ListPermissions logs the failure, GetPermission does not log it again
+			errorEntries := entriesAtLevel(logEntries(&logBuf), "error")
+			Expect(errorEntries).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("request-id", "request-42"),
+				HaveKeyWithValue("itemID", "1$2!3"),
+				HaveKeyWithValue("errorCode", "generalException"),
+				HaveKeyWithValue("error", gatewayErr.Error()),
+			)))
+
+			Expect(sr.Ended()).To(HaveLen(2))
+			span := endedSpan(sr, "GetPermission", "10.0.0.42")
+			list := endedSpan(sr, "ListPermissions", "10.0.0.42")
+			Expect(list.Parent().SpanID()).To(Equal(span.SpanContext().SpanID()))
+			Expect(list.SpanContext().TraceID()).To(Equal(span.SpanContext().TraceID()))
+			for _, s := range []sdktrace.ReadOnlySpan{span, list} {
+				Expect(s.Status().Code).To(Equal(codes.Error))
+				Expect(s.Status().Description).To(Equal("generalException"))
+				Expect(s.Attributes()).To(ContainElement(attribute.String("error.type", "generalException")))
+			}
+		})
 	})
 
 	Describe("GetSpaceRootPermission", func() {
@@ -2331,6 +2459,35 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Entry("personal", "personal"),
 			Entry("virtual", "virtual"),
 		)
+
+		It("records a GetSpaceRootPermission span as the parent of the GetPermission span", func() {
+			sr, tp := newSpanRecorder()
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			Expect(err).ToNot(HaveOccurred())
+			spaceRoot := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status: status.NewOK(ctx),
+				StorageSpaces: []*provider.StorageSpace{
+					{Id: &provider.StorageSpaceId{OpaqueId: "2"}, SpaceType: "project", Root: spaceRoot},
+				},
+			}, nil)
+			// the space root is gone, so the listing of its permissions fails with not found
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{Status: status.NewNotFound(ctx, "not found")}, nil)
+
+			_, err = service.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
+			Expect(errorcode.IsErrorCode(err, errorcode.ItemNotFound)).To(BeTrue())
+
+			root := endedSpan(sr, "GetSpaceRootPermission")
+			get := endedSpan(sr, "GetPermission")
+			list := endedSpan(sr, "ListPermissions")
+			Expect(get.Parent().SpanID()).To(Equal(root.SpanContext().SpanID()))
+			Expect(list.Parent().SpanID()).To(Equal(get.SpanContext().SpanID()))
+			for _, s := range []sdktrace.ReadOnlySpan{root, get, list} {
+				Expect(s.SpanContext().TraceID()).To(Equal(root.SpanContext().TraceID()))
+				Expect(s.Status().Code).To(Equal(codes.Unset))
+				Expect(s.Attributes()).To(ContainElement(attribute.String("error.type", "itemNotFound")))
+			}
+		})
 	})
 
 	Describe("DeletePermission", func() {
@@ -4038,6 +4195,9 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			Entry("space root, only the roles", true,
 				"$select=@libre.graph.permissions.roles.allowedValues",
 				[]string{"@libre.graph.permissions.roles.allowedValues"}),
+			Entry("space root, only the actions with $top=0, as the web client sends it", true,
+				"$select=@libre.graph.permissions.actions.allowedValues&$top=0",
+				[]string{"@libre.graph.permissions.actions.allowedValues"}),
 		)
 		DescribeTable("passes $select together with the other query options to the service",
 			func(query url.Values, wantOptions svc.ListPermissionsQueryOptions) {
@@ -4078,6 +4238,79 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 					"$select": {"@libre.graph.permissions.actions.allowedValues"},
 				},
 				svc.ListPermissionsQueryOptions{Count: true, NoValues: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			// $top=0 without $count is what the web client sends when it wants all permissions
+			Entry("$top=0 without $count, as the web client sends it",
+				url.Values{
+					"$top":    {"0"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("the federated roles filter with $top=0, as the web client sends it",
+				url.Values{
+					"$filter": {`@libre.graph.permissions.roles.allowedValues/rolePermissions/any(p:contains(p/condition, '@Subject.UserType=="Federated"'))`},
+					"$select": {"@libre.graph.permissions.roles.allowedValues"},
+					"$top":    {"0"},
+				},
+				svc.ListPermissionsQueryOptions{FilterFederatedRoles: true, SelectedAttrs: []string{"@libre.graph.permissions.roles.allowedValues"}}),
+			Entry("the filter without link permissions with $top=0",
+				url.Values{
+					"$filter": {"grantedToV2 ne ''"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+					"$top":    {"0"},
+				},
+				svc.ListPermissionsQueryOptions{NoLinkPermissions: true, SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("$count=false with $top=0",
+				url.Values{
+					"$count":  {"false"},
+					"$top":    {"0"},
+					"$select": {"@libre.graph.permissions.actions.allowedValues"},
+				},
+				svc.ListPermissionsQueryOptions{SelectedAttrs: []string{"@libre.graph.permissions.actions.allowedValues"}}),
+		)
+		It("passes no query options to the service for $top=0 alone, as the web client sends it to list all permissions", func() {
+			rCTX.URLParams.Add("itemID", "1$2!3")
+			// no selected attributes, as nil or as an empty list, mean the same to the service
+			noOptions := mock.MatchedBy(func(got svc.ListPermissionsQueryOptions) bool {
+				return !got.Count && !got.NoValues && !got.NoLinkPermissions && !got.FilterFederatedRoles && len(got.SelectedAttrs) == 0
+			})
+			mockProvider.On("ListPermissions", mock.Anything, mock.Anything, noOptions).
+				Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Once()
+
+			responseRecorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/?"+url.Values{"$top": {"0"}}.Encode(), nil).
+				WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+			httpAPI.ListPermissions(responseRecorder, request)
+
+			Expect(responseRecorder.Code).To(Equal(http.StatusOK))
+			mockProvider.AssertExpectations(GinkgoT())
+		})
+		DescribeTable("rejects a $top other than 0 without calling the service",
+			func(spaceRoot bool, query url.Values) {
+				method, handler := "ListPermissions", httpAPI.ListPermissions
+				if spaceRoot {
+					method, handler = "ListSpaceRootPermissions", httpAPI.ListSpaceRootPermissions
+				} else {
+					rCTX.URLParams.Add("itemID", "1$2!3")
+				}
+				// answers like the service would, so that a request passed on shows in the status code
+				mockProvider.On(method, mock.Anything, mock.Anything, mock.Anything).
+					Return(libregraph.CollectionOfPermissionsWithAllowedValues{}, nil).Maybe()
+
+				responseRecorder := httptest.NewRecorder()
+				request := httptest.NewRequest(http.MethodGet, "/?"+query.Encode(), nil).
+					WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+				handler(responseRecorder, request)
+
+				Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+				Expect(gjson.Get(responseRecorder.Body.String(), "error.code").String()).To(Equal(errorcode.InvalidRequest.String()))
+				Expect(gjson.Get(responseRecorder.Body.String(), "error.message").String()).To(ContainSubstring("$top"))
+				mockProvider.AssertNotCalled(GinkgoT(), method, mock.Anything, mock.Anything, mock.Anything)
+			},
+			Entry("item, $top=5", false, url.Values{"$top": {"5"}}),
+			Entry("item, $top=5 with $count=true", false, url.Values{"$top": {"5"}, "$count": {"true"}}),
+			Entry("item, $top=1 with $select", false, url.Values{"$top": {"1"}, "$select": {"@libre.graph.permissions.actions.allowedValues"}}),
+			Entry("item, negative $top", false, url.Values{"$top": {"-1"}}),
+			Entry("space root, $top=5", true, url.Values{"$top": {"5"}}),
 		)
 		DescribeTable("rejects an invalid query with $select without calling the service",
 			func(query url.Values) {
@@ -4097,6 +4330,10 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			}),
 			Entry("a $select path with several segments", url.Values{
 				"$select": {"@libre.graph.permissions.roles.allowedValues/id"},
+			}),
+			Entry("a $top that is not a number", url.Values{
+				"$top":    {"abc"},
+				"$select": {"@libre.graph.permissions.actions.allowedValues"},
 			}),
 		)
 		It("renders the error of the service when only the actions of a space root are selected", func() {
