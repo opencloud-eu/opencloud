@@ -31,7 +31,8 @@ func revisionsCleanupOptionsFor(t *testing.T, cfg *config.Config, args ...string
 
 func revisionsCleanupConfig() *config.Config {
 	return &config.Config{
-		Driver: "decomposed",
+		Driver:            "decomposed",
+		FilemetadataCache: config.FilemetadataCache{Store: "nats-js-kv"},
 		RevisionsCleanup: config.RevisionsCleanup{
 			Strategy:              "auto, 90d",
 			Async:                 true,
@@ -87,6 +88,31 @@ func TestRevisionsCleanupOptions(t *testing.T) {
 		o, err = revisionsCleanupOptionsFor(t, cfg, "-p", "/var/lib/opencloud/users/einstein")
 		require.NoError(t, err)
 		require.Equal(t, "/var/lib/opencloud/users/einstein", o.request.FSPath)
+	})
+
+	t.Run("a file metadata cache local to each process", func(t *testing.T) {
+		for _, storeType := range []string{"memory", "ocmem"} {
+			cfg := revisionsCleanupConfig()
+			cfg.FilemetadataCache.Store = storeType
+
+			_, err := revisionsCleanupOptionsFor(t, cfg, "--all")
+			require.Error(t, err, storeType)
+			require.Contains(t, err.Error(), "'nats-js-kv'", "the error names the fix")
+			require.Contains(t, err.Error(), "--allow-local-cache", "the error names the override")
+
+			_, err = revisionsCleanupOptionsFor(t, cfg, "--all", "--allow-local-cache")
+			require.NoError(t, err, "with the override, %s", storeType)
+
+			_, err = revisionsCleanupOptionsFor(t, cfg, "--all", "--dry-run")
+			require.NoError(t, err, "a dry run deletes nothing, %s", storeType)
+		}
+
+		for _, storeType := range []string{"nats-js-kv", "redis-sentinel", "noop"} {
+			cfg := revisionsCleanupConfig()
+			cfg.FilemetadataCache.Store = storeType
+			_, err := revisionsCleanupOptionsFor(t, cfg, "--all")
+			require.NoError(t, err, storeType)
+		}
 	})
 
 	t.Run("a path within a space", func(t *testing.T) {
