@@ -377,7 +377,7 @@ Durations in days or weeks can use an uppercase unit, `D` or `W`, to count from 
 
 A restore keeps the revision of the content it replaced as long as the file has the restored content: the strategy doesn't apply to that one revision, not even an age limit like `30d`, until the file is changed again, by an upload, another restore or, with `posix`, a change on disk.
 
-Note that the age of a revision is the time its content was written, i.e. the modification time the file had before it was changed, which is also the date the version list shows for it. It is not the time the file was changed, which turned that content into a revision. A document that was unchanged for two months gets a revision that is two months old when it is changed, and e.g. `30d` deletes that revision right away. Combine a duration with a number of revisions, e.g. `5, 30d`, to always keep the newest ones.
+Note that the age of a revision is the time it was created, i.e. when the file was changed and its previous content became the revision, by the clock of the server. The revisions are also ordered by it, e.g. for a number of revisions to keep. It is not the modification time of the content of the revision, which is the date the version list shows for it, as clients can set that to any time. A document that was unchanged for two months gets a revision that is a few seconds old when it is changed, and e.g. `30d` keeps that revision for 30 days. `auto` keeps the oldest revision of each time slot, which holds the content the file had when the slot began. Revisions created before OpenCloud recorded the time of their creation get an estimate: the time they were replaced, as far as it can be told from the dates of the newer revisions and of the file.
 
 #### Selecting the Files
 
@@ -415,7 +415,7 @@ By default, the command prints a line for every file whose revisions it deleted,
 1520 files in 3 spaces: deleted 3 revisions (4.2 MiB) of 1 file, 1 skipped, 0 failed
 ```
 
-With `--verbose`, every revision is listed with the decision (`deleted`, `kept` or `protected`), its time, its size and the reason:
+With `--verbose`, every revision is listed with the decision (`deleted`, `kept` or `protected`), its time, its size and the reason. The time is when the revision was created, see above, which can differ from the date the version list shows for it:
 
 ```plaintext
 25b69780-5f39-43be-a7ac-a9b9e9fe4230 /dir1/file1 (node 43ca5408-c77b-4d9a-8a3b-d4470b1253b8): would delete 1 of 3 revisions (1.2 KiB)
