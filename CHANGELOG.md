@@ -1,10 +1,14 @@
 # Changelog
 
-## [9.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.1) - 2026-11-17
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-18
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@asaah262
+@AlexAndBear, @asaah262
+
+### 📈 Enhancement
+
+- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
 
 ### 🐛 Bug Fixes
 
