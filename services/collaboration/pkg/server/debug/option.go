@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 )
 
 // Option defines a single option function.
@@ -15,6 +16,7 @@ type Options struct {
 	Logger  log.Logger
 	Context context.Context
 	Config  *config.Config
+	AppURLs *helpers.AppURLs
 }
 
 // newOptions initializes the available default options.
@@ -46,5 +48,13 @@ func Context(val context.Context) Option {
 func Config(val *config.Config) Option {
 	return func(o *Options) {
 		o.Config = val
+	}
+}
+
+// AppURLs provides a function to set the app URLs option, which the readiness
+// check uses.
+func AppURLs(val *helpers.AppURLs) Option {
+	return func(o *Options) {
+		o.AppURLs = val
 	}
 }
