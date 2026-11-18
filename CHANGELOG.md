@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.11](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.11) - 2026-11-18
+
+### ❤️ Thanks to all contributors! ❤️
+
+@micbar
+
+
+
 ## [4.0.10](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.10) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
