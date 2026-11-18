@@ -73,7 +73,10 @@ func check(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	lu, backend := getBackend(cmd)
+	lu, backend, err := getBackend(cmd)
+	if err != nil {
+		return err
+	}
 	o := &options.Options{
 		MetadataBackend: backend.Name(),
 		MaxConcurrency:  100,
@@ -192,7 +195,10 @@ func dumpCmd(_ *config.Config) *cobra.Command {
 		Use:   "dump",
 		Short: `print the metadata of the given node. String attributes will be enclosed in quotes. Binary attributes will be returned encoded as base64 with their value being prefixed with '0s'.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lu, backend := getBackend(cmd)
+			lu, backend, err := getBackend(cmd)
+			if err != nil {
+				return err
+			}
 			path, err := getNode(cmd, lu)
 			if err != nil {
 				return err
@@ -215,7 +221,10 @@ func getCmd(_ *config.Config) *cobra.Command {
 		Use:   "get",
 		Short: `print a specific attribute of the given node. String attributes will be enclosed in quotes. Binary attributes will be returned encoded as base64 with their value being prefixed with '0s'.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lu, backend := getBackend(cmd)
+			lu, backend, err := getBackend(cmd)
+			if err != nil {
+				return err
+			}
 			path, err := getNode(cmd, lu)
 			if err != nil {
 				return err
@@ -240,7 +249,10 @@ func setCmd(_ *config.Config) *cobra.Command {
 		Use:   "set",
 		Short: `manipulate metadata of the given node. Binary attributes can be given hex encoded (prefix by '0x') or base64 encoded (prefix by '0s').`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lu, backend := getBackend(cmd)
+			lu, backend, err := getBackend(cmd)
+			if err != nil {
+				return err
+			}
 			n, err := getNode(cmd, lu)
 			if err != nil {
 				return err
@@ -281,24 +293,31 @@ func setCmd(_ *config.Config) *cobra.Command {
 	return sCmd
 }
 
-func backend(backend string) metadata.Backend {
-	switch backend {
+// backend returns the metadata backend with the given name. Only the
+// messagepack backend is supported.
+func backend(name string) (metadata.Backend, error) {
+	switch name {
 	case "mpk":
-		return metadata.NewMessagePackBackend(cache.Config{})
+		return metadata.NewMessagePackBackend(cache.Config{}), nil
 	}
-	return metadata.NullBackend{}
+	return nil, fmt.Errorf("unsupported metadata backend %q", name)
 }
 
-func getBackend(cmd *cobra.Command) (*lookup.Lookup, metadata.Backend) {
+// getBackend detects the metadata backend in the storage under --root. It
+// fails when no supported backend is found, e.g. because --root is wrong.
+func getBackend(cmd *cobra.Command) (*lookup.Lookup, metadata.Backend, error) {
 	rootFlag, _ := cmd.Flags().GetString("root")
 
 	bod := lookup.DetectBackendOnDisk(rootFlag)
-	backend := backend(bod)
+	backend, err := backend(bod)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not read the metadata in %q: %w", rootFlag, err)
+	}
 	lu := lookup.New(backend, &options.Options{
 		Root:            rootFlag,
 		MetadataBackend: bod,
 	}, &timemanager.Manager{})
-	return lu, backend
+	return lu, backend, nil
 }
 
 func getNode(cmd *cobra.Command, lu *lookup.Lookup) (*node.Node, error) {
