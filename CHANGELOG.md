@@ -1,5 +1,13 @@
 # Changelog
 
+## [9.1.2](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.2) - 2026-11-18
+
+### ❤️ Thanks to all contributors! ❤️
+
+@micbar, @v-scharf
+
+
+
 ## [9.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.1) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
