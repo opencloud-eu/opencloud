@@ -470,6 +470,9 @@ config = {
             # NOTE: need to be set to true if patch releases are made from stable-X-branches
             "skip_rolling": True,
             "skip_daily": True,
+            # only the newest production branch may move the "latest" tag
+            # NOTE: set to False once a newer production branch exists
+            "tag_latest": True,
             "repo": docker_repo_slug,
             "build_type": "production",
         },
@@ -1896,7 +1899,13 @@ def dockerRelease(ctx, repo, build_type):
 
         # if a tag has something appended with "-" i.e. alpha, beta, rc1...
         # set the entire string as tag, else tag with latest (same as empty with current plugin)
-        hard_tag = tag_version if len(tag_parts) > 1 else "latest"
+        if len(tag_parts) > 1:
+            hard_tag = tag_version
+        elif build_type == "production" and not config["dockerReleases"]["production"].get("tag_latest", True):
+            # older production branch: auto_tag already adds X, X.Y and X.Y.Z, don't touch latest
+            hard_tag = tag_version
+        else:
+            hard_tag = "latest"
 
     depends_on = getPipelineNames(getGoBinForTesting(ctx))
 
