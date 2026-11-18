@@ -301,22 +301,8 @@ func (g Graph) GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the user isn't admin, we'll show just the minimum user attibutes
-	if !ctxHasFullPerms {
-		finalUsers := make([]*libregraph.User, len(users))
-		for i, u := range users {
-			finalUsers[i] = &libregraph.User{
-				Id:          u.Id,
-				DisplayName: u.DisplayName,
-				UserType:    u.UserType,
-				Identities:  u.Identities,
-			}
-
-			if g.config.API.ShowUserEmailInResults {
-				finalUsers[i].Mail = u.Mail
-			}
-		}
-		users = finalUsers
+	for i, u := range users {
+		users[i] = g.filterOutPrivateUserAttrs(r.Context(), u, ctxHasFullPerms)
 	}
 
 	exp, err := odata.GetExpandValues(odataReq.Query)
@@ -529,14 +515,14 @@ func (g Graph) GetUser(w http.ResponseWriter, r *http.Request) {
 			// transport error, needs to be fixed by admin
 			logger.Error().Err(err).Interface("query", r.URL.Query()).Msg("error getting storages: transport error")
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, user)
+			render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 			return
 		}
 		if lspr.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
 			logger.Debug().Str("grpc", lspr.GetStatus().GetMessage()).Msg("could not list drives for user")
 			// in case of NOT_OK, we can just return the user object with empty drives
 			render.Status(r, status.HTTPStatusFromCode(http.StatusOK))
-			render.JSON(w, r, user)
+			render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 			return
 		}
 		if listDrives {
@@ -584,13 +570,8 @@ func (g Graph) GetUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctxHasFullPerms := g.contextUserHasFullAccountPerms(r.Context())
-	if !ctxHasFullPerms && !g.config.API.ShowUserEmailInResults {
-		user.Mail = nil
-	}
-
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, user)
+	render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 }
 
 // getUserLanguage returns the language of the user in the context.
@@ -1035,7 +1016,33 @@ func (g *Graph) patchUserResponse(w http.ResponseWriter, r *http.Request, user *
 	g.publishEvent(r.Context(), e)
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, user)
+	render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
+}
+
+// filterOutPrivateUserAttrs returns the attributes of user that the user in ctx may see.
+// Users with full account management permissions and the user themselves get a copy of all
+// attributes. Everybody else only gets the public ones: the id, the display name, the user
+// name, the user type and the identities, plus the mail if mails are shown in results.
+func (g Graph) filterOutPrivateUserAttrs(ctx context.Context, user *libregraph.User, ctxHasFullPerms bool) *libregraph.User {
+	currentUser, ok := revactx.ContextGetUser(ctx)
+	isSameUser := ok && currentUser.GetId().GetOpaqueId() != "" && currentUser.GetId().GetOpaqueId() == user.GetId()
+
+	if ctxHasFullPerms || isSameUser {
+		finalUser := *user
+		return &finalUser
+	}
+
+	finalUser := &libregraph.User{
+		Id:                       user.Id,
+		DisplayName:              user.DisplayName,
+		OnPremisesSamAccountName: user.OnPremisesSamAccountName,
+		UserType:                 user.UserType,
+		Identities:               user.Identities,
+	}
+	if g.config.API.ShowUserEmailInResults {
+		finalUser.Mail = user.Mail
+	}
+	return finalUser
 }
 
 const (
