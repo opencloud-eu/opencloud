@@ -3312,6 +3312,7 @@ def ldapService():
                 "LDAP_TLS_KEY_FILE": "/opt/bitnami/openldap/share/openldap.key",
                 "LDAP_ROOT": "dc=opencloud,dc=eu",
                 "LDAP_ADMIN_PASSWORD": "admin",
+                "LDAP_CUSTOM_LDIF_DIR": "/tmp/ldif-files",
             },
             "commands": [
                 "mkdir -p /opt/bitnami/openldap/share",
