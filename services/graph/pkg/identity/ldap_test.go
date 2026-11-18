@@ -221,6 +221,36 @@ func TestCreateUserModelFromLDAP(t *testing.T) {
 	}
 }
 
+func TestCreateUserModelFromLDAPSkipsInvalidIdentities(t *testing.T) {
+	l := &mocks.Client{}
+	logger := log.NewLogger(log.Level("debug"))
+	b, err := NewLDAPBackend(l, lconfig, &logger, "opencloud", "test", prometheus.NewRegistry())
+	assert.NoError(t, err)
+
+	entry := ldap.NewEntry("uid=user", map[string][]string{
+		"uid":       {"user"},
+		"entryuuid": {"abcd-defg"},
+		"sn":        {"surname"},
+		identitiesAttribute: {
+			"",
+			"invalid",
+			"$ issuer",
+			"$ $ id",
+			"$ issuer $ ",
+			"$ issuer $ id",
+		},
+	})
+
+	user, err := b.createUserModelFromLDAP(entry)
+	assert.NoError(t, err)
+	assert.Equal(t, []libregraph.ObjectIdentity{
+		{
+			Issuer:           pointerOrNil("issuer"),
+			IssuerAssignedId: pointerOrNil("id"),
+		},
+	}, user.GetIdentities())
+}
+
 func TestGetUser(t *testing.T) {
 	// Mock a Sizelimit Error
 	lm := &mocks.Client{}
