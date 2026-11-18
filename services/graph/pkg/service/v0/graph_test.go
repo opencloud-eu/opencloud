@@ -407,6 +407,60 @@ var _ = Describe("Graph", func() {
 				Expect(*value.Root.RemoteItem.Size).To(Equal(int64(1234)))
 				Expect(*value.Root.RemoteItem.WebDavUrl).To(Equal("https://localhost:9200/dav/spaces/ownerStorageID$spaceID%21opaqueID/Folder/New%20Folder"))
 			})
+			It("reports whether the current user follows a space", func() {
+				favoritesOf := func(userIDs ...string) *typesv1beta1.Opaque {
+					value, err := json.Marshal(userIDs)
+					Expect(err).ToNot(HaveOccurred())
+					return &typesv1beta1.Opaque{Map: map[string]*typesv1beta1.OpaqueEntry{
+						"favorites": {Decoder: "json", Value: value},
+					}}
+				}
+				space := func(id string, rootInfo *provider.ResourceInfo) *provider.StorageSpace {
+					return &provider.StorageSpace{
+						Id:        &provider.StorageSpaceId{OpaqueId: id},
+						SpaceType: "project",
+						Root:      &provider.ResourceId{StorageId: "pro-1", SpaceId: id, OpaqueId: id},
+						Name:      id,
+						RootInfo:  rootInfo,
+					}
+				}
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						space("followed", &provider.ResourceInfo{Opaque: favoritesOf("someoneelse", "testuser")}),
+						space("followedbyothers", &provider.ResourceInfo{Opaque: favoritesOf("someoneelse")}),
+						space("followedmetadata", &provider.ResourceInfo{ArbitraryMetadata: &provider.ArbitraryMetadata{
+							Metadata: map[string]string{"http://owncloud.org/ns/favorite": "1"},
+						}}),
+						space("norootinfo", nil),
+					},
+				}, nil)
+				gatewayClient.On("GetQuota", mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+					Status: status.NewUnimplemented(ctx, fmt.Errorf("not supported"), "not supported"),
+				}, nil)
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+					Status: status.NewNotFound(ctx, "no special files found"),
+				}, nil)
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives", nil)
+				r = r.WithContext(ctx)
+				rr := httptest.NewRecorder()
+				svc.GetDrivesV1(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+
+				var response map[string][]libregraph.Drive
+				Expect(json.Unmarshal(rr.Body.Bytes(), &response)).To(Succeed())
+				following := map[string]*bool{}
+				for _, drive := range response["value"] {
+					following[drive.GetName()] = drive.Root.LibreGraphMeFollowing
+				}
+				Expect(following).To(HaveLen(4))
+				Expect(following["followed"]).To(HaveValue(BeTrue()))
+				Expect(following["followedbyothers"]).To(HaveValue(BeFalse()))
+				Expect(following["followedmetadata"]).To(HaveValue(BeTrue()))
+				Expect(following["norootinfo"]).To(BeNil())
+			})
 			It("can not list spaces with wrong sort parameter", func() {
 				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
 					Status:        status.NewOK(ctx),
