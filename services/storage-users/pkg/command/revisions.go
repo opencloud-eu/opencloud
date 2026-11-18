@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,6 +29,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 )
 
 // The exit codes of the revisions cleanup command
@@ -90,6 +92,13 @@ By default, it prints a line for every file it deleted revisions of, could not c
 up or skipped, and a summary. --verbose prints every file with every revision, what
 was decided about it and why. --json prints the same as JSON objects, one per line.
 
+The server must see the revisions the command deletes: its file metadata cache must be
+shared between processes, e.g. with STORAGE_USERS_FILEMETADATA_CACHE_STORE=nats-js-kv.
+With a cache kept in the memory of each process ('memory', the default, or 'ocmem'), the
+server would keep listing the deleted revisions until their cache entries expire or it
+restarts, so the command refuses to run, unless --allow-local-cache is given. A dry run
+runs with any cache.
+
 --dry-run deletes nothing and prints what would be deleted. It changes nothing on
 disk, and doesn't keep the files locked while it decides: its decisions are a
 snapshot, and a real run may decide differently for files that change meanwhile.
@@ -140,6 +149,7 @@ Exit codes: 0 when done, 1 if the cleanup or any file failed, or if it was inter
 	flags.IntVar(&f.queueSize, "queue-size", 0, "the number of files that can wait for a worker, 0 for automatic, defaults to STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE")
 	flags.StringVar(&f.queueFull, "queue-full", string(revisioncleanup.QueueFullBlock), "'block' (wait for room) or 'drop' (skip) files when the queue is full")
 	flags.DurationVar(&f.queueFullTimeout, "queue-full-timeout", 0, "with --queue-full block, skip a file after waiting this long for room, e.g. 10s; 0 waits as long as it takes")
+	flags.BoolVar(&f.allowLocalCache, "allow-local-cache", false, "run even though the file metadata cache is kept in the memory of each process, so that the server keeps listing the deleted revisions for a while")
 	return cmd, f
 }
 
@@ -156,6 +166,8 @@ type revisionsCleanupFlags struct {
 	// the settings of a full queue, which, unlike the others, don't default to the configured
 	// ones, see the help of the command
 	queueFullTimeout time.Duration
+	// run even with a file metadata cache local to each process, see checkFileMetadataCache
+	allowLocalCache bool
 }
 
 // revisionsCleanupOptions are the settings of a run of the revisions cleanup command
@@ -197,6 +209,12 @@ func (f *revisionsCleanupFlags) options(cfg *config.Config, changed func(name st
 	if r.FSPath != "" && cfg.Driver != "posix" {
 		return o, fmt.Errorf("--fs-path is only supported by the 'posix' driver, not by %q", cfg.Driver)
 	}
+	// a dry run deletes nothing, so the server's cache can't go stale
+	if !r.DryRun && !f.allowLocalCache {
+		if err := checkFileMetadataCache(cfg.FilemetadataCache.Store); err != nil {
+			return o, err
+		}
+	}
 
 	r.Strategy = cfg.RevisionsCleanup.Strategy
 	if changed("strategy") {
@@ -233,6 +251,23 @@ func (f *revisionsCleanupFlags) options(cfg *config.Config, changed func(name st
 		return o, fmt.Errorf("invalid timeout %s", o.timeout)
 	}
 	return o, nil
+}
+
+// localCacheStores are the cache stores that keep the cache in the memory of each process.
+var localCacheStores = []string{store.TypeMemory, store.TypeOCMem}
+
+// checkFileMetadataCache returns an error if the file metadata cache of the storage is kept in the
+// memory of each process. The command runs in a process of its own: the server wouldn't see
+// the revisions it deletes and keep listing them, until their cache entries expire or the
+// server restarts. Restoring or downloading them fails then, as they are gone from disk.
+func checkFileMetadataCache(storeType string) error {
+	if !slices.Contains(localCacheStores, storeType) {
+		return nil
+	}
+	return fmt.Errorf("the file metadata cache of the storage-users service is kept in the memory of each process (store %q): "+
+		"the server would keep listing the revisions this command deletes, until their cache entries expire or it restarts. "+
+		"Share the cache by setting STORAGE_USERS_FILEMETADATA_CACHE_STORE to 'nats-js-kv' "+
+		"(OC_CACHE_STORE would set the cache store of all services), or run the command anyway with --allow-local-cache", storeType)
 }
 
 // runRevisionsCleanup runs the revisions cleanup command and returns its exit code.

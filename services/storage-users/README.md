@@ -351,6 +351,8 @@ opencloud storage-users revisions cleanup [flags]
 
 The command uses the storage directly, with the configuration of the `storage-users` service, and can run while the service is running. It needs access to the storage and, for the `posix` driver, to NATS. With the single binary, NATS runs within the server: without a running server, the command gives up after 10 seconds. It needs no service account.
 
+The server must see the revisions the command deletes, so its file metadata cache must be shared between processes, e.g. with `STORAGE_USERS_FILEMETADATA_CACHE_STORE=nats-js-kv` (see [Caching](#caching); `OC_CACHE_STORE` would set the cache store of all services). With a cache that each process keeps in its own memory, `memory` (the default) or `ocmem`, the server would keep listing the deleted revisions until their cache entries expire or it restarts, and restoring or downloading one of them would fail. The command therefore refuses to run with such a cache, unless `--allow-local-cache` is given. A dry run deletes nothing and runs with any cache.
+
 Run the command as the user that OpenCloud runs as, e.g. with `sudo -u opencloud` on a server where OpenCloud runs as the user `opencloud`, or with `docker exec` in its container. The lock files the command creates belong to the user that runs it, with permissions only for that user, so OpenCloud may not be able to lock these files anymore if it was run as another user, e.g. as `root`. Unless it is a dry run, which changes nothing on disk, the command warns when the storage belongs to another user.
 
 #### Strategies
@@ -401,6 +403,7 @@ The strategy and the settings of the background workers default to the configure
 | `--json`, `-j` | off | Print JSON objects, one per line, instead of text. |
 | `--timeout`, `-t` | none | Stop the cleanup gracefully after this time, e.g. `30m` or `2h`. |
 | `--shuffle` | off | Clean up the spaces, and the files within each folder, in a random order. |
+| `--allow-local-cache` | off | Run even though the file metadata cache is kept in the memory of each process, see above. |
 
 By default, the command prints a line for every file whose revisions it deleted, that it could not clean up or that it skipped, with the space ID and the path of the file within the space, and a summary:
 

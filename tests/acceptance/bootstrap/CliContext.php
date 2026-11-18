@@ -345,7 +345,10 @@ class CliContext implements Context {
 	 * @return void
 	 */
 	private function cleanUpFileVersions(string $scope, string $flags): void {
-		$command = \trim("storage-users revisions cleanup $scope $flags");
+		// The test server keeps its file metadata cache in memory, the default, which the command
+		// refuses unless it is allowed: the scenarios check the versions through the API, which
+		// lists them from disk, so the cache of the server going stale doesn't matter here.
+		$command = \trim("storage-users revisions cleanup --allow-local-cache $scope $flags");
 		$body = [
 			"command" => $command
 		];
