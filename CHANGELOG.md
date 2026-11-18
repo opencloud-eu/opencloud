@@ -6,15 +6,16 @@
 
 @AlexAndBear, @asaah262, @butonic, @dschmidt, @pbleser-oc
 
-### ✅ Tests
-
-- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
 ### 🐛 Bug Fixes
 
+- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
 - fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
+### ✅ Tests
+
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
 
 ### 📈 Enhancement
 
