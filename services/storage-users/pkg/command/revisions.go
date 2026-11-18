@@ -97,7 +97,8 @@ shared between processes, e.g. with STORAGE_USERS_FILEMETADATA_CACHE_STORE=nats-
 With a cache kept in the memory of each process ('memory', the default, or 'ocmem'), the
 server would keep listing the deleted revisions until their cache entries expire or it
 restarts, so the command refuses to run, unless --allow-local-cache is given. A dry run
-runs with any cache.
+always keeps a cache of its own in its memory: it deletes nothing the server would have to
+see, and leaves the shared cache alone.
 
 --dry-run deletes nothing and prints what would be deleted. It changes nothing on
 disk, and doesn't keep the files locked while it decides: its decisions are a
@@ -299,7 +300,7 @@ func runRevisionsCleanup(cmd *cobra.Command, cfg *config.Config, f *revisionsCle
 	if !o.request.DryRun {
 		warnAboutStorageOwner(cfg, &logger)
 	}
-	onDemand, err := revisionsCleanupDriver(ctx, cfg, &logger)
+	onDemand, err := revisionsCleanupDriver(ctx, cfg, o.request.DryRun, &logger)
 	if err != nil {
 		return 0, err
 	}
@@ -348,7 +349,10 @@ func cleanupRevisions(ctx context.Context, onDemand revisioncleanup.OnDemand, o 
 // revisionsCleanupDriverConfig returns the name and the configuration of the storage
 // driver to create, without the parts of the storage-users service that would
 // interfere with the running service.
-func revisionsCleanupDriverConfig(cfg *config.Config) (string, map[string]any, error) {
+//
+// A dry run gets a file metadata cache of its own, in its memory, whatever is configured, see
+// dryRunFileMetadataCache.
+func revisionsCleanupDriverConfig(cfg *config.Config, dryRun bool) (string, map[string]any, error) {
 	// The deprecated driver names "ocis" and "s3ng" are aliases of "decomposed" and
 	// "decomposeds3" since https://github.com/opencloud-eu/opencloud/pull/3859: there
 	// are no driver entries of their own anymore, and StorageProviderDrivers sets the
@@ -369,12 +373,34 @@ func revisionsCleanupDriverConfig(cfg *config.Config) (string, map[string]any, e
 	// Without async uploads, the driver doesn't join the postprocessing consumer group of the
 	// service: the events delivered to this short-lived process would be lost.
 	driverConfig["asyncfileuploads"] = false
+	if dryRun {
+		if err := dryRunFileMetadataCache(driverConfig); err != nil {
+			return "", nil, err
+		}
+	}
 	return driver, driverConfig, nil
 }
 
+// dryRunFileMetadataCache makes the driver keep its file metadata cache in the memory of the
+// process. A dry run reads the metadata of every file it looks at: with a cache shared with the
+// server, e.g. 'nats-js-kv', it would fill that cache with entries for all of them, for a run that
+// changes nothing. It doesn't need the shared cache either, as it deletes nothing that the server
+// would have to see, and a cache of its own starts empty, so that it reads the metadata from disk.
+// That a command walking a whole space should not fill the shared cache is one of the open points
+// of https://github.com/opencloud-eu/opencloud/issues/4064, which proposes 'nats-js-kv' as the
+// default.
+func dryRunFileMetadataCache(driverConfig map[string]any) error {
+	cache, ok := driverConfig["filemetadatacache"].(map[string]any)
+	if !ok {
+		return errors.New("the storage driver has no file metadata cache configuration")
+	}
+	cache["cache_store"] = store.TypeMemory
+	return nil
+}
+
 // revisionsCleanupDriver creates the storage driver, see revisionsCleanupDriverConfig.
-func revisionsCleanupDriver(ctx context.Context, cfg *config.Config, log *zerolog.Logger) (revisioncleanup.OnDemand, error) {
-	driver, driverConfig, err := revisionsCleanupDriverConfig(cfg)
+func revisionsCleanupDriver(ctx context.Context, cfg *config.Config, dryRun bool, log *zerolog.Logger) (revisioncleanup.OnDemand, error) {
+	driver, driverConfig, err := revisionsCleanupDriverConfig(cfg, dryRun)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +490,7 @@ func userName(uid string) string {
 // warnAboutStorageOwner logs the warning of storageOwnerWarning for the storage of the driver
 // that the command creates, if there is one.
 func warnAboutStorageOwner(cfg *config.Config, log *zerolog.Logger) {
-	_, driverConfig, err := revisionsCleanupDriverConfig(cfg)
+	_, driverConfig, err := revisionsCleanupDriverConfig(cfg, false)
 	if err != nil {
 		// revisionsCleanupDriver reports it
 		return

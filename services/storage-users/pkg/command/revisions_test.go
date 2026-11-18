@@ -419,7 +419,7 @@ func TestRevisionsCleanupDriverConfig(t *testing.T) {
 		{"s3ng", "decomposeds3", opencloudstorage.LegacyMetadataPrefix()},
 	} {
 		t.Run(tc.driver, func(t *testing.T) {
-			driver, driverConfig, err := revisionsCleanupDriverConfig(newConfig(tc.driver))
+			driver, driverConfig, err := revisionsCleanupDriverConfig(newConfig(tc.driver), false)
 			require.NoError(t, err)
 			require.Equal(t, tc.effective, driver)
 			require.Equal(t, tc.prefix, driverConfig["metadata_prefix"])
@@ -428,7 +428,7 @@ func TestRevisionsCleanupDriverConfig(t *testing.T) {
 	}
 
 	t.Run("posix neither scans nor watches", func(t *testing.T) {
-		driver, driverConfig, err := revisionsCleanupDriverConfig(newConfig("posix"))
+		driver, driverConfig, err := revisionsCleanupDriverConfig(newConfig("posix"), false)
 		require.NoError(t, err)
 		require.Equal(t, "posix", driver)
 		require.Equal(t, false, driverConfig["scan_fs"])
@@ -436,8 +436,23 @@ func TestRevisionsCleanupDriverConfig(t *testing.T) {
 		require.Equal(t, false, driverConfig["asyncfileuploads"])
 	})
 
+	t.Run("a dry run keeps a file metadata cache of its own", func(t *testing.T) {
+		for _, driver := range []string{"decomposed", "decomposeds3", "posix"} {
+			cfg := newConfig(driver)
+			cfg.FilemetadataCache.Store = "nats-js-kv"
+
+			_, driverConfig, err := revisionsCleanupDriverConfig(cfg, true)
+			require.NoError(t, err, driver)
+			require.Equal(t, "memory", driverConfig["filemetadatacache"].(map[string]any)["cache_store"], driver)
+
+			_, driverConfig, err = revisionsCleanupDriverConfig(cfg, false)
+			require.NoError(t, err, driver)
+			require.Equal(t, "nats-js-kv", driverConfig["filemetadatacache"].(map[string]any)["cache_store"], "a real run uses the configured cache, %s", driver)
+		}
+	})
+
 	t.Run("unknown driver", func(t *testing.T) {
-		_, _, err := revisionsCleanupDriverConfig(newConfig("nonexistent"))
+		_, _, err := revisionsCleanupDriverConfig(newConfig("nonexistent"), false)
 		require.EqualError(t, err, `unknown storage driver "nonexistent"`)
 	})
 }
