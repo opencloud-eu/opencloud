@@ -1360,7 +1360,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v3 v3.0.2-0.20261117134925-37496dc6abd3
+# github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119121328-0093d72f4c9d
 ## explicit; go 1.26.0
 github.com/opencloud-eu/reva/v3/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v3/cmd/revad/runtime
@@ -1646,6 +1646,7 @@ github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/mtimesyncedcache
 github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node
 github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/options
 github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/permissions
+github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/revisioncleanup
 github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/spaceidindex
 github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/timemanager
 github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/trashbin
@@ -1656,6 +1657,7 @@ github.com/opencloud-eu/reva/v3/pkg/storage/registry/loader
 github.com/opencloud-eu/reva/v3/pkg/storage/registry/registry
 github.com/opencloud-eu/reva/v3/pkg/storage/registry/spaces
 github.com/opencloud-eu/reva/v3/pkg/storage/registry/static
+github.com/opencloud-eu/reva/v3/pkg/storage/revisions
 github.com/opencloud-eu/reva/v3/pkg/storage/utils/ace
 github.com/opencloud-eu/reva/v3/pkg/storage/utils/acl
 github.com/opencloud-eu/reva/v3/pkg/storage/utils/chunking

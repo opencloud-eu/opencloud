@@ -68,6 +68,17 @@ type NodeCreator interface {
 	PrepareCreatesNode() bool
 }
 
+// UploadFinishedHandler defines the interface for FS implementations that act once an
+// upload has finished: its content is committed and the node no longer marked as being
+// processed by it. The coordinator calls it for every successful upload, inline or after
+// postprocessing, never for one that was rolled back.
+type UploadFinishedHandler interface {
+	// HandleUploadFinished is called once the upload sessionID to ref has finished.
+	// versionCreated reports whether the upload superseded existing content, keeping it
+	// as a revision. It must not fail the upload, so it returns nothing.
+	HandleUploadFinished(ctx context.Context, ref *provider.Reference, sessionID string, versionCreated bool)
+}
+
 // UploadSession is the interface that storage drivers need to return whan listing upload sessions.
 type UploadSession interface {
 	// ID returns the upload id

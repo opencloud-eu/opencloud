@@ -27,15 +27,13 @@ import (
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	providerpb "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	ocmcore "github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1"
 	ocmprovider "github.com/cs3org/go-cs3apis/cs3/ocm/provider/v1beta1"
-	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
-
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
+	providerpb "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-playground/validator/v10"
 	"github.com/opencloud-eu/reva/v3/internal/http/services/reqres"
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
@@ -78,7 +76,7 @@ type createShareRequest struct {
 	Protocols         Protocols `json:"protocol" validate:"required"`
 }
 
-// CreateShare sends all the informations to the consumer needed to start
+// CreateShare sends all the information to the consumer needed to start
 // synchronization between the two services.
 func (h *sharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -156,6 +154,9 @@ func (h *sharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	o := &types.Opaque{}
+	utils.AppendPlainToOpaque(o, "resourceType", req.ResourceType)
+
 	createShareReq := &ocmcore.CreateOCMCoreShareRequest{
 		Description:  req.Description,
 		Name:         req.Name,
@@ -165,7 +166,7 @@ func (h *sharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 		ShareWith:    userRes.User.Id,
 		ResourceType: getResourceTypeFromOCMRequest(req.ResourceType),
 		ShareType:    getOCMShareType(req.ShareType),
-		Protocols:    getProtocols(req.Protocols),
+		Protocols:    getProtocols(req.Protocols, o),
 	}
 
 	if req.Expiration != 0 {
@@ -180,7 +181,7 @@ func (h *sharesHandler) CreateShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if userRes.Status.Code != rpc.Code_CODE_OK {
+	if createShareResp.Status.Code != rpc.Code_CODE_OK {
 		// TODO: define errors in the cs3apis
 		reqres.WriteError(w, r, reqres.APIErrorServerError, "error creating ocm share", errors.New(createShareResp.Status.Message))
 		return
@@ -274,10 +275,10 @@ func getOCMShareType(t string) ocm.ShareType {
 	return ocm.ShareType_SHARE_TYPE_GROUP
 }
 
-func getProtocols(p Protocols) []*ocm.Protocol {
+func getProtocols(p Protocols, o *types.Opaque) []*ocm.Protocol {
 	prot := make([]*ocm.Protocol, 0, len(p))
 	for _, data := range p {
-		prot = append(prot, data.ToOCMProtocol())
+		prot = append(prot, data.ToOCMProtocol(o))
 	}
 	return prot
 }

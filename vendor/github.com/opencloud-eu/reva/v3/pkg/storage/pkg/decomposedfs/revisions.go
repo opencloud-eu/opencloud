@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -45,13 +46,68 @@ import (
 // and replace the revision file with a symbolic link in the future, if necessary.
 
 func (fs *Decomposedfs) ListRevisions(ctx context.Context, ref *provider.Reference) (revisions []*provider.FileVersion, err error) {
-	return fs.tp.ListRevisions(ctx, ref)
+	_, span := tracer.Start(ctx, "ListRevisions")
+	defer span.End()
+	n, err := fs.lu.NodeFromResource(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	if !n.Exists {
+		return nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
+	}
+
+	rp, err := fs.p.AssemblePermissions(ctx, n)
+	switch {
+	case err != nil:
+		return nil, err
+	case !rp.ListFileVersions:
+		f, _ := storagespace.FormatReference(ref)
+		if rp.Stat {
+			return nil, errtypes.PermissionDenied(f)
+		}
+		return nil, errtypes.NotFound(f)
+	}
+
+	return fs.tp.ListRevisions(ctx, n)
 }
 
 // DownloadRevision returns a reader for the specified revision
 // FIXME the CS3 api should explicitly allow initiating revision and trash download, a related issue is https://github.com/cs3org/reva/issues/1813
 func (fs *Decomposedfs) DownloadRevision(ctx context.Context, ref *provider.Reference, revisionKey string, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error) {
-	return fs.tp.DownloadRevision(ctx, ref, revisionKey, openReaderFunc)
+	_, span := tracer.Start(ctx, "DownloadRevision")
+	defer span.End()
+	log := appctx.GetLogger(ctx)
+
+	// verify revision key format
+	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
+	if len(kp) != 2 || !node.IsValidID(revisionKey) {
+		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
+		return nil, nil, errtypes.NotFound(revisionKey)
+	}
+	log.Debug().Str("revisionKey", revisionKey).Msg("DownloadRevision")
+
+	// check if the node is available and has not been deleted
+	n, err := node.ReadNode(ctx, fs.lu, ref.ResourceId.SpaceId, kp[0], "", false, nil, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !n.Exists {
+		return nil, nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
+	}
+
+	rp, err := fs.p.AssemblePermissions(ctx, n)
+	switch {
+	case err != nil:
+		return nil, nil, err
+	case !rp.ListFileVersions || !rp.InitiateFileDownload: // TODO add explicit permission in the CS3 api?
+		f, _ := storagespace.FormatReference(ref)
+		if rp.Stat {
+			return nil, nil, errtypes.PermissionDenied(f)
+		}
+		return nil, nil, errtypes.NotFound(f)
+	}
+
+	return fs.tp.DownloadRevision(ctx, n, revisionKey, rp, openReaderFunc)
 }
 
 // RestoreRevision restores the specified revision of the resource
@@ -105,10 +161,25 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = unlock()
-		_ = os.Remove(fs.lu.MetadataBackend().LockfilePath(n))
-	}()
+	// released before the revision cleanup at the end, or on any return before that
+	unlockNode := sync.OnceValue(unlock)
+	defer func() { _ = unlockNode() }()
+
+	// The revision must still exist on disk. Its metadata may come from a stale cache
+	// entry: another process, e.g. `opencloud storage-users revisions cleanup` with the
+	// default in-memory metadata cache, may have deleted it. Restoring it anyway would
+	// point the node to the revision's deleted blob, and it would leave a revision of the
+	// current content behind. Checked under the node's lock, which deleting a revision
+	// takes too (Node.DeleteRevisionUnchecked).
+	revisionNode := node.NewBaseNode(spaceID, revisionKey, fs.lu)
+	if _, err := os.Stat(revisionNode.InternalPath()); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		// drop the stale cache entry, if there is one
+		_ = fs.lu.MetadataBackend().Purge(ctx, revisionNode)
+		return nil, errtypes.NotFound(revisionKey)
+	}
 
 	// move current version to new revision
 	mtime, err := n.GetMTime(ctx)
@@ -117,14 +188,23 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 		return nil, err
 	}
 
+	// the blob id the node gets back, for the mark of the revision created below
+	restoredBlobID, err := fs.lu.MetadataBackend().Get(ctx, revisionNode, prefixes.BlobIDAttr)
+	if err != nil {
+		log.Warn().Err(err).Interface("ref", ref).Str("revisionKey", revisionKey).Msg("could not read the blob id of the revision, the revision of the replaced content won't be protected from the revision cleanup")
+	}
+
 	// create a revision of the current node
-	if _, err := fs.tp.CreateRevision(ctx, n, mtime.UTC().Format(time.RFC3339Nano)); err != nil {
+	// It is named after the mtime of the content it preserves, not after the time it is
+	// created; the revision cleanup goes by the time it is created, which CreateRevision
+	// records (see node.RevisionCreatedAttr).
+	newRevision := mtime.UTC().Format(time.RFC3339Nano)
+	if _, err := fs.tp.CreateRevision(ctx, n, newRevision); err != nil {
 		return nil, err
 	}
 
 	// revision 5, current 10 (restore a smaller blob) -> 5-10 = -5
 	// revision 10, current 5 (restore a bigger blob) -> 10-5 = +5
-	revisionNode := node.NewBaseNode(spaceID, revisionKey, fs.lu)
 	revisionSize, err := fs.lu.MetadataBackend().GetInt64(ctx, revisionNode, prefixes.BlobsizeAttr)
 	if err != nil {
 		return nil, errtypes.InternalError("failed to read blob size xattr from old revision")
@@ -135,6 +215,19 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	restoredRevisionPath := fs.lu.InternalPath(spaceID, revisionKey)
 	if err := fs.tp.RestoreRevision(ctx, revisionNode, n, time.Now()); err != nil {
 		return nil, err
+	}
+
+	// A restore is a deliberate user action: the revision cleanup must not drop the content the
+	// user just replaced, e.g. because its revision is older than the strategy allows, or as the
+	// 'auto' strategy thins out revisions that are close in time. Marked on disk, while the
+	// node is still locked, so that every cleanup sees it, see node.KeepAfterRestoreAttr. Not
+	// marking it doesn't fail the restore, which is done by now: the revision is only protected
+	// less.
+	if len(restoredBlobID) > 0 {
+		newRevisionNode := node.NewBaseNode(spaceID, n.ID+node.RevisionIDDelimiter+newRevision, fs.lu)
+		if err := fs.lu.MetadataBackend().Set(ctx, newRevisionNode, node.KeepAfterRestoreAttr, restoredBlobID); err != nil {
+			log.Error().Err(err).Interface("ref", ref).Str("revision", newRevisionNode.ID).Msg("could not mark the revision of the replaced content, the revision cleanup may delete it")
+		}
 	}
 
 	// drop old revision
@@ -154,6 +247,15 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	if err := fs.tp.Propagate(ctx, n, sizeDiff); err != nil {
 		return nil, err
 	}
+
+	// The restore created a new revision from the previous content, so apply the
+	// revision cleanup strategy (see package revisioncleanup). It runs last, once the
+	// restore is complete, and never fails the restore. It keeps the revision marked above.
+	// The node lock is released first: the cleanup takes it itself, and when it runs in the
+	// background, waiting for room in its queue while holding the lock could deadlock with
+	// a worker waiting for the lock.
+	_ = unlockNode()
+	fs.revisionsCleanup.HandleRevisionCreated(ctx, n)
 	return &storage.RestoreRevisionResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID}, nil
 }
 
@@ -180,7 +282,7 @@ func (fs *Decomposedfs) deleteRevisionFile(ctx context.Context, n *node.Node, re
 		return errtypes.NotFound(revisionKey)
 	}
 
-	blobID, err := n.DeleteRevision(ctx, kp[1])
+	blobID, err := n.DeleteRevisionUnchecked(ctx, kp[1])
 	if err != nil {
 		return err
 	}

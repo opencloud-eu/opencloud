@@ -22,6 +22,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/permissions"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/trashbin"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/usermapper"
 )
@@ -37,4 +38,9 @@ type Aspects struct {
 	// SeparateBlobs is set when the blobstore keeps blobs apart from the nodes,
 	// so a blob can be stored before any node references it.
 	SeparateBlobs bool
+	// RevisionsCleanup deletes old revisions after new ones have been created, right away or in
+	// background workers; disabled without a strategy, and nil disables it as well. It is
+	// passed in here rather than created by Decomposedfs because posix needs the same instance
+	// (and the same workers) in its own tree, for revisions created from changes on disk.
+	RevisionsCleanup *revisioncleanup.Service
 }

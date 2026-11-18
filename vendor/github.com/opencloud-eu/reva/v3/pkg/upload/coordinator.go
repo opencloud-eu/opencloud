@@ -666,6 +666,11 @@ func (c *coordinator) finished(ctx context.Context, session Session) *provider.R
 	session.Cleanup(ctx, true, true)
 	metrics.UploadSessionsFinalized.Inc()
 
+	if h, ok := c.fs.(storage.UploadFinishedHandler); ok {
+		ref := session.Reference()
+		h.HandleUploadFinished(ctx, &ref, session.ID(), session.VersionCreated())
+	}
+
 	ri := c.uploadedResourceInfo(ctx, session)
 	c.publishUploadReady(ctx, session, ri)
 	return ri

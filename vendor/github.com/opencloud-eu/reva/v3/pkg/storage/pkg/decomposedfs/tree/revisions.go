@@ -36,7 +36,6 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
-	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
@@ -126,34 +125,17 @@ func (tp *Tree) CreateRevision(ctx context.Context, n *node.Node, version string
 	}); err != nil {
 		return "", err
 	}
+	// the time the revision was created, which the revision cleanup goes by, see
+	// node.RevisionCreatedAttr
+	if err := node.SetRevisionCreated(ctx, tp.lookup.MetadataBackend(), versionNode, time.Now()); err != nil {
+		return "", err
+	}
 
 	return versionPath, nil
 }
 
-func (tp *Tree) ListRevisions(ctx context.Context, ref *provider.Reference) (revisions []*provider.FileVersion, err error) {
-	_, span := tracer.Start(ctx, "ListRevisions")
-	defer span.End()
-	var n *node.Node
-	if n, err = tp.lookup.NodeFromResource(ctx, ref); err != nil {
-		return
-	}
-	if !n.Exists {
-		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return
-	}
-
-	rp, err := tp.permissions.AssemblePermissions(ctx, n)
-	switch {
-	case err != nil:
-		return nil, err
-	case !rp.ListFileVersions:
-		f, _ := storagespace.FormatReference(ref)
-		if rp.Stat {
-			return nil, errtypes.PermissionDenied(f)
-		}
-		return nil, errtypes.NotFound(f)
-	}
-
+// ListRevisions lists all revisions of n. It checks no permissions, see node.Tree.
+func (tp *Tree) ListRevisions(ctx context.Context, n *node.Node) (revisions []*provider.FileVersion, err error) {
 	revisions = []*provider.FileVersion{}
 	np := n.InternalPath()
 	if items, err := filepath.Glob(np + node.RevisionIDDelimiter + "*"); err == nil {
@@ -198,45 +180,28 @@ func (tp *Tree) ListRevisions(ctx context.Context, ref *provider.Reference) (rev
 	return
 }
 
-// DownloadRevision returns a reader for the specified revision
-// FIXME the CS3 api should explicitly allow initiating revision and trash download, a related issue is https://github.com/cs3org/reva/issues/1813
-func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, revisionKey string, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error) {
+// DownloadRevision returns the resource info of the revision revisionKey of n and, if
+// openReaderFunc wants it, a reader for its content. It checks no permissions, see node.Tree:
+// rp are the permissions of the user on n, for the resource info.
+func (tp *Tree) DownloadRevision(ctx context.Context, n *node.Node, revisionKey string, rp *provider.ResourcePermissions, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error) {
 	_, span := tracer.Start(ctx, "DownloadRevision")
 	defer span.End()
-	log := appctx.GetLogger(ctx)
 
-	// verify revision key format
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 || !node.IsValidID(revisionKey) {
-		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
+	if len(kp) != 2 || kp[0] != n.ID {
 		return nil, nil, errtypes.NotFound(revisionKey)
 	}
-	log.Debug().Str("revisionKey", revisionKey).Msg("DownloadRevision")
-
-	spaceID := ref.ResourceId.SpaceId
-	// check if the node is available and has not been deleted
-	n, err := node.ReadNode(ctx, tp.lookup, spaceID, kp[0], "", false, nil, false)
-	if err != nil {
-		return nil, nil, err
-	}
-	if !n.Exists {
-		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return nil, nil, err
-	}
-
-	rp, err := tp.permissions.AssemblePermissions(ctx, n)
-	switch {
-	case err != nil:
-		return nil, nil, err
-	case !rp.ListFileVersions || !rp.InitiateFileDownload: // TODO add explicit permission in the CS3 api?
-		f, _ := storagespace.FormatReference(ref)
-		if rp.Stat {
-			return nil, nil, errtypes.PermissionDenied(f)
-		}
-		return nil, nil, errtypes.NotFound(f)
-	}
+	spaceID := n.SpaceID
 
 	baseNode := node.NewBaseNode(spaceID, revisionKey, tp.lookup)
+	// the revision's metadata may come from a stale cache entry, after another process
+	// deleted the revision (see Decomposedfs.RestoreRevision)
+	if _, err := os.Stat(baseNode.InternalPath()); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, errtypes.NotFound(revisionKey)
+		}
+		return nil, nil, err
+	}
 	blobid, blobsize, err := tp.lookup.ReadBlobIDAndSizeAttr(ctx, baseNode, nil)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "Decomposedfs: could not read blob id and size for revision '%s' of node '%s'", kp[1], n.ID)

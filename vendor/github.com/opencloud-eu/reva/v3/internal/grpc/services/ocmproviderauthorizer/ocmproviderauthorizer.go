@@ -109,7 +109,7 @@ func (s *service) GetInfoByDomain(ctx context.Context, req *ocmprovider.GetInfoB
 	domainInfo, err := s.pa.GetInfoByDomain(ctx, req.Domain)
 	if err != nil {
 		return &ocmprovider.GetInfoByDomainResponse{
-			Status: status.NewInternal(ctx, "error getting provider info"),
+			Status: status.NewInternal(ctx, "error getting provider info: "+err.Error()),
 		}, nil
 	}
 

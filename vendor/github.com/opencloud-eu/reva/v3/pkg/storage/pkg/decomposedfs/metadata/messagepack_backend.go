@@ -91,6 +91,12 @@ func (b MessagePackBackend) All(ctx context.Context, n MetadataNode) (map[string
 	return b.loadAttributes(ctx, n)
 }
 
+// Reload reads all extended attributes for a node from storage, never from the cache,
+// and updates the cache with them
+func (b MessagePackBackend) Reload(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
+	return b.readAttributes(ctx, n)
+}
+
 // Get an extended attribute value for the given key
 func (b MessagePackBackend) Get(ctx context.Context, n MetadataNode, key string) ([]byte, error) {
 	attribs, err := b.loadAttributes(ctx, n)
@@ -219,9 +225,15 @@ func (b MessagePackBackend) loadAttributes(ctx context.Context, n MetadataNode) 
 		return attribs, err
 	}
 
+	// No cached entry found. Read from storage and store in cache
+	return b.readAttributes(ctx, n)
+}
+
+// readAttributes reads the attributes of a node from storage and stores them in the cache
+func (b MessagePackBackend) readAttributes(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
+	attribs := map[string][]byte{}
 	metaPath := b.MetadataPath(n)
 
-	// No cached entry found. Read from storage and store in cache
 	b.metrics.reads.Inc()
 	_, subspan := tracer.Start(ctx, "os.Open")
 	source, err := os.Open(metaPath)
