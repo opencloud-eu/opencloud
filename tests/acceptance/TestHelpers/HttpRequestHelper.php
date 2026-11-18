@@ -25,6 +25,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseTransferException;
 use GuzzleHttp\Psr7\Request;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -176,11 +177,16 @@ class HttpRequestHelper {
 
 		// The exceptions that might happen here include:
 		// ConnectException - in that case there is no response. Don't catch the exception.
+		// ResponseTransferException - the transfer broke off after the response headers,
+		//                    e.g. because the server aborted the response. Its body is
+		//                    incomplete, so don't pass it back as if it were the response.
 		// RequestException - if there is something in the response then pass it back.
 		//                    Otherwise, re-throw the exception.
 		// GuzzleException - something else unexpected happened. Don't catch the exception.
 		try {
 			$response = $client->send($request);
+		} catch (ResponseTransferException $ex) {
+			throw $ex;
 		} catch (RequestException $ex) {
 			$response = $ex->getResponse();
 
