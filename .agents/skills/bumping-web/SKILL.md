@@ -88,11 +88,13 @@ Show the user the diff of both files and the target branch, and ask them to conf
   chore: bump web to v7.0.0
   ```
 - PR title: `[full-ci] chore: bump web to v7.0.0` (the commit message prefixed with `[full-ci] `).
+  - If the PR base is a stable branch, additionally prefix the title with `[stable-X.Y]` (no space before `[full-ci]`), e.g. `[stable-9.1][full-ci] chore: bump web to v8.2.3`. The commit message stays unprefixed.
 - PR base: the branch chosen in step 5.
 - PR body: the trimmed changelog from step 3.
 - Add the label `Type:Dependencies`.
 
 ```bash
+# stable base: --title "[stable-X.Y][full-ci] chore: bump web to $VERSION"
 gh pr create --base <target-branch> \
   --title "[full-ci] chore: bump web to $VERSION" \
   --label "Type:Dependencies" \
@@ -114,5 +116,5 @@ gh api "repos/opencloud-eu/web/contents/CHANGELOG.md?ref=$VERSION" --jq '.conten
 
 - Reading `WEB_COMMITID` or the changelog from web `main` instead of from the version tag (`?ref=$VERSION`). Always pin to the tag.
 - Leaving `WEB_ASSETS_BRANCH`/`WEB_BRANCH` on `main` for a patch that belongs on a stable line.
-- Forgetting `[full-ci] ` in the PR title or adding a commit body.
+- Forgetting `[full-ci] ` in the PR title (or the `[stable-X.Y]` prefix when targeting a stable branch) or adding a commit body.
 - Committing before the user confirms the diff and target branch.

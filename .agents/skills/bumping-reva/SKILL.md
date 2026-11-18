@@ -116,12 +116,14 @@ Confirm the reva line in `go.mod` is exactly `github.com/opencloud-eu/reva/v2 RE
   ```
   chore: bump reva to 2.48.0
   ```
-- PR base: **`main`** (reva bumps always target main).
+- PR base: **`main`** by default. Only target a `stable-X.Y` branch when the user asks for it.
 - PR title: `[full-ci] chore: bump reva to 2.48.0` (the commit message prefixed with `[full-ci] `).
+  - If the PR base is a stable branch, additionally prefix the title with `[stable-X.Y]` (no space before `[full-ci]`), e.g. `[stable-9.1][full-ci] chore: bump reva to 2.52.4`. The commit message stays unprefixed.
 - PR body: the file from step 4.
 - Add the label `Type:Maintenance`.
 
 ```bash
+# stable base: --base stable-X.Y --title "[stable-X.Y][full-ci] chore: bump reva to $REVA_VERSION_NO_V"
 gh pr create --base main \
   --title "[full-ci] chore: bump reva to $REVA_VERSION_NO_V" \
   --label "Type:Maintenance" \
@@ -148,6 +150,6 @@ gh api "repos/opencloud-eu/reva/contents/CHANGELOG.md?ref=$REVA_VERSION" --jq '.
 - Forgetting to re-run `go mod vendor` after `go mod tidy`, leaving `vendor/` out of sync with `go.mod`.
 - Asking for or hardcoding `OC_VERSION` — always derive it from the open `next-release/main` release PR (step 3); it can even be a new major after a breaking change.
 - Reading the changelog from reva `main` instead of the tag (`?ref=$REVA_VERSION`). Always pin to the tag.
-- Missing the `[full-ci] ` prefix in the PR title, the `Type:Maintenance` label, or the two summary bullets at the top of the body.
+- Missing the `[full-ci] ` prefix in the PR title (or the `[stable-X.Y]` prefix when targeting a stable branch), the `Type:Maintenance` label, or the two summary bullets at the top of the body.
 - Dumping the full `vendor/` diff at the confirmation step instead of `go.mod` + `version.go` + a `--stat` summary.
 - Committing before the user confirms the diff.
