@@ -92,13 +92,14 @@ By default, it prints a line for every file it deleted revisions of, could not c
 up or skipped, and a summary. --verbose prints every file with every revision, what
 was decided about it and why. --json prints the same as JSON objects, one per line.
 
-The server must see the revisions the command deletes: its file metadata cache must be
-shared between processes, e.g. with STORAGE_USERS_FILEMETADATA_CACHE_STORE=nats-js-kv.
+The server must learn about the revisions the command deletes: its file metadata cache must
+be shared between processes, e.g. with STORAGE_USERS_FILEMETADATA_CACHE_STORE=nats-js-kv.
 With a cache kept in the memory of each process ('memory', the default, or 'ocmem'), the
-server would keep listing the deleted revisions until their cache entries expire or it
-restarts, so the command refuses to run, unless --allow-local-cache is given. A dry run
-always keeps a cache of its own in its memory: it deletes nothing the server would have to
-see, and leaves the shared cache alone.
+server lists the versions of a file from disk all the same, but a list of versions that is
+already open keeps showing the deleted ones, and downloading or restoring one of them fails.
+The command therefore refuses to run with such a cache, unless --allow-local-cache is given.
+A dry run always keeps a cache of its own in its memory: it deletes nothing the server would
+have to learn about, and leaves the shared cache alone.
 
 --dry-run deletes nothing and prints what would be deleted. It changes nothing on
 disk, and doesn't keep the files locked while it decides: its decisions are a
@@ -150,7 +151,7 @@ Exit codes: 0 when done, 1 if the cleanup or any file failed, or if it was inter
 	flags.IntVar(&f.queueSize, "queue-size", 0, "the number of files that can wait for a worker, 0 for automatic, defaults to OC_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE")
 	flags.StringVar(&f.queueFull, "queue-full", string(revisioncleanup.QueueFullBlock), "'block' (wait for room) or 'drop' (skip) files when the queue is full")
 	flags.DurationVar(&f.queueFullTimeout, "queue-full-timeout", 0, "with --queue-full block, skip a file after waiting this long for room, e.g. 10s; 0 waits as long as it takes")
-	flags.BoolVar(&f.allowLocalCache, "allow-local-cache", false, "run even though the file metadata cache is kept in the memory of each process, so that the server keeps listing the deleted revisions for a while")
+	flags.BoolVar(&f.allowLocalCache, "allow-local-cache", false, "run even though the file metadata cache is kept in the memory of each process, so that the server doesn't learn about the deleted revisions")
 	return cmd, f
 }
 
@@ -258,15 +259,18 @@ func (f *revisionsCleanupFlags) options(cfg *config.Config, changed func(name st
 var localCacheStores = []string{store.TypeMemory, store.TypeOCMem}
 
 // checkFileMetadataCache returns an error if the file metadata cache of the storage is kept in the
-// memory of each process. The command runs in a process of its own: the server wouldn't see
-// the revisions it deletes and keep listing them, until their cache entries expire or the
-// server restarts. Restoring or downloading them fails then, as they are gone from disk.
+// memory of each process. The command runs in a process of its own, so the server doesn't learn
+// about the revisions it deletes. The server lists the revisions of a file from disk, so a new
+// list is right, but a list that is already open, e.g. in the Versions panel, keeps showing the
+// deleted ones, and downloading or restoring one of them fails with "not found", as they are gone
+// from disk.
 func checkFileMetadataCache(storeType string) error {
 	if !slices.Contains(localCacheStores, storeType) {
 		return nil
 	}
 	return fmt.Errorf("the file metadata cache of the storage-users service is kept in the memory of each process (store %q): "+
-		"the server would keep listing the revisions this command deletes, until their cache entries expire or it restarts. "+
+		"the server doesn't learn about the revisions this command deletes, so a list of versions that is already open keeps showing them, "+
+		"and downloading or restoring one of them fails. "+
 		"Share the cache by setting STORAGE_USERS_FILEMETADATA_CACHE_STORE to 'nats-js-kv' "+
 		"(OC_CACHE_STORE would set the cache store of all services), or run the command anyway with --allow-local-cache", storeType)
 }
