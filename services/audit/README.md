@@ -36,7 +36,7 @@ Every record is one line of JSON. Field names follow the OpenTelemetry semantic 
 | `actor.type`, `actor.id`, `actor.name`, `actor.impersonated_by` | type is `user`, `service`, `public_link`, `guest`, `anonymous`, `system` or `cli` |
 | `auth.method`, `auth.client_id`, `session.id` | `oidc`, `basic`, `app_token`, `public_link`, `guest_link` or `signed_url`; the OIDC client and session |
 | `client.address`, `user_agent.original` | address of the client, see [Client Address](#client-address) |
-| `target.type`, `target.id`, `target.space.id`, `target.name`, `target.path` | the object acted on |
+| `target.type`, `target.id`, `target.space.id`, `target.name`, `target.path` | the object acted on, as it was before the action; files and folders are identified by their ID, which stays the same across renames, moves and the trash bin |
 | `change.before`, `change.after` | changed attributes of an update, never secrets |
 | `trace_id`, `span_id` | OpenTelemetry trace correlation |
 | `service.name`, `service.version`, `service.instance.id` | the service that emitted the event |
@@ -85,6 +85,7 @@ Some actions are left out on purpose:
 - A download that is resumed or seeked makes many range requests, only the one starting at the first byte counts.
 - `auth.login` is recorded for a new OIDC session. Basic auth and app tokens authenticate every single request, for them only failed logins are recorded. Expired OIDC tokens are part of the normal token renewal and are not recorded as failed logins.
 - `public_link.access` is recorded once per link and client within 30 minutes, every failed attempt is recorded. The web client asking whether a link needs a password is not an attempt.
+- Shares accepted automatically, see `SHARING_AUTO_ACCEPT_SHARES`, are not recorded as `share.accept`. The `share.create` of the sharer is the record.
 
 ## Outputs
 

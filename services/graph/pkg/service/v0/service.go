@@ -266,7 +266,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1_Beta_1))
-				r.Post("/", svc.CreateDriveV1Beta1)
+				r.With(svc.auditOnDenied(audit.SpaceCreate, "")).Post("/", svc.CreateDriveV1Beta1)
 				r.Route("/{driveID}", func(r chi.Router) {
 					// Rewrites MS Graph colon-syntax lookups (root:/path,
 					// items/{id}:/path) to /items/{resolvedID}... before chi
@@ -393,7 +393,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1))
-				r.Post("/", svc.CreateDrive)
+				r.With(svc.auditOnDenied(audit.SpaceCreate, "")).Post("/", svc.CreateDrive)
 				r.Route("/{driveID}", func(r chi.Router) {
 					// Rewrites MS Graph colon-syntax lookups (root:/path,
 					// items/{id}:/path) to /items/{resolvedID}... before chi

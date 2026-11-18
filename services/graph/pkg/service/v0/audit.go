@@ -3,6 +3,7 @@ package svc
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -98,22 +99,29 @@ func userFeatureEvents(e events.UserFeatureChanged) []audit.Event {
 // reported where graph publishes its domain event, so they are not counted
 // twice. It must run before requireAdmin, which refuses non-admins.
 func (g Graph) auditOnError(d *audit.Definition, idParam string) func(http.Handler) http.Handler {
-	return g.auditRoute(d, idParam, false)
+	return g.auditRoute(d, idParam, func(o audit.Outcome) bool { return o != audit.OutcomeSuccess })
+}
+
+// auditOnDenied reports denied requests of a route only. It is for routes
+// that call the CS3 API, where the storage provider reports successes and
+// failures, but graph refuses a request without the permission itself.
+func (g Graph) auditOnDenied(d *audit.Definition, idParam string) func(http.Handler) http.Handler {
+	return g.auditRoute(d, idParam, func(o audit.Outcome) bool { return o == audit.OutcomeDenied })
 }
 
 // auditAlways reports every request of a route, for actions without a domain event.
 func (g Graph) auditAlways(d *audit.Definition, idParam string) func(http.Handler) http.Handler {
-	return g.auditRoute(d, idParam, true)
+	return g.auditRoute(d, idParam, func(audit.Outcome) bool { return true })
 }
 
-func (g Graph) auditRoute(d *audit.Definition, idParam string, success bool) func(http.Handler) http.Handler {
+func (g Graph) auditRoute(d *audit.Definition, idParam string, report func(audit.Outcome) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
 
 			outcome, reason := outcomeOf(ww.Status())
-			if outcome == audit.OutcomeSuccess && !success {
+			if !report(outcome) {
 				return
 			}
 			target := audit.Target{ID: "unknown"}
@@ -125,11 +133,28 @@ func (g Graph) auditRoute(d *audit.Definition, idParam string, success bool) fun
 					target.ID = u.GetId().GetOpaqueId()
 				}
 			}
+			if d == audit.PersonalDataExport && outcome == audit.OutcomeFailure && !ownUserID(r, target.ID) {
+				// RequireOwnUserID answers 400 for other users, which
+				// clients rely on; for the audit log it is a denial
+				outcome, reason = audit.OutcomeDenied, "permission_denied"
+			}
 			if err := g.emitAudit(r.Context(), audit.Event{Definition: d, Outcome: outcome, Reason: reason, Target: target}); err != nil {
 				g.logger.Error().Err(err).Str("event", d.Name).Msg("could not emit audit event")
 			}
 		})
 	}
+}
+
+// ownUserID reports whether id is the ID of the authenticated user.
+func ownUserID(r *http.Request, id string) bool {
+	u, ok := revactx.ContextGetUser(r.Context())
+	if !ok {
+		return false
+	}
+	if unescaped, err := url.PathUnescape(id); err == nil {
+		id = unescaped
+	}
+	return id == u.GetId().GetOpaqueId()
 }
 
 // outcomeOf maps an HTTP status to the audit outcome and reason.
