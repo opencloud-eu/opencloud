@@ -58,6 +58,7 @@ type Config struct {
 	ServiceAccount   ServiceAccount        `yaml:"service_account"`
 
 	PasswordPolicy PasswordPolicy `yaml:"password_policy"`
+	Validation     Validation     `yaml:"validation"`
 
 	ConfigurableNotifications bool `yaml:"configurable_notifications" env:"FRONTEND_CONFIGURABLE_NOTIFICATIONS" desc:"Allow configuring notifications via web client." introductionVersion:"1.0.0"`
 
@@ -235,4 +236,9 @@ type Groupware struct {
 // the webdav service uses for the same list.
 type Thumbnails struct {
 	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
+}
+
+// Validation holds limits that are announced to clients as capabilities.
+type Validation struct {
+	MaxTagLength int `yaml:"max_tag_length" env:"OC_MAX_TAG_LENGTH" desc:"The maximum length of a single tag, in characters. Longer tags are rejected when they are assigned; tags that already exist are not affected. Clients are told the limit through the graph.tags.max_tag_length capability, which is why the graph and frontend services share this setting: when setting it in the configuration files of the services instead, set it to the same value for both. Set to 0 to not limit the length of tags." introductionVersion:"%%NEXT%%"`
 }

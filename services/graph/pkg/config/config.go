@@ -39,6 +39,8 @@ type Config struct {
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
+	Validation Validation `yaml:"validation"`
+
 	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;GRAPH_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"7.5.0" mask:"password"`
 
 	Context context.Context `yaml:"-"`
@@ -219,4 +221,9 @@ type Thumbnails struct {
 	// read under the same names as by webdav and the thumbnails service, so that
 	// graph doesn't accept a space image no thumbnail can be made of
 	SpaceImageMaxInputImageFileSize string `yaml:"space_image_max_input_image_file_size" env:"OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"The maximum file size of an image that can be set as the image of a space. A larger one is refused with HTTP 413, because no thumbnail can be made of it, and space images are only shown as thumbnails. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB], example: 50MB. An empty value means unlimited." introductionVersion:"9.2.0"`
+}
+
+// Validation holds limits that requests to the graph service are checked against.
+type Validation struct {
+	MaxTagLength int `yaml:"max_tag_length" env:"OC_MAX_TAG_LENGTH" desc:"The maximum length of a single tag, in characters. Longer tags are rejected when they are assigned; tags that already exist are not affected. Clients are told the limit through the graph.tags.max_tag_length capability, which is why the graph and frontend services share this setting: when setting it in the configuration files of the services instead, set it to the same value for both. Set to 0 to not limit the length of tags." introductionVersion:"%%NEXT%%"`
 }

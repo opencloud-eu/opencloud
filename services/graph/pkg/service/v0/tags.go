@@ -109,7 +109,10 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allTags := tags.New(currentTags)
-	if !allTags.Add(assignment.Tags...) {
+	if added, err := allTags.AddValidated(tags.MaxLengthValidator(g.config.Validation.MaxTagLength), assignment.Tags...); err != nil {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
+		return
+	} else if !added {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no new tags in createtagsrequest or maximum reached")
 		return
 	}
