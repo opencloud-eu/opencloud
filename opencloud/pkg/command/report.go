@@ -32,11 +32,11 @@ import (
 )
 
 const (
-	_reportOutputFlagName     = "output"
-	_reportDaysFlagName       = "days"
-	_reportSkipSignInFlagName = "skip-sign-in"
-	_reportInsecureFlagName   = "insecure"
-	_reportTimeoutFlagName    = "timeout"
+	_reportOutputFlagName   = "output"
+	_reportDaysFlagName     = "days"
+	_reportSignInFlagName   = "with-sign-in"
+	_reportInsecureFlagName = "insecure"
+	_reportTimeoutFlagName  = "timeout"
 
 	// _reportDefaultDays is the default sign-in window in days.
 	_reportDefaultDays = 31
@@ -83,9 +83,9 @@ type userReport struct {
 	// does not store sign-in timestamps.
 	UsersWithSignInData int         `json:"usersWithSignInData" yaml:"usersWithSignInData"`
 	Roles               []roleCount `json:"roles" yaml:"roles"`
-	// SkipSignIn tells the renderers that the sign-in window was skipped. The
-	// sign-in fields are then meaningless and are left out of the output.
-	SkipSignIn bool `json:"-" yaml:"-"`
+	// SignInReported tells the renderers that the sign-in window was reported.
+	// Without it the sign-in fields are meaningless and are left out entirely.
+	SignInReported bool `json:"-" yaml:"-"`
 }
 
 // plainRoleCount is a roleCount without its sign-in column.
@@ -118,10 +118,11 @@ func (r userReport) plain() plainUserReport {
 
 // reportOptions holds the settings a report run takes from the command line.
 type reportOptions struct {
-	// days is the width of the sign-in window, ignored when skipSignIn is set.
+	// days is the width of the sign-in window, only used with withSignIn.
 	days int
-	// skipSignIn leaves the sign-in window out of the report entirely.
-	skipSignIn bool
+	// withSignIn adds the sign-in window to the report. Off by default: the
+	// data only exists on a writable LDAP backend.
+	withSignIn bool
 	// insecure skips the TLS certificate check against the graph service, for
 	// deployments serving the generated self-signed certificate.
 	insecure bool
@@ -135,11 +136,13 @@ func ReportCommand(cfg *config.Config) *cobra.Command {
 		Use:   "report",
 		Short: "report the users of this instance grouped by their assigned role",
 		Long: "Report the users of OpenCloud grouped by their assigned role.\n\n" +
-			"Every user is counted, and each role additionally shows how many of its\n" +
+			"By default every user is counted once and the report is a plain user\n" +
+			"count per role.\n\n" +
+			"Pass --with-sign-in to additionally report, per role, how many of its\n" +
 			"users signed in successfully within the last --days days. Users whose\n" +
-			"sign-in is unknown still count towards their role.\n" +
-			"Pass --skip-sign-in to leave the sign-in window out altogether and only\n" +
-			"count the users per role.\n" +
+			"sign-in is unknown still count towards their role. OpenCloud stores the\n" +
+			"last sign-in on the user entry in LDAP, so this needs an LDAP identity\n" +
+			"backend that OpenCloud may write to and is refused otherwise.\n" +
 			"The data is read from the libregraph API of a running OpenCloud instance,\n" +
 			"so the instance needs to be up while the report is generated.",
 		GroupID: CommandGroupServer,
@@ -158,16 +161,22 @@ func ReportCommand(cfg *config.Config) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			skipSignIn, err := cmd.Flags().GetBool(_reportSkipSignInFlagName)
+			withSignIn, err := cmd.Flags().GetBool(_reportSignInFlagName)
 			if err != nil {
 				return err
 			}
-			if skipSignIn && cmd.Flags().Changed(_reportDaysFlagName) {
-				return fmt.Errorf("--%s and --%s cannot be combined, --%s reports no sign-ins at all",
-					_reportSkipSignInFlagName, _reportDaysFlagName, _reportSkipSignInFlagName)
+			if !withSignIn && cmd.Flags().Changed(_reportDaysFlagName) {
+				return fmt.Errorf("--%s only applies together with --%s",
+					_reportDaysFlagName, _reportSignInFlagName)
 			}
-			if days < 1 {
-				return fmt.Errorf("--%s must be at least 1", _reportDaysFlagName)
+			if withSignIn {
+				if reason := signInUnavailable(cfg); reason != "" {
+					return fmt.Errorf("--%s is not available on this instance: %s",
+						_reportSignInFlagName, reason)
+				}
+				if days < 1 {
+					return fmt.Errorf("--%s must be at least 1", _reportDaysFlagName)
+				}
 			}
 
 			format, err := cmd.Flags().GetString(_reportOutputFlagName)
@@ -197,7 +206,7 @@ func ReportCommand(cfg *config.Config) *cobra.Command {
 
 			report, err := userRoleReport(ctx, cfg, reportOptions{
 				days:       days,
-				skipSignIn: skipSignIn,
+				withSignIn: withSignIn,
 				insecure:   insecure,
 				timeout:    timeout,
 			})
@@ -214,8 +223,8 @@ func ReportCommand(cfg *config.Config) *cobra.Command {
 	reportCmd.Flags().StringP(_reportOutputFlagName, "o", _reportOutputTable,
 		fmt.Sprintf("output format, one of: %s, %s, %s, %s",
 			_reportOutputTable, _reportOutputJSON, _reportOutputCSV, _reportOutputYAML))
-	reportCmd.Flags().Bool(_reportSkipSignInFlagName, false,
-		"skip the sign-in window and only count the users per role")
+	reportCmd.Flags().Bool(_reportSignInFlagName, false,
+		"additionally report how many users per role signed in within the last --days days. Needs a writable LDAP identity backend")
 	reportCmd.Flags().DurationP(_reportTimeoutFlagName, "t", _reportDefaultTimeout,
 		"time budget for the whole report run, e.g. 10m. Raise it on instances with very many users")
 	reportCmd.Flags().Bool(_reportInsecureFlagName, false,
@@ -228,10 +237,25 @@ func init() {
 	register.AddCommand(ReportCommand)
 }
 
+// signInUnavailable reports why this instance cannot report sign-ins, or an
+// empty string when it can. OpenCloud stores the last successful sign-in as an
+// attribute on the user entry, so it needs an LDAP identity backend that the
+// graph service may write to. Without that no timestamp is ever recorded and
+// the sign-in counts would be meaningless rather than merely empty.
+func signInUnavailable(cfg *config.Config) string {
+	if backend := cfg.Graph.Identity.Backend; backend != "ldap" {
+		return fmt.Sprintf("the %q identity backend does not record sign-ins", backend)
+	}
+	if !cfg.Graph.Identity.LDAP.WriteEnabled {
+		return "the LDAP identity backend is read-only, see OC_LDAP_SERVER_WRITE_ENABLED, so no sign-in is ever recorded"
+	}
+	return ""
+}
+
 // userRoleReport collects all users from the libregraph API and groups them by
-// their assigned role, reporting per role how many of its users signed in
-// within the last `days` days. With skipSignIn the sign-ins are left out and
-// the report is a plain user count per role.
+// their assigned role. By default the result is a plain user count per role.
+// With withSignIn it additionally reports, per role, how many of its users
+// signed in within the last `days` days.
 func userRoleReport(ctx context.Context, cfg *config.Config, opts reportOptions) (userReport, error) {
 	client, err := newLibregraphServiceAccountClient(ctx, cfg, opts)
 	if err != nil {
@@ -251,17 +275,17 @@ func userRoleReport(ctx context.Context, cfg *config.Config, opts reportOptions)
 	now := time.Now().UTC()
 	// a nil window tells countUsersByRole to not look at sign-ins at all
 	var activeSince *time.Time
-	if !opts.skipSignIn {
+	if opts.withSignIn {
 		since := now.AddDate(0, 0, -opts.days)
 		activeSince = &since
 	}
 	roles, activeUsers, withSignInData := countUsersByRole(users, roleNames, activeSince)
 
 	report := userReport{
-		GeneratedAt: now,
-		TotalUsers:  len(users),
-		Roles:       roles,
-		SkipSignIn:  opts.skipSignIn,
+		GeneratedAt:    now,
+		TotalUsers:     len(users),
+		Roles:          roles,
+		SignInReported: opts.withSignIn,
 	}
 	if activeSince != nil {
 		report.Days = opts.days
@@ -413,17 +437,27 @@ func newLibregraphServiceAccountClient(ctx context.Context, cfg *config.Config, 
 	lgconf := libregraph.NewConfiguration()
 	lgconf.Servers = libregraph.ServerConfigurations{{URL: baseURL}}
 	lgconf.DefaultHeader = map[string]string{revactx.TokenHeader: token}
-	httpClient := &http.Client{Timeout: opts.timeout}
-	if opts.insecure {
-		// clone the default transport so that only the certificate check
-		// changes, and proxy support, HTTP/2 and connection pooling stay
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // opt-in via --insecure
-		httpClient.Transport = transport
-	}
-	lgconf.HTTPClient = httpClient
+	lgconf.HTTPClient = newGraphHTTPClient(opts)
 
 	return libregraph.NewAPIClient(lgconf), nil
+}
+
+// newGraphHTTPClient builds the HTTP client for the graph API. It requires TLS
+// 1.2 or newer for an encrypted connection, and only skips the certificate
+// check when --insecure asked for it. The default transport is cloned rather
+// than replaced, so that proxy support, HTTP/2 and connection pooling stay as
+// they are.
+func newGraphHTTPClient(opts reportOptions) *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		// #nosec G402 -- off unless the admin passes --insecure
+		InsecureSkipVerify: opts.insecure, //nolint:gosec // opt-in via --insecure
+	}
+	return &http.Client{
+		Timeout:   opts.timeout,
+		Transport: transport,
+	}
 }
 
 // nodeProtocol resolves the URL scheme to talk to a registry node with. The
@@ -482,19 +516,19 @@ func renderUserReport(w io.Writer, report userReport, format string) error {
 	case _reportOutputJSON:
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		if report.SkipSignIn {
+		if !report.SignInReported {
 			return enc.Encode(report.plain())
 		}
 		return enc.Encode(report)
 	case _reportOutputYAML:
 		enc := yaml.NewEncoder(w)
 		defer enc.Close()
-		if report.SkipSignIn {
+		if !report.SignInReported {
 			return enc.Encode(report.plain())
 		}
 		return enc.Encode(report)
 	case _reportOutputCSV:
-		if report.SkipSignIn {
+		if !report.SignInReported {
 			return renderPlainCSV(w, report)
 		}
 		cw := csv.NewWriter(w)
@@ -530,7 +564,7 @@ func renderUserReport(w io.Writer, report userReport, format string) error {
 		cw.Flush()
 		return cw.Error()
 	default:
-		if report.SkipSignIn {
+		if !report.SignInReported {
 			return renderPlainTable(w, report)
 		}
 		fmt.Fprintf(w, "Sign-in window: last %s (since %s)\n\n",
@@ -568,10 +602,9 @@ func renderUserReport(w io.Writer, report userReport, format string) error {
 
 		if report.TotalUsers > 0 && report.UsersWithSignInData == 0 {
 			fmt.Fprint(w, "\nWarning: not a single user has a recorded sign-in, so the sign-in\n"+
-				"counts are reported as N/A rather than 0. This instance does not store\n"+
-				"sign-in timestamps. They are only recorded when the identity backend\n"+
-				"is writable, see OC_LDAP_SERVER_WRITE_ENABLED, and when the directory\n"+
-				"holds the OpenCloud LDAP schema.\n")
+				"counts are reported as N/A rather than 0. The identity backend accepts\n"+
+				"the write, so either nobody has signed in since sign-in recording was\n"+
+				"switched on, or the directory does not hold the OpenCloud LDAP schema.\n")
 		}
 		return nil
 	}

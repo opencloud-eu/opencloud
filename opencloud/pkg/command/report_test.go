@@ -2,6 +2,8 @@ package command
 
 import (
 	"bytes"
+	"crypto/tls"
+	"net/http"
 	"regexp"
 	"strings"
 	"testing"
@@ -9,6 +11,7 @@ import (
 
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/config"
+	graphconfig "github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 )
 
 const (
@@ -172,6 +175,7 @@ func TestRenderUserReport(t *testing.T) {
 		TotalUsers:          5,
 		ActiveUsers:         countPtr(3),
 		UsersWithSignInData: 4,
+		SignInReported:      true,
 		Roles: []roleCount{
 			{Role: "User", Users: 3, SignedIn: countPtr(2)},
 			{Role: "Admin", Users: 1, SignedIn: countPtr(1)},
@@ -249,6 +253,7 @@ func TestRenderUserReportNobodySignedInRecently(t *testing.T) {
 		TotalUsers:          5,
 		ActiveUsers:         countPtr(0),
 		UsersWithSignInData: 5,
+		SignInReported:      true,
 		Roles: []roleCount{
 			{Role: "User", Users: 4, SignedIn: countPtr(0)},
 			{Role: "Admin", Users: 1, SignedIn: countPtr(0)},
@@ -301,11 +306,12 @@ func TestRenderUserReportNobodySignedInRecently(t *testing.T) {
 // report context when there is not a single user to group.
 func TestRenderUserReportWithoutUsers(t *testing.T) {
 	report := userReport{
-		GeneratedAt: time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC),
-		Days:        31,
-		ActiveSince: time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC),
-		ActiveUsers: countPtr(0),
-		Roles:       []roleCount{},
+		GeneratedAt:    time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC),
+		Days:           31,
+		ActiveSince:    time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC),
+		ActiveUsers:    countPtr(0),
+		SignInReported: true,
+		Roles:          []roleCount{},
 	}
 
 	var buf bytes.Buffer
@@ -331,6 +337,7 @@ func TestRenderUserReportWithoutSignInData(t *testing.T) {
 		TotalUsers:          6,
 		ActiveUsers:         nil,
 		UsersWithSignInData: 0,
+		SignInReported:      true,
 		Roles: []roleCount{
 			{Role: "User", Users: 5, SignedIn: nil},
 			{Role: "Admin", Users: 1, SignedIn: nil},
@@ -392,10 +399,10 @@ func TestRenderUserReportWithoutSignInData(t *testing.T) {
 	}
 }
 
-// TestCountUsersByRoleSkippingSignIn covers --skip-sign-in: without a window
+// TestCountUsersByRoleWithoutWindow covers the default: without a window
 // the sign-in data is not looked at at all, even on an instance that records
 // it, and the users are still grouped by their role.
-func TestCountUsersByRoleSkippingSignIn(t *testing.T) {
+func TestCountUsersByRoleWithoutWindow(t *testing.T) {
 	recent := time.Now().UTC().Add(-time.Hour)
 	users := []libregraph.User{
 		testUser("alan", &recent, userRoleID),
@@ -433,10 +440,10 @@ func TestCountUsersByRoleSkippingSignIn(t *testing.T) {
 	}
 }
 
-// TestRenderUserReportSkippingSignIn makes sure --skip-sign-in leaves every
+// TestRenderUserReportWithoutSignIn makes sure the default leaves every
 // trace of the sign-in window out of the output, rather than reporting it as
 // null or N/A.
-func TestRenderUserReportSkippingSignIn(t *testing.T) {
+func TestRenderUserReportWithoutSignIn(t *testing.T) {
 	report := userReport{
 		GeneratedAt: time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC),
 		TotalUsers:  6,
@@ -444,7 +451,6 @@ func TestRenderUserReportSkippingSignIn(t *testing.T) {
 			{Role: "User", Users: 4},
 			{Role: "Admin", Users: 2},
 		},
-		SkipSignIn: true,
 	}
 
 	testCases := []struct {
@@ -496,13 +502,12 @@ func TestRenderUserReportSkippingSignIn(t *testing.T) {
 	}
 }
 
-// TestRenderUserReportSkippingSignInWithoutUsers keeps the csv total readable
+// TestRenderUserReportWithoutSignInWithoutUsers keeps the csv total readable
 // when there is not a single user to group.
-func TestRenderUserReportSkippingSignInWithoutUsers(t *testing.T) {
+func TestRenderUserReportWithoutSignInWithoutUsers(t *testing.T) {
 	report := userReport{
 		GeneratedAt: time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC),
 		Roles:       []roleCount{},
-		SkipSignIn:  true,
 	}
 
 	var buf bytes.Buffer
@@ -579,7 +584,7 @@ func TestReportCommandFlags(t *testing.T) {
 		{name: _reportDaysFlagName, shorthand: "d", defValue: "31"},
 		{name: _reportOutputFlagName, shorthand: "o", defValue: _reportOutputTable},
 		{name: _reportTimeoutFlagName, shorthand: "t", defValue: "5m0s"},
-		{name: _reportSkipSignInFlagName, shorthand: "", defValue: "false"},
+		{name: _reportSignInFlagName, shorthand: "", defValue: "false"},
 		{name: _reportInsecureFlagName, shorthand: "", defValue: "false"},
 	}
 
@@ -603,5 +608,106 @@ func TestReportCommandFlags(t *testing.T) {
 			}
 			seen[tc.shorthand] = tc.name
 		}
+	}
+}
+
+// TestSignInUnavailable covers when --with-sign-in may be used at all.
+// OpenCloud stores the last sign-in on the user entry in LDAP, so a read-only
+// or non-LDAP backend records nothing and the flag has to be refused rather
+// than producing a column of N/A.
+func TestSignInUnavailable(t *testing.T) {
+	testCases := []struct {
+		name         string
+		backend      string
+		writeEnabled bool
+		available    bool
+		contains     string
+	}{
+		{
+			name:         "writable ldap backend",
+			backend:      "ldap",
+			writeEnabled: true,
+			available:    true,
+		},
+		{
+			name:         "read-only ldap backend",
+			backend:      "ldap",
+			writeEnabled: false,
+			available:    false,
+			contains:     "OC_LDAP_SERVER_WRITE_ENABLED",
+		},
+		{
+			name:         "cs3 backend never records sign-ins",
+			backend:      "cs3",
+			writeEnabled: true,
+			available:    false,
+			contains:     "cs3",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{Graph: &graphconfig.Config{}}
+			cfg.Graph.Identity.Backend = tc.backend
+			cfg.Graph.Identity.LDAP.WriteEnabled = tc.writeEnabled
+
+			reason := signInUnavailable(cfg)
+			if tc.available {
+				if reason != "" {
+					t.Errorf("expected sign-ins to be available, got refusal %q", reason)
+				}
+				return
+			}
+			if reason == "" {
+				t.Fatal("expected a refusal, got none")
+			}
+			if !strings.Contains(reason, tc.contains) {
+				t.Errorf("expected the refusal to mention %q, got %q", tc.contains, reason)
+			}
+		})
+	}
+}
+
+// TestNewGraphHTTPClient pins the TLS floor and makes sure the certificate
+// check is only skipped on request. It also guards the transport clone: the
+// defaults for proxy support and HTTP/2 must survive, which a bare
+// &http.Transport{} would silently drop.
+func TestNewGraphHTTPClient(t *testing.T) {
+	testCases := []struct {
+		name     string
+		insecure bool
+	}{
+		{name: "verifies certificates by default", insecure: false},
+		{name: "skips verification when asked", insecure: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newGraphHTTPClient(reportOptions{timeout: 42 * time.Second, insecure: tc.insecure})
+
+			if client.Timeout != 42*time.Second {
+				t.Errorf("expected the timeout to be carried over, got %s", client.Timeout)
+			}
+
+			transport, ok := client.Transport.(*http.Transport)
+			if !ok {
+				t.Fatalf("expected an *http.Transport, got %T", client.Transport)
+			}
+			if transport.TLSClientConfig.MinVersion != tls.VersionTLS12 {
+				t.Errorf("expected TLS 1.2 as the minimum, got %#x", transport.TLSClientConfig.MinVersion)
+			}
+			if transport.TLSClientConfig.InsecureSkipVerify != tc.insecure {
+				t.Errorf("expected InsecureSkipVerify to be %v, got %v",
+					tc.insecure, transport.TLSClientConfig.InsecureSkipVerify)
+			}
+
+			// cloned from the default transport, not built from scratch
+			if transport.Proxy == nil {
+				t.Error("expected the default proxy support to survive the clone")
+			}
+			if !transport.ForceAttemptHTTP2 {
+				t.Error("expected HTTP/2 to stay enabled after the clone")
+			}
+		})
 	}
 }
