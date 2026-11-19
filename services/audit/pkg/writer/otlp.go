@@ -10,6 +10,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -24,12 +25,23 @@ import (
 
 // OTLPSink sends every record as an OpenTelemetry log record, an event with
 // EventName set to event.name. The fields are attributes, the body is the
-// record as JSON. Every record is exported on its own and synchronously, so
-// the writer only acks it after the Collector took it.
+// record as JSON. The resource names the service that emitted the event, the
+// instrumentation scope the audit service. Every record is exported on its own
+// and synchronously, so the writer only acks it after the Collector took it.
 type OTLPSink struct {
-	provider *sdklog.LoggerProvider
-	logger   otellog.Logger
+	exporter Exporter
+	cfg      OTLPConfig
+
+	mu        sync.Mutex
+	loggers   map[service]otellog.Logger
+	providers []*sdklog.LoggerProvider
 }
+
+// service identifies the resource of a record.
+type service struct{ name, version string }
+
+// scopeName is the instrumentation scope of the records.
+const scopeName = "github.com/opencloud-eu/opencloud/services/audit"
 
 // Exporter sends log records, in production the OTLP gRPC exporter.
 type Exporter interface {
@@ -43,7 +55,8 @@ type OTLPConfig struct {
 	Endpoint string
 	Insecure bool
 	Timeout  time.Duration
-	// Service names the audit service in the OTel resource.
+	// Service names the audit service, the resource of records without a
+	// service and the version of the instrumentation scope.
 	Service string
 	Version string
 }
@@ -87,15 +100,33 @@ func newOTLPSink(exp Exporter, cfg OTLPConfig) *OTLPSink {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 10 * time.Second
 	}
+	return &OTLPSink{exporter: exp, cfg: cfg, loggers: map[service]otellog.Logger{}}
+}
+
+// logger returns the logger for the resource of svc. The SDK binds the
+// resource to the provider, so every service gets its own provider; they
+// share the exporter.
+func (s *OTLPSink) logger(svc service) otellog.Logger {
+	if svc.name == "" {
+		svc = service{name: s.cfg.Service, version: s.cfg.Version}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if l, ok := s.loggers[svc]; ok {
+		return l
+	}
 	res := resource.NewSchemaless(
-		attribute.String("service.name", cfg.Service),
-		attribute.String("service.version", cfg.Version),
+		attribute.String("service.name", svc.name),
+		attribute.String("service.version", svc.version),
 	)
 	provider := sdklog.NewLoggerProvider(
 		sdklog.WithResource(res),
-		sdklog.WithProcessor(&syncProcessor{exporter: exp, timeout: cfg.Timeout}),
+		sdklog.WithProcessor(&syncProcessor{exporter: s.exporter, timeout: s.cfg.Timeout}),
 	)
-	return &OTLPSink{provider: provider, logger: provider.Logger("github.com/opencloud-eu/opencloud/services/audit")}
+	l := provider.Logger(scopeName, otellog.WithInstrumentationVersion(s.cfg.Version))
+	s.loggers[svc] = l
+	s.providers = append(s.providers, provider)
+	return l
 }
 
 // Name of the sink.
@@ -121,6 +152,11 @@ func (s *OTLPSink) Write(record []byte) error {
 	rec.SetSeverity(severity(audit.Severity(sev)))
 	rec.SetSeverityText(sev)
 	rec.SetBody(attribute.StringValue(string(record)))
+	// the emitting service is the resource, not an attribute
+	svcName, _ := fields["service.name"].(string)
+	svcVersion, _ := fields["service.version"].(string)
+	delete(fields, "service.name")
+	delete(fields, "service.version")
 	rec.AddAttributes(attributes(fields)...)
 
 	// the SDK takes the trace from the context
@@ -129,13 +165,20 @@ func (s *OTLPSink) Write(record []byte) error {
 		ctx = trace.ContextWithSpanContext(ctx, sc)
 	}
 	result := &exportResult{}
-	s.logger.Emit(context.WithValue(ctx, exportResultKey{}, result), rec)
+	s.logger(service{name: svcName, version: svcVersion}).Emit(context.WithValue(ctx, exportResultKey{}, result), rec)
 	return result.err
 }
 
-// Shutdown flushes and stops the exporter.
+// Shutdown stops the providers and the exporter.
 func (s *OTLPSink) Shutdown(ctx context.Context) error {
-	return s.provider.Shutdown(ctx)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var errs []error
+	for _, p := range s.providers {
+		errs = append(errs, p.Shutdown(ctx))
+	}
+	errs = append(errs, s.exporter.Shutdown(ctx))
+	return errors.Join(errs...)
 }
 
 func severity(s audit.Severity) otellog.Severity {
@@ -220,5 +263,8 @@ func (p *syncProcessor) OnEmit(ctx context.Context, r *sdklog.Record) error {
 	return err
 }
 
-func (p *syncProcessor) Shutdown(ctx context.Context) error   { return p.exporter.Shutdown(ctx) }
-func (p *syncProcessor) ForceFlush(ctx context.Context) error { return p.exporter.ForceFlush(ctx) }
+// Shutdown does nothing, the providers share the exporter and the sink stops it.
+func (p *syncProcessor) Shutdown(context.Context) error { return nil }
+
+// ForceFlush does nothing, every record is exported right away.
+func (p *syncProcessor) ForceFlush(context.Context) error { return nil }

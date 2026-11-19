@@ -30,7 +30,7 @@ func (e *fakeExporter) Export(_ context.Context, records []sdklog.Record) error 
 func (e *fakeExporter) Shutdown(context.Context) error   { return nil }
 func (e *fakeExporter) ForceFlush(context.Context) error { return nil }
 
-const fullRecord = `{"event.id":"019a3c1e-7b2f-7c4e-9a10-5d2f0e6b8a41","event.name":"opencloud.auth.login","event.code":"A001F","time":"2026-10-28T09:14:03.512Z","outcome":"failure","severity":"warning","client.address":"203.0.113.7","change.after":{"name":"x"},"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","ocsf.class_uid":3002}`
+const fullRecord = `{"event.id":"019a3c1e-7b2f-7c4e-9a10-5d2f0e6b8a41","event.name":"opencloud.auth.login","event.code":"A001F","time":"2026-10-28T09:14:03.512Z","outcome":"failure","severity":"warning","client.address":"203.0.113.7","change.after":{"name":"x"},"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","ocsf.class_uid":3002,"service.name":"proxy","service.version":"5.0.2"}`
 
 func TestOTLPSinkExportsAnEvent(t *testing.T) {
 	exp := &fakeExporter{}
@@ -57,9 +57,39 @@ func TestOTLPSinkExportsAnEvent(t *testing.T) {
 	assert.Equal(t, int64(3002), attrs["ocsf.class_uid"].AsInt64(), "numbers stay numbers")
 	assert.Equal(t, `{"name":"x"}`, attrs["change.after"].AsString(), "nested values become JSON")
 
-	svc, ok := r.Resource().Set().Value("service.name")
-	require.True(t, ok)
-	assert.Equal(t, "audit", svc.AsString())
+	assert.NotContains(t, attrs, "service.name", "the emitting service is the resource")
+	assert.NotContains(t, attrs, "service.version")
+
+	res := r.Resource().Set()
+	svc, _ := res.Value("service.name")
+	assert.Equal(t, "proxy", svc.AsString())
+	ver, _ := res.Value("service.version")
+	assert.Equal(t, "5.0.2", ver.AsString())
+	assert.Equal(t, scopeName, r.InstrumentationScope().Name)
+	assert.Equal(t, "5.1.0", r.InstrumentationScope().Version)
+}
+
+func TestOTLPSinkUsesOneResourcePerService(t *testing.T) {
+	exp := &fakeExporter{}
+	sink := newOTLPSink(exp, OTLPConfig{Service: "audit", Version: "5.1.0"})
+
+	for _, rec := range []string{
+		`{"event.id":"1","event.name":"a","service.name":"proxy","service.version":"5.1.0"}`,
+		`{"event.id":"2","event.name":"a","service.name":"storage-users","service.version":"5.1.0"}`,
+		`{"event.id":"3","event.name":"a","service.name":"proxy","service.version":"5.1.0"}`,
+		`{"event.id":"4","event.name":"a"}`,
+	} {
+		require.NoError(t, sink.Write([]byte(rec)))
+	}
+
+	var names []string
+	for _, r := range exp.records {
+		v, _ := r.Resource().Set().Value("service.name")
+		names = append(names, v.AsString())
+	}
+	assert.Equal(t, []string{"proxy", "storage-users", "proxy", "audit"}, names, "a record without a service gets the audit service")
+	assert.Len(t, sink.providers, 3)
+	assert.NoError(t, sink.Shutdown(context.Background()))
 }
 
 func TestOTLPSinkReportsExportErrors(t *testing.T) {
