@@ -759,10 +759,10 @@ github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-202505121527
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+lP5lUUIzjRGDg93WrQfZJZCaV1ZP3KeyXi8bzY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89/go.mod h1:vigJkNss1N2QEceCuNw/ullDehncuJNFB6mEnzfq9UI=
-github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346 h1:3ptbiFhSK4fzY/rC3idcYUveiwepMoOov1sBpc7Rg3k=
-github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
-github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119135952-a49952dded04 h1:OlA8AOMQm4OzN5FT8YqCJG99qXt4N5Nrc3BviUN46os=
-github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119135952-a49952dded04/go.mod h1:lwylaua29K7ge30pFxzHMh6LeH9bhCQduFdw+qKFzJA=
+github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e h1:5sf3dNw/eYuuvDL8+3c4pbPSX+Pblw6lsylGtq+cw30=
+github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
+github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119154313-aa77b15bccec h1:3Y/o9uwiQ07c5Od1E/6TQQPDzN2uHeOACzW+d/+KGBQ=
+github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119154313-aa77b15bccec/go.mod h1:lwylaua29K7ge30pFxzHMh6LeH9bhCQduFdw+qKFzJA=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
