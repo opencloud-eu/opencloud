@@ -36,7 +36,7 @@ Every record is one line of JSON. Field names follow the OpenTelemetry semantic 
 | `actor.type`, `actor.id`, `actor.name`, `actor.impersonated_by` | type is `user`, `service`, `public_link`, `guest`, `anonymous`, `system` or `cli` |
 | `auth.method`, `auth.client_id`, `session.id` | `oidc`, `basic`, `app_token`, `public_link`, `guest_link` or `signed_url`; the OIDC client and session |
 | `client.address`, `user_agent.original` | address of the client, see [Client Address](#client-address) |
-| `target.type`, `target.id`, `target.space.id`, `target.name`, `target.path` | the object acted on, as it was before the action; files and folders are identified by their ID, which stays the same across renames, moves and the trash bin |
+| `target.type`, `target.id`, `target.space.id`, `target.name`, `target.path` | the object acted on, as it was before the action; files and folders are identified by their ID, which stays the same across renames, moves and the trash bin. `target.path` is the path in the space of `target.space.id`, also for actions through a share or a public link |
 | `change.before`, `change.after` | changed attributes of an update, never secrets |
 | `trace_id`, `span_id` | OpenTelemetry trace correlation |
 | `service.name`, `service.version`, `service.instance.id` | the service that emitted the event |
