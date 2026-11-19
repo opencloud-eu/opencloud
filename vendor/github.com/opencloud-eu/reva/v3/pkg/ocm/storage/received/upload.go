@@ -64,7 +64,11 @@ func (d *driver) CommitUpload(ctx context.Context, ref *provider.Reference, sess
 // it authenticates as the service account and looks up the share on behalf of the
 // upload's executant.
 func (d *driver) serviceWebdavClient(ctx context.Context, ref *provider.Reference) (*gowebdav.Client, *ocmpb.ReceivedShare, string, error) {
-	serviceUserCtx, err := utils.GetServiceUserContextWithContext(context.Background(), d.gateway, d.c.ServiceAccountID, d.c.ServiceAccountSecret)
+	gwc, err := d.gateway.Next()
+	if err != nil {
+		return nil, nil, "", err
+	}
+	serviceUserCtx, err := utils.GetServiceUserContextWithContext(context.Background(), gwc, d.c.ServiceAccountID, d.c.ServiceAccountSecret)
 	if err != nil {
 		return nil, nil, "", err
 	}
