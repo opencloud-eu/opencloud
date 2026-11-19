@@ -157,6 +157,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 						"enabled":          cfg.Audit.Enabled,
 						"mode":             cfg.Audit.Mode,
 						"service":          cfg.Service.Name,
+						"service_version":  version.GetString(),
 						"address":          cfg.Events.Endpoint,
 						"clusterID":        cfg.Events.Cluster,
 						"tls-insecure":     cfg.Events.TLSInsecure,

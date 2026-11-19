@@ -7,6 +7,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/storage"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 )
 
@@ -53,19 +54,20 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 			},
 			"interceptors": map[string]any{
 				"eventsmiddleware": map[string]any{
-					"group":            "sharing",
-					"type":             "nats",
-					"address":          cfg.Events.Addr,
-					"clusterID":        cfg.Events.ClusterID,
-					"tls-insecure":     cfg.Events.TLSInsecure,
-					"tls-root-ca-cert": cfg.Events.TLSRootCaCertPath,
-					"enable-tls":       cfg.Events.EnableTLS,
-					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
-					"username":         cfg.Events.AuthUsername,
-					"password":         cfg.Events.AuthPassword,
-					"audit_enabled":    cfg.Audit.Enabled,
-					"audit_mode":       cfg.Audit.Mode,
-					"audit_service":    cfg.Service.Name,
+					"group":                 "sharing",
+					"type":                  "nats",
+					"address":               cfg.Events.Addr,
+					"clusterID":             cfg.Events.ClusterID,
+					"tls-insecure":          cfg.Events.TLSInsecure,
+					"tls-root-ca-cert":      cfg.Events.TLSRootCaCertPath,
+					"enable-tls":            cfg.Events.EnableTLS,
+					"name":                  generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
+					"username":              cfg.Events.AuthUsername,
+					"password":              cfg.Events.AuthPassword,
+					"audit_enabled":         cfg.Audit.Enabled,
+					"audit_mode":            cfg.Audit.Mode,
+					"audit_service":         cfg.Service.Name,
+					"audit_service_version": version.GetString(),
 				},
 				"prometheus": map[string]any{
 					"namespace": "opencloud",
@@ -96,6 +98,7 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 					"audit_enabled":          cfg.Audit.Enabled,
 					"audit_mode":             cfg.Audit.Mode,
 					"audit_service":          cfg.Service.Name,
+					"audit_service_version":  version.GetString(),
 					"data_txs": map[string]any{
 						"simple": map[string]any{
 							"cache_store":    "noop",

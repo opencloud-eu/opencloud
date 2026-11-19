@@ -115,10 +115,11 @@ func (s *OTLPSink) logger(svc service) otellog.Logger {
 	if l, ok := s.loggers[svc]; ok {
 		return l
 	}
-	res := resource.NewSchemaless(
-		attribute.String("service.name", svc.name),
-		attribute.String("service.version", svc.version),
-	)
+	attrs := []attribute.KeyValue{attribute.String("service.name", svc.name)}
+	if svc.version != "" {
+		attrs = append(attrs, attribute.String("service.version", svc.version))
+	}
+	res := resource.NewSchemaless(attrs...)
 	provider := sdklog.NewLoggerProvider(
 		sdklog.WithResource(res),
 		sdklog.WithProcessor(&syncProcessor{exporter: s.exporter, timeout: s.cfg.Timeout}),
