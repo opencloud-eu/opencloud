@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-18
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -21,6 +21,10 @@
 
 - feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
 - feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
+### 📦️ Dependencies
+
+- [full-ci] build: bump reva to the ocm share permission fixes [[#4065](https://github.com/opencloud-eu/opencloud/pull/4065)]
 
 ## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-17
 
