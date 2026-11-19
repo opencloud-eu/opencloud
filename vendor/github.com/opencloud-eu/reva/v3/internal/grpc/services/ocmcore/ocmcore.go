@@ -20,35 +20,56 @@ package ocmcore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	ocmcore "github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1"
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	providerpb "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v3/pkg/ocm/share"
 	"github.com/opencloud-eu/reva/v3/pkg/ocm/share/repository/registry"
+	ocmuser "github.com/opencloud-eu/reva/v3/pkg/ocm/user"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"github.com/opencloud-eu/reva/v3/pkg/utils/cfg"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func init() {
 	rgrpc.Register("ocmcore", New)
 }
 
+// EventOptions are the configurable options for events
+type EventOptions struct {
+	Endpoint             string `mapstructure:"natsaddress"`
+	Cluster              string `mapstructure:"natsclusterid"`
+	TLSInsecure          bool   `mapstructure:"tlsinsecure"`
+	TLSRootCACertificate string `mapstructure:"tlsrootcacertificate"`
+	EnableTLS            bool   `mapstructure:"enabletls"`
+	AuthUsername         string `mapstructure:"authusername"`
+	AuthPassword         string `mapstructure:"authpassword"`
+}
+
 type config struct {
 	Driver  string                            `mapstructure:"driver"`
 	Drivers map[string]map[string]interface{} `mapstructure:"drivers"`
+	Events  EventOptions                      `mapstructure:"events"`
 }
 
 type service struct {
-	conf *config
-	repo share.Repository
+	conf        *config
+	repo        share.Repository
+	eventStream events.Stream
+	log         *zerolog.Logger
 }
 
 func (c *config) ApplyDefaults() {
@@ -69,7 +90,7 @@ func getShareRepository(c *config) (share.Repository, error) {
 }
 
 // New creates a new ocm core svc.
-func New(m map[string]interface{}, ss *grpc.Server, _ *zerolog.Logger) (rgrpc.Service, error) {
+func New(m map[string]interface{}, ss *grpc.Server, log *zerolog.Logger) (rgrpc.Service, error) {
 	var c config
 	if err := cfg.Decode(m, &c); err != nil {
 		return nil, err
@@ -83,6 +104,15 @@ func New(m map[string]interface{}, ss *grpc.Server, _ *zerolog.Logger) (rgrpc.Se
 	service := &service{
 		conf: &c,
 		repo: repo,
+		log:  log,
+	}
+
+	if c.Events.Endpoint != "" {
+		es, err := stream.NatsFromConfig("ocmcore-handler", false, stream.NatsConfig(c.Events))
+		if err != nil {
+			return nil, err
+		}
+		service.eventStream = es
 	}
 
 	return service, nil
@@ -93,7 +123,11 @@ func (s *service) Close() error {
 }
 
 func (s *service) UnprotectedEndpoints() []string {
-	return []string{"/cs3.ocm.core.v1beta1.OcmCoreAPI/CreateOCMCoreShare"}
+	return []string{
+		ocmcore.OcmCoreAPI_CreateOCMCoreShare_FullMethodName,
+		ocmcore.OcmCoreAPI_UpdateOCMCoreShare_FullMethodName,
+		ocmcore.OcmCoreAPI_DeleteOCMCoreShare_FullMethodName,
+	}
 }
 
 // CreateOCMCoreShare is called when an OCM request comes into this reva instance from.
@@ -102,7 +136,7 @@ func (s *service) CreateOCMCoreShare(ctx context.Context, req *ocmcore.CreateOCM
 		return nil, errtypes.NotSupported("share type not supported")
 	}
 
-	now := &typesv1beta1.Timestamp{
+	now := &typespb.Timestamp{
 		Seconds: uint64(time.Now().Unix()),
 	}
 
@@ -132,6 +166,30 @@ func (s *service) CreateOCMCoreShare(ctx context.Context, req *ocmcore.CreateOCM
 		}, nil
 	}
 
+	var permissions *providerpb.ResourcePermissions
+	for _, p := range req.GetProtocols() {
+		if p.GetWebdavOptions() != nil {
+			permissions = p.GetWebdavOptions().GetPermissions().GetPermissions()
+			break
+		}
+	}
+
+	if s.eventStream != nil {
+		if err := events.Publish(ctx, s.eventStream, events.OCMCoreShareCreated{
+			ShareID:       share.Id.OpaqueId,
+			Executant:     share.Creator,
+			Sharer:        share.Creator,
+			GranteeUserID: share.Grantee.GetUserId(),
+			ItemID:        share.RemoteShareId,
+			ResourceName:  share.Name,
+			CTime:         share.Ctime,
+			Permissions:   permissions,
+		}); err != nil {
+			s.log.Error().Err(err).
+				Msg("failed to publish the ocmcore share created event")
+		}
+	}
+
 	return &ocmcore.CreateOCMCoreShareResponse{
 		Status:  status.NewOK(ctx),
 		Id:      share.Id.OpaqueId,
@@ -140,9 +198,92 @@ func (s *service) CreateOCMCoreShare(ctx context.Context, req *ocmcore.CreateOCM
 }
 
 func (s *service) UpdateOCMCoreShare(ctx context.Context, req *ocmcore.UpdateOCMCoreShareRequest) (*ocmcore.UpdateOCMCoreShareResponse, error) {
-	return nil, errtypes.NotSupported("not implemented")
+	grantee := utils.ReadPlainFromOpaque(req.GetOpaque(), "grantee")
+	if grantee == "" {
+		return nil, errtypes.UserRequired("missing remote user id in a metadata")
+	}
+	if req == nil || len(req.Protocols) == 0 {
+		return nil, errtypes.PreconditionFailed("missing protocols in a request")
+	}
+	fileMask := &fieldmaskpb.FieldMask{Paths: []string{"protocols"}}
+
+	user := &userpb.User{Id: ocmuser.DecodeRemoteUserFederatedID(&userpb.UserId{OpaqueId: grantee})}
+	_, err := s.repo.UpdateReceivedShare(ctx, user, &ocm.ReceivedShare{
+		Id: &ocm.ShareId{
+			OpaqueId: req.GetOcmShareId(),
+		},
+		Protocols: req.Protocols,
+	}, fileMask)
+	res := &ocmcore.UpdateOCMCoreShareResponse{}
+	if err == nil {
+		res.Status = status.NewOK(ctx)
+	} else {
+		var notFound errtypes.NotFound
+		if errors.As(err, &notFound) {
+			res.Status = status.NewNotFound(ctx, "remote ocm share not found")
+		} else {
+			res.Status = status.NewInternal(ctx, "error deleting remote ocm share")
+		}
+	}
+	return res, nil
 }
 
 func (s *service) DeleteOCMCoreShare(ctx context.Context, req *ocmcore.DeleteOCMCoreShareRequest) (*ocmcore.DeleteOCMCoreShareResponse, error) {
-	return nil, errtypes.NotSupported("not implemented")
+	grantee := utils.ReadPlainFromOpaque(req.GetOpaque(), "grantee")
+	if grantee == "" {
+		return nil, errtypes.UserRequired("missing remote user id in a metadata")
+	}
+
+	share, err := s.repo.GetReceivedShare(ctx, &userpb.User{Id: ocmuser.DecodeRemoteUserFederatedID(&userpb.UserId{OpaqueId: grantee})}, &ocm.ShareReference{
+		Spec: &ocm.ShareReference_Id{
+			Id: &ocm.ShareId{
+				OpaqueId: req.GetId(),
+			},
+		},
+	})
+	if err != nil {
+		var notFound errtypes.NotFound
+		if errors.As(err, &notFound) {
+			return &ocmcore.DeleteOCMCoreShareResponse{
+				Status: status.NewNotFound(ctx, "remote ocm share not found"),
+			}, nil
+		}
+		return nil, errtypes.InternalError("unable to get share details")
+	}
+
+	granteeUser := &userpb.User{Id: ocmuser.DecodeRemoteUserFederatedID(&userpb.UserId{OpaqueId: grantee})}
+	err = s.repo.DeleteReceivedShare(ctx, granteeUser, &ocm.ShareReference{
+		Spec: &ocm.ShareReference_Id{
+			Id: &ocm.ShareId{
+				OpaqueId: req.GetId(),
+			},
+		},
+	})
+
+	res := &ocmcore.DeleteOCMCoreShareResponse{}
+	if err == nil {
+		res.Status = status.NewOK(ctx)
+
+		if s.eventStream != nil {
+			if err := events.Publish(ctx, s.eventStream, events.OCMCoreShareDelete{
+				ShareID:      share.Id.OpaqueId,
+				Sharer:       share.GetOwner(),
+				Grantee:      ocmuser.DecodeRemoteUserFederatedID(&userpb.UserId{OpaqueId: grantee}),
+				ResourceName: share.Name,
+				CTime:        &typespb.Timestamp{Seconds: uint64(time.Now().Unix())},
+			}); err != nil {
+				s.log.Error().Err(err).
+					Msg("failed to publish the ocmcore share deleted event")
+			}
+		}
+
+	} else {
+		var notFound errtypes.NotFound
+		if errors.As(err, &notFound) {
+			res.Status = status.NewNotFound(ctx, "remote ocm share not found")
+		} else {
+			res.Status = status.NewInternal(ctx, "error deleting remote ocm share")
+		}
+	}
+	return res, nil
 }

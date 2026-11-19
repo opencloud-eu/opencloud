@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -343,6 +344,11 @@ func (sm *Manager) GetReceivedShare(ctx context.Context, user *userpb.User, ref 
 		Mtime:   altResultShare.Mtime,
 		State:   altResult.State,
 	}, nil
+}
+
+// DeleteReceivedShare deletes the share pointed by ref.
+func (sm *Manager) DeleteReceivedShare(ctx context.Context, user *userpb.User, ref *ocm.ShareReference) error {
+	return errtypes.NotSupported("not implemented")
 }
 
 // UpdateReceivedShare updates the received share with share state.

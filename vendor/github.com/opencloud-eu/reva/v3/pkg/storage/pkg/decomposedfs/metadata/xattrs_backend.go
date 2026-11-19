@@ -107,17 +107,26 @@ func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 
 	// listing xattrs failed, try again, either with lock or without
 	if acquireLock {
-		f, err := lockFile(n, filePath+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, b.metrics)
+		lockPath := filePath + filelocks.LockFileSuffix
+		var f *heldLock
+		locked := true
+		if IsReadOnly(ctx) {
+			// lock only an existing lock file, and don't lock without one
+			f, locked, err = lockExisting(n, lockPath, os.O_WRONLY, b.metrics)
+		} else {
+			f, err = lockFile(n, lockPath, os.O_CREATE|os.O_WRONLY, b.metrics)
+		}
 		if err != nil {
 			return nil, err
 		}
-		n.SetLockHeld(true)
-		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
-		defer func() {
-			n.SetLockHeld(false)
-			_ = f.Close()
-		}()
-
+		if locked {
+			n.SetLockHeld(true)
+			// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
+			defer func() {
+				n.SetLockHeld(false)
+				_ = f.Close()
+			}()
+		}
 	}
 	return listXattr(ctx, filePath)
 }
@@ -126,6 +135,23 @@ func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 // unless the caller already holds the node's metadata lock (n.LockHeld()).
 func (b XattrsBackend) All(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
 	return b.getAll(ctx, n, false, !n.LockHeld())
+}
+
+// Reload reads all extended attributes for a node from storage, never from the cache,
+// and updates the cache with them. It acquires a shared file lock unless the caller
+// already holds the node's metadata lock (n.LockHeld()).
+func (b XattrsBackend) Reload(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
+	attribs, err := b.getAll(ctx, n, true, !n.LockHeld())
+	if err != nil {
+		return nil, err
+	}
+	if len(attribs) == 0 {
+		// getAll doesn't cache a node without attributes, so the stale entry would stay
+		if err := b.metaCache.PushToCache(b.cacheKey(n), attribs); err != nil {
+			return nil, err
+		}
+	}
+	return attribs, nil
 }
 
 func (b XattrsBackend) getAll(ctx context.Context, n MetadataNode, skipCache, acquireLock bool) (map[string][]byte, error) {

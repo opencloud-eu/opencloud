@@ -147,10 +147,34 @@ type Tree interface {
 	ResolveSpaceIDIndexEntry(spaceID string) (string, error)
 
 	CreateRevision(ctx context.Context, n *Node, version string) (string, error)
-	ListRevisions(ctx context.Context, ref *provider.Reference) ([]*provider.FileVersion, error)
-	DownloadRevision(ctx context.Context, ref *provider.Reference, revisionKey string, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error)
+	// ListRevisions and DownloadRevision check no permissions: Decomposedfs checks them for the
+	// requests of users, and the revision cleanup (see package revisioncleanup) lists
+	// revisions on behalf of the system, e.g. in async postprocessing, where the context has
+	// no user with suitable permissions.
+	ListRevisions(ctx context.Context, n *Node) ([]*provider.FileVersion, error)
+	// DownloadRevision gets the permissions of the user on n in rp, for the resource info.
+	DownloadRevision(ctx context.Context, n *Node, revisionKey string, rp *provider.ResourcePermissions, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error)
 
 	Propagate(ctx context.Context, node *Node, sizeDiff int64) (err error)
+}
+
+// ValidateRevisionKey makes sure that revisionKey denotes a revision of n.
+//
+// Callers that turn a full revision key into a version for Node.DeleteRevisionUnchecked, like
+// revisioncleanup.PurgeRevisionUnchecked, use it to guard against keys that would hit something
+// else, as Node.DeleteRevisionUnchecked does not check permissions:
+//   - a key of another node, which would delete that node's revision
+//   - the bare '<nodeid>.REV.' prefix, or the node id itself: they would turn into an
+//     empty version, for which Node.DeleteRevisionUnchecked deletes the node's *current* revision,
+//     i.e. reverts the node to its latest revision or purges the node if there is none
+//   - path separators, as the key is turned into a file path
+func ValidateRevisionKey(n *Node, revisionKey string) error {
+	if !strings.HasPrefix(revisionKey, n.ID+RevisionIDDelimiter) ||
+		len(revisionKey) == len(n.ID+RevisionIDDelimiter) ||
+		strings.ContainsAny(revisionKey, `/\`) {
+		return errtypes.BadRequest(fmt.Sprintf("invalid revision key %q for node %q", revisionKey, n.ID))
+	}
+	return nil
 }
 
 // PathLookup defines the interface for the lookup component
@@ -1687,13 +1711,15 @@ func (n *Node) RevertUpload(ctx context.Context, versionID string) error {
 	return nil
 }
 
-// DeleteRevision deletes a revision of the node and returns the blob id of the
+// DeleteRevisionUnchecked deletes a revision of the node and returns the blob id of the
 // deleted revision, so that the caller can delete the blob. If versionID is
 // empty the node's current revision is deleted: the latest stored revision is
 // restored onto the node (or the node is purged when there is none) and the
 // processing flag is removed, unstalling the node. No blob is returned in that
 // case.
-func (n *Node) DeleteRevision(ctx context.Context, versionID string) (string, error) {
+//
+// It checks no permissions, Decomposedfs.DeleteRevision is the variant that does.
+func (n *Node) DeleteRevisionUnchecked(ctx context.Context, versionID string) (string, error) {
 	if versionID != "" {
 		return n.deleteRevision(ctx, n.ID+RevisionIDDelimiter+versionID)
 	}
@@ -1767,6 +1793,56 @@ func (n *Node) deleteRevision(ctx context.Context, revisionID string) (string, e
 	}
 
 	return blobID, nil
+}
+
+// PurgeOnRestoreAttr marks a revision kept for an upload that created the file and was
+// rolled back while a newer upload was processing: restoring it removes the file.
+var PurgeOnRestoreAttr = prefixes.OcPrefix + "purgeonrestore"
+
+// UploadSnapshotAttr marks a revision PrepareUpload kept with versioning disabled, only so
+// that a rollback can hand the node back to the upload it superseded. It is not a version.
+var UploadSnapshotAttr = prefixes.OcPrefix + "uploadsnapshot"
+
+// KeepAfterRestoreAttr marks the revision a restore created of the content it replaced. Its
+// value is the blob id of the restored content: while the file still has it, the revision
+// cleanup keeps the revision, so that the content the user just replaced can't be lost.
+var KeepAfterRestoreAttr = prefixes.OcPrefix + "keepafterrestore"
+
+// RevisionCreatedAttr records when a revision was created, i.e. when the content it holds was
+// replaced, as the time of the server in RFC 3339 format with nanoseconds (UTC). The name of a
+// revision is the modification time of its content instead, which whoever writes the file can
+// choose (X-OC-Mtime, or the mtime of a change on disk with posix). The revision cleanup orders
+// revisions and measures their age by this attribute, so that nobody can date a revision such
+// that the cleanup deletes other ones. Revisions created before it was introduced don't have it,
+// see revisioncleanup.
+// Write and read it with SetRevisionCreated and RevisionCreated, which decide how the time is
+// stored.
+var RevisionCreatedAttr = prefixes.OcPrefix + "revision.created"
+
+// SetRevisionCreated records t as the time revision was created, see RevisionCreatedAttr.
+func SetRevisionCreated(ctx context.Context, backend metadata.Backend, revision metadata.MetadataNode, t time.Time) error {
+	return backend.Set(ctx, revision, RevisionCreatedAttr, []byte(t.UTC().Format(time.RFC3339Nano)))
+}
+
+// RevisionCreated returns the time revision was created, see RevisionCreatedAttr. It fails for
+// a revision created before that time was recorded.
+func RevisionCreated(ctx context.Context, backend metadata.Backend, revision metadata.MetadataNode) (time.Time, error) {
+	created, err := backend.Get(ctx, revision, RevisionCreatedAttr)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Parse(time.RFC3339Nano, string(created))
+}
+
+// KeptForRollback reports whether a revision exists only for a rollback, rather than as a
+// version (see PurgeOnRestoreAttr and UploadSnapshotAttr).
+func KeptForRollback(ctx context.Context, backend metadata.Backend, revision metadata.MetadataNode) bool {
+	for _, attr := range []string{PurgeOnRestoreAttr, UploadSnapshotAttr} {
+		if _, err := backend.Get(ctx, revision, attr); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // RevertLatestRevision reverts the upload that created the node's latest
