@@ -91,7 +91,7 @@ Some actions are left out on purpose:
 
 The audit service writes to stdout, one record per line and nothing else, see `AUDIT_OUTPUT_STDOUT`. Any log agent can pick it up. When the audit service runs with other services in one process or container, their logs share the same stdout; run it in its own container to keep the audit log separate.
 
-With `AUDIT_OUTPUT_OTLP_ENDPOINT` the audit service also sends the records to an OpenTelemetry Collector as OTLP logs over gRPC; use `AUDIT_OUTPUT_OTLP_INSECURE` for a Collector without TLS. Every record is an OpenTelemetry event: the event name is `event.name`, the fields are attributes and the body is the record as JSON. The Collector routes the records to the SIEM, e.g. with its Splunk HEC, Elasticsearch, OpenSearch or syslog exporters. Every record is sent on its own and acknowledged only after the Collector accepted it, so a Collector outage delays the records but loses none.
+With `AUDIT_OUTPUT_OTLP_ENDPOINT` the audit service also sends the records to an OpenTelemetry Collector as OTLP logs over gRPC. The endpoint is `host:port` without a scheme, the audit service does not start with an invalid value. Use `AUDIT_OUTPUT_OTLP_INSECURE` for a Collector without TLS. Every record is an OpenTelemetry event: the event name is `event.name`, the fields are attributes and the body is the record as JSON. The Collector routes the records to the SIEM, e.g. with its Splunk HEC, Elasticsearch, OpenSearch or syslog exporters. Every record is sent on its own and acknowledged only after the Collector accepted it, so a Collector outage delays the records but loses none.
 
 At least one output must be enabled.
 
@@ -99,7 +99,7 @@ At least one output must be enabled.
 
 The services publish the events to the JetStream stream `audit`. The stream is a buffer, not the archive: it keeps the events for `AUDIT_STREAM_MAX_AGE` (default 7 days). Use `AUDIT_STREAM_REPLICAS=3` in a clustered NATS.
 
-The audit service acknowledges an event only after it was written. If it stops or an output fails, the event is delivered again. A record can therefore appear twice after a restart, with the same `event.id`.
+The audit service acknowledges an event only after all outputs wrote it. If an output fails, the audit service keeps the event and writes it to that output again every 5 seconds, the other outputs get it once. The next events wait, so the records stay in order. If the audit service stops before an event is written everywhere, the event is delivered again; a record can therefore appear twice after a restart, with the same `event.id`.
 
 `OC_AUDIT_MODE` decides what a service does when it can't store an event:
 
@@ -128,7 +128,7 @@ The proxy passes the address and the other request details to the services in th
 | `opencloud_audit_publish_duration_seconds` | time to store an event in the stream |
 | `opencloud_audit_records_total` | records handled by the audit service, by result |
 | `opencloud_audit_sink_errors_total` | failed writes to an output |
-| `opencloud_audit_consumer_lag` | events in the stream the audit service has not read yet |
+| `opencloud_audit_consumer_lag` | events in the stream the audit service has not written yet, also the ones waiting for a failed output |
 
 Alert on dropped events and on a growing consumer lag.
 

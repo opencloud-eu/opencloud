@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
+	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -46,6 +50,9 @@ type OTLPConfig struct {
 
 // NewOTLPSink returns a sink exporting to an OTLP gRPC endpoint.
 func NewOTLPSink(ctx context.Context, cfg OTLPConfig) (*OTLPSink, error) {
+	if err := validEndpoint(cfg.Endpoint); err != nil {
+		return nil, fmt.Errorf("invalid OTLP endpoint %q, expected host:port: %w", cfg.Endpoint, err)
+	}
 	opts := []otlploggrpc.Option{otlploggrpc.WithEndpoint(cfg.Endpoint)}
 	if cfg.Insecure {
 		opts = append(opts, otlploggrpc.WithInsecure())
@@ -55,6 +62,25 @@ func NewOTLPSink(ctx context.Context, cfg OTLPConfig) (*OTLPSink, error) {
 		return nil, err
 	}
 	return newOTLPSink(exp, cfg), nil
+}
+
+// validEndpoint checks the endpoint up front, the gRPC client would only fail
+// on every export.
+func validEndpoint(endpoint string) error {
+	if strings.TrimSpace(endpoint) != endpoint {
+		return errors.New("leading or trailing whitespace")
+	}
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return err
+	}
+	if host == "" {
+		return errors.New("missing host")
+	}
+	if p, err := strconv.Atoi(port); err != nil || p < 1 || p > 65535 {
+		return fmt.Errorf("invalid port %q", port)
+	}
+	return nil
 }
 
 func newOTLPSink(exp Exporter, cfg OTLPConfig) *OTLPSink {

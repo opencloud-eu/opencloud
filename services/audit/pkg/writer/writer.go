@@ -20,6 +20,10 @@ import (
 // ConsumerName is the durable consumer of the audit service on the audit stream.
 const ConsumerName = "audit"
 
+// maxAckPending limits the messages delivered to the audit service and not
+// acked yet.
+const maxAckPending = 1000
+
 // Sink writes one audit record, a single line of JSON without the newline.
 type Sink interface {
 	Name() string
@@ -59,28 +63,38 @@ func (s *LineSink) Write(record []byte) error {
 type Message interface {
 	Data() []byte
 	Ack() error
-	NakWithDelay(time.Duration) error
+	Nak() error
+	InProgress() error
 	Term() error
+	Metadata() (*jetstream.MsgMetadata, error)
 }
 
 // Writer writes audit records to its sinks.
 type Writer struct {
 	sinks []Sink
 	log   log.Logger
-	// RetryDelay before a message is delivered again after an output failed.
+	// RetryDelay before a record is written again to an output that failed.
+	// Together with the export timeout it must stay below the ack wait.
 	RetryDelay time.Duration
+	written    *seqWindow
 }
 
 // New returns a writer for the given sinks.
 func New(logger log.Logger, sinks ...Sink) *Writer {
 	registerMetrics()
-	return &Writer{sinks: sinks, log: logger, RetryDelay: 5 * time.Second}
+	return &Writer{sinks: sinks, log: logger, RetryDelay: 5 * time.Second, written: newSeqWindow(4 * maxAckPending)}
 }
 
 // Handle writes one message to all sinks and acks it. A message that is not
-// a record is terminated, it would fail forever. If an output fails, the
-// message is delivered again later.
-func (w *Writer) Handle(msg Message) {
+// a record is terminated, it would fail forever. If an output fails, Handle
+// keeps the message and writes it again after RetryDelay, only to the outputs
+// that failed, until all have it or ctx is done. The other outputs get the
+// record once, and the records stay in order.
+//
+// While Handle retries, messages fetched ahead can run out of their ack wait
+// and NATS sends them again. Handle acks such a copy of a record it already
+// wrote without writing it again. Handle is not safe for concurrent use.
+func (w *Writer) Handle(ctx context.Context, msg Message) {
 	data := msg.Data()
 	var rec audit.Record
 	if err := json.Unmarshal(data, &rec); err != nil || rec.EventID == "" || rec.EventName == "" {
@@ -90,13 +104,44 @@ func (w *Writer) Handle(msg Message) {
 		return
 	}
 
-	for _, s := range w.sinks {
-		if err := s.Write(data); err != nil {
-			sinkErrorsTotal.WithLabelValues(s.Name()).Inc()
-			w.log.Error().Err(err).Str("sink", s.Name()).Str("event_id", rec.EventID).Msg("audit record not written, retrying")
-			_ = msg.NakWithDelay(w.RetryDelay)
-			return
+	var seq uint64
+	if md, err := msg.Metadata(); err == nil {
+		seq = md.Sequence.Stream
+	}
+	if seq > 0 && w.written.has(seq) {
+		_ = msg.Ack()
+		recordsTotal.WithLabelValues("duplicate").Inc()
+		return
+	}
+
+	pending := w.sinks
+	for {
+		var failed []Sink
+		for _, s := range pending {
+			if err := s.Write(data); err != nil {
+				sinkErrorsTotal.WithLabelValues(s.Name()).Inc()
+				w.log.Error().Err(err).Str("sink", s.Name()).Str("event_id", rec.EventID).Msg("audit record not written, retrying")
+				failed = append(failed, s)
+			}
 		}
+		if len(failed) == 0 {
+			break
+		}
+		pending = failed
+		select {
+		case <-ctx.Done():
+			// the next start writes it again, the other outputs then get a duplicate
+			_ = msg.Nak()
+			return
+		case <-time.After(w.RetryDelay):
+		}
+		// keep the message, NATS would send it again after the ack wait
+		if err := msg.InProgress(); err != nil {
+			w.log.Error().Err(err).Str("event_id", rec.EventID).Msg("could not extend the ack wait of the audit record")
+		}
+	}
+	if seq > 0 {
+		w.written.add(seq)
 	}
 	if err := msg.Ack(); err != nil {
 		// the record is written, a redelivery only causes a duplicate with the same event.id
@@ -117,7 +162,7 @@ func (w *Writer) Run(ctx context.Context, js jetstream.JetStream, cfg audit.Stre
 		DeliverPolicy: jetstream.DeliverAllPolicy,
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		AckWait:       30 * time.Second,
-		MaxAckPending: 1000,
+		MaxAckPending: maxAckPending,
 	})
 	if err != nil {
 		return err
@@ -143,7 +188,7 @@ func (w *Writer) Run(ctx context.Context, js jetstream.JetStream, cfg audit.Stre
 			w.log.Error().Err(err).Msg("reading the audit stream failed")
 			continue
 		}
-		w.Handle(msg)
+		w.Handle(ctx, msg)
 	}
 }
 
@@ -159,7 +204,39 @@ func (w *Writer) reportLag(ctx context.Context, cons jetstream.Consumer) {
 			if err != nil {
 				continue
 			}
-			consumerLag.Set(float64(info.NumPending))
+			consumerLag.Set(lag(info))
 		}
 	}
+}
+
+// lag counts the records not written yet: the ones not delivered and the ones
+// delivered but not acked, e.g. while an output is down.
+func lag(info *jetstream.ConsumerInfo) float64 {
+	return float64(info.NumPending) + float64(info.NumAckPending)
+}
+
+// seqWindow remembers the last stream sequences written. A copy NATS sends
+// again is at most maxAckPending messages behind the original.
+type seqWindow struct {
+	set  map[uint64]struct{}
+	ring []uint64
+	next int
+}
+
+func newSeqWindow(size int) *seqWindow {
+	return &seqWindow{set: make(map[uint64]struct{}, size), ring: make([]uint64, size)}
+}
+
+func (w *seqWindow) has(seq uint64) bool {
+	_, ok := w.set[seq]
+	return ok
+}
+
+func (w *seqWindow) add(seq uint64) {
+	if old := w.ring[w.next]; old != 0 {
+		delete(w.set, old)
+	}
+	w.ring[w.next] = seq
+	w.set[seq] = struct{}{}
+	w.next = (w.next + 1) % len(w.ring)
 }

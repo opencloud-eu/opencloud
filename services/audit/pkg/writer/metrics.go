@@ -12,21 +12,21 @@ var (
 		Namespace: "opencloud",
 		Subsystem: "audit",
 		Name:      "records_total",
-		Help:      "Audit records handled by the audit service, by result (written, invalid).",
+		Help:      "Audit records handled by the audit service, by result (written, duplicate, invalid).",
 	}, []string{"result"})
 
 	sinkErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "opencloud",
 		Subsystem: "audit",
 		Name:      "sink_errors_total",
-		Help:      "Failed writes to an output; the record is delivered again.",
+		Help:      "Failed writes to an output; the record is written again.",
 	}, []string{"sink"})
 
 	consumerLag = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "opencloud",
 		Subsystem: "audit",
 		Name:      "consumer_lag",
-		Help:      "Audit records in the stream that the audit service has not read yet.",
+		Help:      "Audit records in the stream that the audit service has not written yet.",
 	})
 
 	metricsOnce sync.Once

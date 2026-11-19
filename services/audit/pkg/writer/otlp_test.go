@@ -72,10 +72,28 @@ func TestOTLPSinkReportsExportErrors(t *testing.T) {
 func TestWriterRetriesWhenTheCollectorIsDown(t *testing.T) {
 	exp := &fakeExporter{err: errors.New("collector unavailable")}
 	w := New(log.NopLogger(), newOTLPSink(exp, OTLPConfig{Service: "audit"}))
+	w.RetryDelay = time.Hour
+	ctx, cancel := context.WithCancel(context.Background())
 	msg := &fakeMsg{data: []byte(fullRecord)}
 
-	w.Handle(msg)
+	done := make(chan struct{})
+	go func() { w.Handle(ctx, msg); close(done) }()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	<-done
 
 	assert.True(t, msg.naked)
 	assert.False(t, msg.acked)
+}
+
+func TestNewOTLPSinkRejectsInvalidEndpoints(t *testing.T) {
+	for _, ep := range []string{"127.0.0.1:4317 ", " 127.0.0.1:4317", "otel-collector", "http://otel-collector:4317", ":4317", "otel-collector:http", "otel-collector:0"} {
+		_, err := NewOTLPSink(context.Background(), OTLPConfig{Endpoint: ep})
+		assert.Error(t, err, "%q", ep)
+	}
+	for _, ep := range []string{"otel-collector:4317", "127.0.0.1:4317", "[::1]:4317"} {
+		s, err := NewOTLPSink(context.Background(), OTLPConfig{Endpoint: ep, Insecure: true})
+		require.NoError(t, err, ep)
+		_ = s.Shutdown(context.Background())
+	}
 }
