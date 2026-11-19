@@ -76,6 +76,17 @@ Records contain no human readable message. Passwords, tokens and file contents a
 | | `personal_data` | export |
 | Security | `access` | denied |
 
+Shares, space members and public links carry what was granted in `change.after`, a deleted one in `change.before`:
+
+| Key | Content |
+|---|---|
+| `recipient_type`, `recipient` | `user` or `group` and its ID; on every share and space member record |
+| `role` | the role of the permissions, e.g. `viewer`, `editor`, `file-editor`, `spaceviewer`, `spaceeditor`, `manager`, `uploader`, `denied`; a link without permissions is `internal`. The unified roles are built from these roles. Permissions that match no role are `custom`, with the permission names in `permissions` |
+| `expiration` | RFC 3339, empty when it was removed |
+| `password` | public links: whether the link has a password, never the password |
+
+An update only lists what it changed, e.g. only `role`. `display_name`, `description`, `notify_uploads` and `notify_uploads_extra_recipients` are link updates; the latter only says whether there are extra recipients, not their addresses.
+
 The catalog is defined in reva's `pkg/audit`. Some of its events are not emitted yet: app and guest tokens, previews, open in app, copies, deleted versions, the malware finding, OCM, settings, configuration and CLI commands, app role and sharing role definitions, and `access.denied`. `group.update` is only recorded when it fails.
 
 Some actions are left out on purpose:
