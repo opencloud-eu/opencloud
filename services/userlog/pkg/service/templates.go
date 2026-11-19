@@ -49,6 +49,17 @@ var (
 		Message: l10n.Template("{user} unshared {resource} with you"),
 	}
 
+	// used for federated shares when the sharer cannot be resolved
+	ShareCreatedByProvider = NotificationTemplate{
+		Subject: l10n.Template("Resource shared"),
+		Message: l10n.Template("Someone at {provider} shared {resource} with you"),
+	}
+
+	ShareRemovedByProvider = NotificationTemplate{
+		Subject: l10n.Template("Resource unshared"),
+		Message: l10n.Template("Someone at {provider} unshared {resource} with you"),
+	}
+
 	Mention = NotificationTemplate{
 		Subject: l10n.Template("You have been mentioned"),
 		Message: l10n.Template("{user} mentioned you in {resource}"),
@@ -72,6 +83,7 @@ var _placeholders = map[string]string{
 	"{resource}": "{{ .resourcename }}",
 	"{virus}":    "{{ .virusdescription }}",
 	"{date}":     "{{ .date }}",
+	"{provider}": "{{ .provider }}",
 }
 
 // NotificationTemplate is the data structure for the notifications
