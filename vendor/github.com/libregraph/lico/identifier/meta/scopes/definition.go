@@ -21,5 +21,11 @@ package scopes
 type Definition struct {
 	Priority    int    `json:"priority" yaml:"priority"`
 	Description string `json:"description,omitempty" yaml:"description"`
-	ID          string `json:"id,omitempty"`
+	// Descriptions holds per locale translations of Description, keyed by the
+	// locale tags the web app knows (`de`, `fr`, `zh-CN`). Optional, and matched
+	// case insensitively with a fallback on the primary subtag, so a `de-DE`
+	// entry also serves a `de` visitor. Description is used whenever nothing
+	// here fits the active locale.
+	Descriptions map[string]string `json:"descriptions,omitempty" yaml:"descriptions"`
+	ID           string            `json:"id,omitempty"`
 }

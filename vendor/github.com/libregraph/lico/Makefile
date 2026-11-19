@@ -8,10 +8,8 @@ GOFMT   ?= gofmt
 GOLINT  ?= golangci-lint
 DLV     ?= dlv
 
-GO2XUNIT ?= go2xunit
-GOCOV    ?= gocov
-GOCOVXML ?= gocov-xml
-GOCOVMERGE ?= gocovmerge
+GOTESTSUM ?= gotestsum
+GOCOVERCOBERTURA ?= gocover-cobertura
 
 CHGLOG ?= git-chglog
 
@@ -34,7 +32,10 @@ VERSION ?= $(shell git describe --tags --always --dirty --match=v* 2>/dev/null |
 			cat $(CURDIR)/.version 2> /dev/null || echo 0.0.0-unreleased)
 PKGS     = $(or $(PKG),$(shell $(GO) list -mod=readonly ./... | grep -v "^$(PACKAGE)/vendor/"))
 TESTPKGS = $(shell $(GO) list -mod=readonly -f '{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' $(PKGS) 2>/dev/null)
-CMDS     = $(or $(CMD),$(addprefix cmd/,$(notdir $(shell find "$(PWD)/cmd/" -type d))))
+# CURDIR, because make always sets it. PWD comes from a shell, and the
+# Dockerfile.build CMD execs make with none, which would leave this find
+# looking at /cmd/ and resolve no command targets at all.
+CMDS     = $(or $(CMD),$(addprefix cmd/,$(notdir $(shell find "$(CURDIR)/cmd/" -type d))))
 TIMEOUT  = 30
 
 GOLINT_ARGS ?= --new
@@ -128,8 +129,8 @@ $(TEST_XML_TARGETS): test-xml
 .PHONY: test-xml
 test-xml: ; $(info running $(NAME:%=% )tests ...)	@
 	@mkdir -p test
-	2>&1 CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s $(ARGS) -v $(TESTPKGS) | tee test/tests.output
-	test -s test/tests.output && $(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
+	@CGO_ENABLED=1 $(GOTESTSUM) --junitfile test/tests.xml --format standard-verbose \
+		-- -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
 
 COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
 COVERAGE_XML = $(COVERAGE_DIR)/coverage.xml
@@ -137,20 +138,15 @@ COVERAGE_HTML = $(COVERAGE_DIR)/coverage.html
 .PHONY: test-coverage
 test-coverage: COVERAGE_DIR := $(CURDIR)/test/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 test-coverage: ; $(info running coverage tests ...)
-	@mkdir -p $(COVERAGE_DIR)/coverage
-	@rm -f test/tests.output
-	@for pkg in $(TESTPKGS); do \
-		CGO_ENABLED=1 $(GO) test -timeout $(TIMEOUT)s -v \
-			-coverpkg=$$($(GO) list -mod=readonly -f '{{ join .Deps "\n" }}' $$pkg | \
-					grep '^$(PACKAGE)/' | grep -v '^$(PACKAGE)/vendor/' | \
-					tr '\n' ',')$$pkg \
-			-covermode=atomic \
-			-coverprofile="$(COVERAGE_DIR)/coverage/`echo $$pkg | tr "/" "-"`.cover" $$pkg | tee -a test/tests.output ;\
-	done
-	@$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
-	@$(GOCOVMERGE) $(COVERAGE_DIR)/coverage/*.cover > $(COVERAGE_PROFILE)
+	@mkdir -p $(COVERAGE_DIR)
+	@CGO_ENABLED=1 $(GOTESTSUM) --junitfile test/tests.xml --format standard-verbose \
+		-- -timeout $(TIMEOUT)s \
+		-coverpkg=./... \
+		-covermode=atomic \
+		-coverprofile=$(COVERAGE_PROFILE) \
+		$(TESTPKGS)
 	@$(GO) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
-	@$(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
+	@$(GOCOVERCOBERTURA) < $(COVERAGE_PROFILE) > $(COVERAGE_XML)
 
 # Debug
 
@@ -179,8 +175,18 @@ licenses: vendor ; $(info building licenses files ...)
 
 3rdparty-LICENSES.md: licenses
 
+# The tarball takes whatever bin/ happens to hold, so packaging asserts there is
+# something to ship first. The emptiness test on $(CMDS) carries its own weight:
+# an empty list makes the per-command loop pass by never running once.
+.PHONY: dist-check
+dist-check: ; $(info checking dist contents ...)	@
+	@test -n "$(CMDS)" || { echo "dist: no command targets resolved under $(CURDIR)/cmd"; exit 1; }
+	@for cmd in $(notdir $(CMDS)); do \
+		test -x "bin/$$cmd" || { echo "dist: bin/$$cmd missing or not executable, run make first"; exit 1; }; \
+	done
+
 .PHONY: dist
-dist: 3rdparty-LICENSES.md ; $(info building dist tarball ...)
+dist: 3rdparty-LICENSES.md | dist-check ; $(info building dist tarball ...)
 	@rm -rf "dist/${PACKAGE_NAME}-${VERSION}"
 	@mkdir -p "dist/${PACKAGE_NAME}-${VERSION}"
 	@mkdir -p "dist/${PACKAGE_NAME}-${VERSION}/scripts"
@@ -196,6 +202,11 @@ dist: 3rdparty-LICENSES.md ; $(info building dist tarball ...)
 	cp -avf ../scripts/licod.cfg "${PACKAGE_NAME}-${VERSION}/scripts" && \
 	tar --owner=0 --group=0 -czvf ${PACKAGE_NAME}-${VERSION}.tar.gz "${PACKAGE_NAME}-${VERSION}" && \
 	cd ..
+	@for cmd in $(notdir $(CMDS)); do \
+		tar -tzf "dist/${PACKAGE_NAME}-${VERSION}.tar.gz" | \
+			grep -qx "${PACKAGE_NAME}-${VERSION}/$$cmd" || \
+			{ echo "dist: $$cmd is not in the tarball"; exit 1; }; \
+	done
 
 .PHONE: changelog
 changelog: ; $(info updating changelog ...)

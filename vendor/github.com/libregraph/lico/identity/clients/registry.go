@@ -43,6 +43,10 @@ type Registry struct {
 	allowDynamicClientRegistration bool
 	dynamicClientSecretDuration    time.Duration
 
+	// metadataDocuments resolves client IDs which are the URL of a Client ID
+	// Metadata Document. Nil unless the operator allowed at least one host.
+	metadataDocuments *metadataDocumentFetcher
+
 	StatelessCreator   func(ctx context.Context, signingMethod jwt.SigningMethod, claims jwt.Claims) (string, error)
 	StatelessValidator func(token *jwt.Token) (interface{}, error)
 
@@ -59,7 +63,9 @@ type contextKey int
 var registryKey contextKey
 
 // NewRegistry created a new client Registry with the provided parameters.
-func NewRegistry(ctx context.Context, trustedURI *url.URL, registrationConfFilepath string, allowDynamicClientRegistration bool, dynamicClientSecretDuration time.Duration, logger logrus.FieldLogger) (*Registry, error) {
+// Client IDs which are the URL of a Client ID Metadata Document are accepted
+// when they are on one of the provided metadata document hosts.
+func NewRegistry(ctx context.Context, trustedURI *url.URL, registrationConfFilepath string, allowDynamicClientRegistration bool, dynamicClientSecretDuration time.Duration, metadataDocumentHosts []string, logger logrus.FieldLogger) (*Registry, error) {
 	registryData := &RegistryData{}
 
 	if registrationConfFilepath != "" {
@@ -75,12 +81,19 @@ func NewRegistry(ctx context.Context, trustedURI *url.URL, registrationConfFilep
 		}
 	}
 
+	metadataDocuments, err := newMetadataDocumentFetcher(metadataDocumentHosts, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &Registry{
 		trustedURI: trustedURI,
 		clients:    make(map[string]*ClientRegistration),
 
 		allowDynamicClientRegistration: allowDynamicClientRegistration,
 		dynamicClientSecretDuration:    dynamicClientSecretDuration,
+
+		metadataDocuments: metadataDocuments,
 
 		logger: logger,
 	}
@@ -131,6 +144,20 @@ func (r *Registry) Register(client *ClientRegistration) error {
 		return errors.New("invalid client_id")
 	}
 
+	if err := prepareRedirectURIs(client); err != nil {
+		return err
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.clients[client.ID] = client
+	return nil
+}
+
+// prepareRedirectURIs checks the redirect URIs of the provided registration
+// against its application type, and fills in the application type and the
+// origins where they are left to their defaults.
+func prepareRedirectURIs(client *ClientRegistration) error {
 	if !client.Insecure && len(client.RedirectURIs) == 0 {
 		return errors.New("no redirect_uris")
 	}
@@ -181,9 +208,6 @@ func (r *Registry) Register(client *ClientRegistration) error {
 		return fmt.Errorf("unknown application_type: %v", client.ApplicationType)
 	}
 
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-	r.clients[client.ID] = client
 	return nil
 }
 
@@ -290,6 +314,17 @@ func (r *Registry) Lookup(ctx context.Context, clientID string, clientSecret str
 		registration, _ = r.getDynamicClient(clientID)
 	}
 
+	// Lookup clients described by a metadata document at their client ID. A
+	// document which cannot be had is the answer, never the implicit trust of
+	// a redirect to ourselves.
+	if registration == nil && r.metadataDocuments != nil && IsMetadataDocumentClientID(clientID) {
+		trusted = false
+		registration, err = r.metadataDocuments.Get(ctx, clientID)
+		if err != nil {
+			return nil, fmt.Errorf("unknown client_id: %w", err)
+		}
+	}
+
 	if registration != nil {
 		redirectURIBase := &url.URL{
 			Scheme: redirectURI.Scheme,
@@ -321,14 +356,28 @@ func (r *Registry) Lookup(ctx context.Context, clientID string, clientSecret str
 		"known":        registration != nil,
 	}).Debugln("identifier client lookup")
 
-	return &Details{
+	details := &Details{
 		ID:          clientID,
 		RedirectURI: redirecURIString,
 		DisplayName: displayName,
 		Trusted:     trusted,
 
 		Registration: registration,
-	}, nil
+	}
+	if registration != nil {
+		// Nobody vouches for a client which registered itself or which
+		// describes itself, so the consent screen has to say so.
+		details.Unverified = registration.Dynamic || registration.MetadataDocument
+		details.ClaimedName = registration.ClaimedName
+	}
+
+	return details, nil
+}
+
+// MetadataDocumentsSupported returns true if client IDs which are the URL of a
+// Client ID Metadata Document are accepted.
+func (r *Registry) MetadataDocumentsSupported() bool {
+	return r.metadataDocuments != nil
 }
 
 // Get returns the registered clients registration for the provided client ID.
@@ -338,6 +387,15 @@ func (r *Registry) Get(ctx context.Context, clientID string) (*ClientRegistratio
 	registration, ok := r.clients[clientID]
 	r.mutex.RUnlock()
 	if ok {
+		return registration, true
+	}
+
+	if r.metadataDocuments != nil && IsMetadataDocumentClientID(clientID) {
+		registration, err := r.metadataDocuments.Get(ctx, clientID)
+		if err != nil {
+			r.logger.WithError(err).WithField("client_id", clientID).Debugln("client metadata document lookup failed")
+			return nil, false
+		}
 		return registration, true
 	}
 

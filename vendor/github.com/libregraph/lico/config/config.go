@@ -40,4 +40,9 @@ type Config struct {
 	AllowClientGuests              bool
 	AllowClientSignedLogins        bool
 	AllowDynamicClientRegistration bool
+	RequirePKCE                    bool
+
+	// ClientIDMetadataDocumentHosts are the hosts whose Client ID Metadata
+	// Documents are fetched, "*" for any public host. None disables them.
+	ClientIDMetadataDocumentHosts []string
 }

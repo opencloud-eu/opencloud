@@ -26,6 +26,7 @@ import (
 	identityAuthorities "github.com/libregraph/lico/identity/authorities"
 	identityClients "github.com/libregraph/lico/identity/clients"
 	identityManagers "github.com/libregraph/lico/identity/managers"
+	identityResources "github.com/libregraph/lico/identity/resources"
 	"github.com/libregraph/lico/managers"
 	codeManagers "github.com/libregraph/lico/oidc/code/managers"
 )
@@ -71,7 +72,7 @@ func newManagers(ctx context.Context, bs *bootstrap) (*managers.Managers, error)
 	mgrs.Set("code", code)
 
 	// Identifier client registry manager.
-	clients, err := identityClients.NewRegistry(ctx, bs.config.IssuerIdentifierURI, bs.config.IdentifierRegistrationConf, bs.config.Config.AllowDynamicClientRegistration, time.Duration(bs.config.DyamicClientSecretDurationSeconds)*time.Second, logger)
+	clients, err := identityClients.NewRegistry(ctx, bs.config.IssuerIdentifierURI, bs.config.IdentifierRegistrationConf, bs.config.Config.AllowDynamicClientRegistration, time.Duration(bs.config.DyamicClientSecretDurationSeconds)*time.Second, bs.config.Config.ClientIDMetadataDocumentHosts, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client registry: %v", err)
 	}
@@ -83,6 +84,13 @@ func newManagers(ctx context.Context, bs *bootstrap) (*managers.Managers, error)
 		return nil, fmt.Errorf("failed to create authorities registry: %v", err)
 	}
 	mgrs.Set("authorities", authorities)
+
+	// Protected resource registry manager.
+	resources, err := identityResources.NewRegistry(ctx, bs.config.IdentifierRegistrationConf, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource registry: %v", err)
+	}
+	mgrs.Set("resources", resources)
 
 	return mgrs, nil
 }

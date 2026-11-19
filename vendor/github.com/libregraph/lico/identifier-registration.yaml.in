@@ -71,6 +71,46 @@ clients:
 #    redirect_uris:
 #      - http://localhost
 
+# A public client, as a native application or a command line tool is: it has no
+# secret to keep, so it gets none, and its code exchange is bound by PKCE and by
+# its redirect URI instead. require_pkce refuses an exchange for a code which
+# was requested without a code challenge, and is what every dynamically
+# registered client gets. The port of a loopback redirect URI is ignored when
+# matching, so a tool which listens on a free port needs no entry per port.
+#  - id: mcp-inspector
+#    name: MCP Inspector
+#    application_type: native
+#    token_endpoint_auth_method: none
+#    require_pkce: yes
+#    redirect_uris:
+#      - http://127.0.0.1:6274/oauth/callback
+
+# Protected resource registry. A resource is something an access token can be
+# issued for, an MCP server for example, named by the resource parameter of
+# RFC 8707. Its id is the canonical URI of that resource and is what ends up in
+# the audience of the access token, so it must be exactly the value the
+# resource itself publishes. Only https is allowed, except on localhost.
+#
+# scopes are the ones the resource accepts. A request naming this resource is
+# narrowed to them, so a scope missing here never reaches the token, not even
+# when a client registration adds it implicitly. openid and offline_access are
+# exempt, being about the client rather than a permission of the resource.
+#
+# implicit_scopes are granted for this resource whether a client asked for them
+# or not, and are exempt from the narrowing. They are the place for a scope
+# which has to reach the resource without every client having to know about it.
+#
+# Every scope named in either list must also be defined in the scopes
+# configuration file, otherwise startup fails.
+resources:
+#  - id: https://mcp.example.com/mcp
+#    name: Example MCP server
+#    scopes:
+#      - Example.Mcp.Tools
+#      - Example.Mcp.Files.Read
+#    implicit_scopes:
+#      - LibgreGraph.UUID
+
 # External authority registry.
 authorities:
 #  - id: my-univention-oidc

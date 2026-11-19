@@ -1,0 +1,20 @@
+# Bun configuration for the identifier web app.
+#
+# The minimum Bun this project needs is recorded in package.json
+# "engines.bun", and the version CI installs in .bun-version. Bun 1.4 reads
+# neither; providing a suitable Bun is up to whoever runs the build.
+
+[run]
+# Point "node" at the Bun binary for everything bun runs. Package binaries
+# carry a "#!/usr/bin/env node" shebang, vite among them, so without this a
+# Node install that happens to be on PATH would run the build instead of Bun.
+# Equivalent to passing --bun to every bun run.
+bun = true
+
+[install]
+# Only resolve package versions that have been public for three days, so a
+# compromised release cannot enter the tree the hour it is published. This
+# applies to bun add and bun update, which pick new versions; installs from
+# the committed bun.lock are unaffected, so CI and release builds do not
+# change. The value is in seconds.
+minimumReleaseAge = 259200
