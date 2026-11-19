@@ -27,6 +27,7 @@ import (
 
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	ocmshare "github.com/opencloud-eu/reva/v3/pkg/ocm/share"
 	utils "github.com/opencloud-eu/reva/v3/pkg/utils"
 )
@@ -38,7 +39,7 @@ type Protocols []Protocol
 // in the OCM share.
 type Protocol interface {
 	// ToOCMProtocol convert the protocol to a ocm Protocol struct
-	ToOCMProtocol() *ocm.Protocol
+	ToOCMProtocol(*typesv1beta1.Opaque) *ocm.Protocol
 }
 
 // protocols supported by the OCM API
@@ -81,7 +82,8 @@ func (w *WebDAV) UnmarshalJSON(data []byte) error {
 }
 
 // ToOCMProtocol convert the protocol to a ocm Protocol struct.
-func (w *WebDAV) ToOCMProtocol() *ocm.Protocol {
+func (w *WebDAV) ToOCMProtocol(o *typesv1beta1.Opaque) *ocm.Protocol {
+	resourceType := utils.ReadPlainFromOpaque(o, "resourceType")
 	perms := &ocm.SharePermissions{
 		Permissions: &providerv1beta1.ResourcePermissions{},
 	}
@@ -97,12 +99,11 @@ func (w *WebDAV) ToOCMProtocol() *ocm.Protocol {
 		case "write":
 			perms.Permissions.InitiateFileUpload = true
 			perms.Permissions.RestoreRecycleItem = true
-			perms.Permissions.CreateContainer = true
-			perms.Permissions.Delete = true
-			perms.Permissions.Move = true
-			perms.Permissions.ListGrants = true
-		case "share":
-			perms.Reshare = true
+			if resourceType == "folder" {
+				perms.Permissions.Move = true
+				perms.Permissions.CreateContainer = true
+				perms.Permissions.Delete = true
+			}
 		}
 	}
 
@@ -116,7 +117,7 @@ type Webapp struct {
 }
 
 // ToOCMProtocol convert the protocol to a ocm Protocol struct.
-func (w *Webapp) ToOCMProtocol() *ocm.Protocol {
+func (w *Webapp) ToOCMProtocol(_ *typesv1beta1.Opaque) *ocm.Protocol {
 	return ocmshare.NewWebappProtocol(w.URITemplate, utils.GetAppViewMode(w.ViewMode))
 }
 

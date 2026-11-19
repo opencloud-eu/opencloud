@@ -170,6 +170,12 @@ func (s *service) ForwardInvite(ctx context.Context, req *invitepb.ForwardInvite
 		return nil, err
 	}
 
+	if req.GetOriginSystemProvider().Domain == s.conf.ProviderDomain {
+		return &invitepb.ForwardInviteResponse{
+			Status: status.NewInvalid(ctx, "can not accept an invite from the same instance"),
+		}, nil
+	}
+
 	// Accept the invitation on the remote OCM provider
 	remoteUser, err := s.ocmClient.InviteAccepted(ctx, ocmEndpoint, &client.InviteAcceptedRequest{
 		Token:             req.InviteToken.GetToken(),

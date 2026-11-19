@@ -69,7 +69,7 @@ func (s *svc) DeleteOCMCoreShare(ctx context.Context, req *ocmcore.DeleteOCMCore
 
 	res, err := c.DeleteOCMCoreShare(ctx, req)
 	if err != nil {
-		return nil, errors.Wrap(err, "gateway: error calling UpdateOCMCoreShare")
+		return nil, errors.Wrap(err, "gateway: error calling DeleteOCMCoreShare")
 	}
 
 	return res, nil
