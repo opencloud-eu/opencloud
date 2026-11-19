@@ -87,6 +87,8 @@ Shares, space members and public links carry what was granted in `change.after`,
 
 An update only lists what it changed, e.g. only `role`. `display_name`, `description`, `notify_uploads` and `notify_uploads_extra_recipients` are link updates; the latter only says whether there are extra recipients, not their addresses.
 
+`space.update` lists what changed in `change.after`: `name`, `description`, `alias`, and `image` and `readme` with the ID of the file. An empty value means the attribute was removed.
+
 The catalog is defined in reva's `pkg/audit`. Some of its events are not emitted yet: app and guest tokens, previews, open in app, copies, deleted versions, the malware finding, OCM, settings, configuration and CLI commands, app role and sharing role definitions, and `access.denied`. `group.update` is only recorded when it fails.
 
 Some actions are left out on purpose:
