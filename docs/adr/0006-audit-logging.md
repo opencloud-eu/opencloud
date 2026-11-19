@@ -163,6 +163,14 @@ One line of JSON per event:
 No human readable message. The SIEM or a viewer renders text from name and
 fields.
 
+`target` is the object as it was before the action, new values go into
+`change.after`. A rename keeps the old name in `target.name`. `target.path` is
+the path in the space of `target.space.id`, also for actions through a share or
+a public link, so the records of one file match no matter who acted on it.
+
+Whatever is done through a public link has the link as actor, even though it
+runs with the user of the link owner.
+
 ### Event catalog
 
 Every event is defined once in Go: name, codes, OCSF mapping, required fields.
@@ -210,17 +218,27 @@ hits the rate limit is `opencloud.guest_token.create` with `outcome: denied` and
 failures that have no more specific event.
 
 `file.download` and `folder.download` (zip from the archiver) are emitted when
-the download is done, not when it starts.
+the download is done, not when it starts. Uploads and downloads are only
+recorded for requests a client sent. Transfers by OpenCloud itself, e.g. for a
+copy, thumbnails or search, are not.
 
 `app_role` are the roles in the settings service (Admin, Space Admin, User, User
 Light). `sharing_role` are the unified roles used for shares and space members.
+Share, space member and public link records name the role by the reva role the
+unified role is built from, e.g. `viewer`, `file-editor` or `spaceeditor`, and
+the recipient by its ID.
 
 Logout and session expiry happen at the IdP. OpenCloud only sees the backchannel
 logout, everything else comes from the IdP's own events (see Output and SIEM).
 
+`auth.login` is the first access token of an OIDC session and client. With a
+session ID (`sid`) in the token, as with Keycloak, a renewed token is no login.
+Without one, e.g. with the built-in IdP, every new token counts.
+
 A policy decides what gets written. Ordered rules, first match wins, like the
 Kubernetes audit policy. Rules match on event name (wildcards), actor type and
-tenant and set the level `none`, `metadata` (default) or `detail`.
+tenant and set the level `none`, `metadata` (default) or `detail`. Until the
+policy exists, everything is written at `detail`.
 
 ### Output and SIEM
 
@@ -266,7 +284,14 @@ The events cost more than the context:
 - reads make the volume: `file.preview` is opening a file in the preview app,
   thumbnails are not audited, otherwise a folder with 200 images would write
   200 events
-- `public_link.access` is emitted once per access, not on every token lookup
+- `public_link.access` is emitted once per link and client within 30 minutes,
+  not on every token lookup; every failed attempt is recorded
+- a request through a share, a public link or by ID doesn't carry the path in
+  the space, the storage driver walks up the parents for it. The permission
+  check walks the same parents, so they are cached. Requests from the space
+  root carry the path. We chose this over the path the recipient sees: that
+  needs the received share in the storage provider and doesn't exist for links.
+  With audit off, the drivers look up nothing
 
 A rough number: 10,000 active users with 50 audited actions per day are 500,000
 events or about 0.5 GB of JSON per day, 1.5 GB in the stream with three
@@ -282,7 +307,10 @@ logs.
 
 Bad: breaking change for everyone who parses the legacy format, that is why we
 keep it one major release. Reva needs changes in the events middleware. One more
-stream to size and monitor. `strict` mode makes requests depend on NATS.
+stream to size and monitor. `strict` mode makes requests depend on NATS. An
+output that fails holds back every record behind it on all outputs, so the
+records stay in order and none is written twice. A Collector outage also stops
+stdout.
 
 ### Implementation Steps
 
