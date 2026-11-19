@@ -10,10 +10,11 @@ import (
 type Config struct {
 	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
 
-	Service Service `yaml:"-"`
-	App     App     `yaml:"app"`
-	Font    Font    `yaml:"font"`
-	Store   Store   `yaml:"store"`
+	Service  Service  `yaml:"-"`
+	App      App      `yaml:"app"`
+	Font     Font     `yaml:"font"`
+	Settings Settings `yaml:"settings"`
+	Store    Store    `yaml:"store"`
 
 	TokenManager *TokenManager `yaml:"token_manager"`
 
