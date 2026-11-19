@@ -84,10 +84,7 @@ func AuditContext(next http.Handler) http.Handler {
 		if rc.AuthMethod == AuthMethodOIDC {
 			claims := oidc.FromContext(ctx)
 			rc.SessionID = stringClaim(claims, "sid")
-			rc.ClientID = stringClaim(claims, "azp")
-			if rc.ClientID == "" {
-				rc.ClientID = stringClaim(claims, "client_id")
-			}
+			rc.ClientID = oidcClientID(claims)
 		}
 
 		if !rc.IsZero() {
@@ -104,9 +101,17 @@ func stringClaim(claims map[string]any, name string) string {
 	return s
 }
 
+// oidcClientID returns the OIDC client a token was issued to.
+func oidcClientID(claims map[string]any) string {
+	if c := stringClaim(claims, "azp"); c != "" {
+		return c
+	}
+	return stringClaim(claims, "client_id")
+}
+
 // auditLogin reports a new login session. ctx carries the user and the
 // request context; app tokens and basic auth authenticate every request, so
-// only new OIDC sessions count as logins.
+// only new OIDC sessions count as logins, see OIDCAuthenticator.newLogin.
 func auditLogin(ctx context.Context, emitter audit.Emitter, user *userpb.User) {
 	if emitter == nil {
 		return

@@ -83,7 +83,7 @@ Some actions are left out on purpose:
 - Thumbnails are not audited. `file.preview` is opening a file in the preview app.
 - Uploads and downloads are recorded when the transfer is done. Uploads and downloads by OpenCloud itself, e.g. for a copy, thumbnails, search or an archive, are not recorded.
 - A download that is resumed or seeked makes many range requests, only the one starting at the first byte counts.
-- `auth.login` is recorded for a new OIDC session. Basic auth and app tokens authenticate every single request, for them only failed logins are recorded. Expired OIDC tokens are part of the normal token renewal and are not recorded as failed logins.
+- `auth.login` is recorded for a new OIDC session. When the access token has a session ID (`sid`), as with Keycloak, only the first token of a session and OIDC client is a login; renewed tokens are not. Without a session ID, e.g. with the built-in identity provider, every new access token is recorded as a login, also the ones a client gets by renewing its token. Basic auth and app tokens authenticate every single request, for them only failed logins are recorded. Expired OIDC tokens are part of the normal token renewal and are not recorded as failed logins.
 - `public_link.access` is recorded once per link and client within 30 minutes, every failed attempt is recorded. The web client asking whether a link needs a password is not an attempt.
 - Shares accepted automatically, see `SHARING_AUTO_ACCEPT_SHARES`, are not recorded as `share.accept`. The `share.create` of the sharer is the record.
 

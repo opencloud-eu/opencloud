@@ -289,7 +289,7 @@ func Server(cfg *config.Config) *cobra.Command {
 	}
 }
 
-func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, httpClient *http.Client) (*middleware.OIDCAuthenticator, error) {
+func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, httpClient *http.Client, auditEmitter audit.Emitter) (*middleware.OIDCAuthenticator, error) {
 	oidcClient, err := oidc.NewOIDCClient(
 		oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		oidc.WithAccessTokenAudiences(cfg.OIDC.Audiences),
@@ -315,6 +315,7 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 		middleware.AccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		middleware.OIDCClient(oidcClient),
 		middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
+		middleware.AuditEmitter(auditEmitter),
 	), nil
 }
 
@@ -376,7 +377,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			UserRoleAssigner:    roleAssigner,
 		})
 	}
-	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient)
+	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient, auditEmitter)
 	if err != nil {
 		return alice.Chain{}, err
 	}

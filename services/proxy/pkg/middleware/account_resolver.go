@@ -246,7 +246,9 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					m.logger.Error().Err(err).Msg("could not publish user signin event.")
 				}
 			}
-			auditLogin(revactx.ContextSetUser(ctx, user), m.auditEmitter, user)
+			if newLoginFromContext(ctx) {
+				auditLogin(revactx.ContextSetUser(ctx, user), m.auditEmitter, user)
+			}
 		}
 
 		// add user to context for selectors
