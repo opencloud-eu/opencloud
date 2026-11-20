@@ -85,6 +85,63 @@ Feature: clean up old file versions according to a cleanup strategy
     And the number of versions should be "2"
 
 
+  Scenario: the configured strategy of a space type cleans up only the spaces of that type
+    Given the following configs have been set:
+      | config                                           | value |
+      | STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT | 0     |
+      | STORAGE_USERS_REVISIONS_CLEANUP_ASYNC            | false |
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And using spaces DAV path
+    And user "Alice" has created a space "projectSpace" with the default quota using the Graph API
+    And user "Alice" has uploaded file with content "version 1" to "personal.txt"
+    And user "Alice" has uploaded file with content "version 2" to "personal.txt"
+    And user "Alice" has uploaded file with content "version 3" to "personal.txt"
+    And user "Alice" has uploaded a file inside space "projectSpace" with content "version 1" to "project.txt"
+    And user "Alice" has uploaded a file inside space "projectSpace" with content "version 2" to "project.txt"
+    And user "Alice" has uploaded a file inside space "projectSpace" with content "version 3" to "project.txt"
+    And we save it into "PROJECT_FILEID"
+    When user "Alice" gets the number of versions of file "project.txt" using file-id "<<PROJECT_FILEID>>"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "0"
+    When user "Alice" gets the number of versions of file "personal.txt"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "2"
+
+
+  Scenario: replace the strategy of the project spaces for a run over all spaces
+    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And using spaces DAV path
+    And user "Alice" has created a space "projectSpace" with the default quota using the Graph API
+    And user "Alice" has uploaded file with content "version 1" to "personal.txt"
+    And user "Alice" has uploaded file with content "version 2" to "personal.txt"
+    And user "Alice" has uploaded file with content "version 3" to "personal.txt"
+    And user "Alice" has uploaded a file inside space "projectSpace" with content "version 1" to "project.txt"
+    And user "Alice" has uploaded a file inside space "projectSpace" with content "version 2" to "project.txt"
+    And user "Alice" has uploaded a file inside space "projectSpace" with content "version 3" to "project.txt"
+    And we save it into "PROJECT_FILEID"
+    When the administrator cleans up the file versions of all spaces using the CLI with flags "--strategy-project 0"
+    Then the command should be successful
+    And the command output should contain "/project.txt: deleted 2 of 2 revisions"
+    And the command output should not contain "/personal.txt"
+    When user "Alice" gets the number of versions of file "project.txt" using file-id "<<PROJECT_FILEID>>"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "0"
+    When user "Alice" gets the number of versions of file "personal.txt"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "2"
+
+
+  Scenario: a strategy for all spaces can't be combined with the strategy of a space type
+    Given user "Alice" has uploaded file with content "version 1" to "textfile.txt"
+    And user "Alice" has uploaded file with content "version 2" to "textfile.txt"
+    When the administrator cleans up the file versions of all spaces using the CLI with flags "--strategy 0 --strategy-personal 0"
+    Then the command should exit with code "1"
+    And the command output should contain "can't be combined with --strategy-personal or --strategy-project"
+    When user "Alice" gets the number of versions of file "textfile.txt"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "1"
+
+
   Scenario: print the results as JSON
     Given user "Alice" has uploaded file with content "version 1" to "textfile.txt"
     And user "Alice" has uploaded file with content "version 2" to "textfile.txt"
