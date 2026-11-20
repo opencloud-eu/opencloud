@@ -51,7 +51,7 @@ function ErrorMessageComponent(props) {
     case ERROR_LOGIN_MFA_INVALID:
       return t("opencloud.error.login.mfa.invalid", "The code is not correct. Please try again.");
     case ERROR_LOGIN_MFA_LOCKED:
-      return t("opencloud.error.login.mfa.locked", "Too many wrong codes. Please wait a few minutes and try again.");
+      return t("opencloud.error.login.mfa.locked", "Too many wrong codes. Please wait and try again later.");
     case ERROR_HTTP_NETWORK_ERROR:
       return t("konnect.error.http.networkError", "Network error. Please check your connection and try again.");
     case ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS:

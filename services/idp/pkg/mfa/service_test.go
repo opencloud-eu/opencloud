@@ -303,6 +303,38 @@ func TestLockout(t *testing.T) {
 		assert.Equal(t, LoginOK, res)
 	})
 
+	t.Run("every further round of wrong codes locks longer", func(t *testing.T) {
+		c.advance(totpPeriod * time.Second)
+		for i := 0; i < maxFailedAttempts-1; i++ {
+			_, err := svc.VerifyLogin(alan, "000000")
+			require.NoError(t, err)
+		}
+		// the correct code above reset the count, so this is the first round again
+		res, err := svc.VerifyLogin(alan, "000000")
+		require.NoError(t, err)
+		assert.Equal(t, LoginLocked, res)
+
+		c.advance(lockDuration + time.Second)
+		for i := 0; i < maxFailedAttempts-1; i++ {
+			res, err := svc.VerifyLogin(alan, "000000")
+			require.NoError(t, err)
+			assert.Equal(t, LoginCodeInvalid, res, "the count goes on after a lock expired")
+		}
+		res, err = svc.VerifyLogin(alan, "000000")
+		require.NoError(t, err)
+		assert.Equal(t, LoginLocked, res)
+
+		c.advance(lockDuration + time.Second)
+		res, err = svc.VerifyLogin(alan, codeFor(t, secret, c.now()))
+		require.NoError(t, err)
+		assert.Equal(t, LoginLocked, res, "the second lock lasts twice as long")
+
+		c.advance(lockDuration)
+		res, err = svc.VerifyLogin(alan, codeFor(t, secret, c.now()))
+		require.NoError(t, err)
+		assert.Equal(t, LoginOK, res)
+	})
+
 	t.Run("a correct code resets the counter", func(t *testing.T) {
 		for i := 0; i < maxFailedAttempts-1; i++ {
 			_, err := svc.VerifyLogin(alan, "000000")
@@ -402,4 +434,12 @@ func TestNew(t *testing.T) {
 	svc, err := New(microstore.NewMemoryStore(), []byte("0123456789abcdef0123456789abcdef"), "", log.NopLogger())
 	require.NoError(t, err)
 	assert.Equal(t, "OpenCloud", svc.issuer)
+}
+
+func TestLockDurationAfter(t *testing.T) {
+	assert.Equal(t, lockDuration, lockDurationAfter(maxFailedAttempts))
+	assert.Equal(t, 2*lockDuration, lockDurationAfter(2*maxFailedAttempts))
+	assert.Equal(t, 8*lockDuration, lockDurationAfter(4*maxFailedAttempts))
+	assert.Equal(t, maxLockDuration, lockDurationAfter(10*maxFailedAttempts))
+	assert.Equal(t, maxLockDuration, lockDurationAfter(1000*maxFailedAttempts))
 }

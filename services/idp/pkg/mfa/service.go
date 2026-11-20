@@ -23,8 +23,12 @@ import (
 const (
 	// maxFailedAttempts is the number of consecutive wrong codes that lock the second factor.
 	maxFailedAttempts = 5
-	// lockDuration is how long no codes are accepted after too many wrong ones.
+	// lockDuration is how long no codes are accepted after the first maxFailedAttempts wrong
+	// ones. Every further round of wrong codes doubles it, up to maxLockDuration, until a
+	// correct code is entered. So somebody who has the password cannot keep on guessing codes.
 	lockDuration = 5 * time.Minute
+	// maxLockDuration is the longest a second factor is locked.
+	maxLockDuration = 24 * time.Hour
 	// pendingSetupTTL is how long a started setup can be confirmed.
 	pendingSetupTTL = 10 * time.Minute
 	// recoveryCodeCount is the number of recovery codes a user gets.
@@ -429,12 +433,21 @@ func (s *Service) verifyCode(rec *record, code string) (ok bool, locked bool, er
 	}
 
 	rec.FailedAttempts++
-	if rec.FailedAttempts >= maxFailedAttempts {
-		rec.FailedAttempts = 0
-		rec.LockedUntil = now.Add(lockDuration)
+	if rec.FailedAttempts%maxFailedAttempts == 0 {
+		rec.LockedUntil = now.Add(lockDurationAfter(rec.FailedAttempts))
 		return false, true, nil
 	}
 	return false, false, nil
+}
+
+// lockDurationAfter returns how long no codes are accepted after the given number of
+// consecutive wrong codes, a multiple of maxFailedAttempts.
+func lockDurationAfter(failedAttempts int) time.Duration {
+	d := lockDuration
+	for round := failedAttempts / maxFailedAttempts; round > 1 && d < maxLockDuration; round-- {
+		d *= 2
+	}
+	return min(d, maxLockDuration)
 }
 
 // normalizeCode removes the characters users add when typing codes, e.g. "123 456" or
