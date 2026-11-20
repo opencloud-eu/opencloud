@@ -1,10 +1,10 @@
 # Changelog
 
-## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-19
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-20
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @asaah262, @butonic, @dschmidt, @maki5, @pbleser-oc
+@AlexAndBear, @asaah262, @butonic, @dschmidt, @maki5, @pbleser-oc, @v-scharf
 
 ### 🐛 Bug Fixes
 
