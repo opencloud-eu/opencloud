@@ -15,6 +15,8 @@ type Options struct {
 	Logger  log.Logger
 	Context context.Context
 	Config  *config.Config
+
+	IndexHealth func() error
 }
 
 // newOptions initializes the available default options.
@@ -46,5 +48,12 @@ func Context(val context.Context) Option {
 func Config(val *config.Config) Option {
 	return func(o *Options) {
 		o.Config = val
+	}
+}
+
+// IndexHealth provides a function to set the index health check option.
+func IndexHealth(val func() error) Option {
+	return func(o *Options) {
+		o.IndexHealth = val
 	}
 }

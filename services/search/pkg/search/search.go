@@ -47,6 +47,10 @@ type Engine interface {
 	Purge(id string, onlyDeleted bool) error
 	PurgeSpace(rootID string) error
 
+	// Reload reopens the index, recovering an in-memory index that is broken,
+	// it is a no-op for engines with nothing to reload.
+	Reload() error
+
 	NewBatch(batchSize int) (BatchOperator, error)
 }
 

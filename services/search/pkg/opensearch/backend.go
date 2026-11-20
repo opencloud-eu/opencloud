@@ -279,6 +279,11 @@ func (b *Backend) PurgeSpace(rootID string) error {
 	return nil
 }
 
+// Reload is a no-op, the index lives in the cluster.
+func (b *Backend) Reload() error {
+	return nil
+}
+
 func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {
 	return NewBatch(b.client, b.index, size)
 }

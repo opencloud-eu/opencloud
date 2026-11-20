@@ -2,8 +2,10 @@ package search
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/debug"
+	"sync/atomic"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -16,12 +18,26 @@ type RecoveringEngine struct {
 	next Engine
 
 	log log.Logger
+
+	unhealthy atomic.Bool
 }
 
+var errEnginePanic = errors.New("search engine panic")
+
 // NewRecoveringEngine wraps engine so that panics surface as errors instead of
-// terminating the process
+// terminating the process. A panic in Search reloads the engine and retries the
+// search once, and the engine is reported unhealthy until the service restarts.
 func NewRecoveringEngine(engine Engine, logger log.Logger) *RecoveringEngine {
 	return &RecoveringEngine{next: engine, log: logger}
+}
+
+// Healthy returns an error once a panic was recovered in Search.
+func (e *RecoveringEngine) Healthy() error {
+	if e.unhealthy.Load() {
+		return errors.New("search index panicked, fix the cause, restart the service and reindex")
+	}
+
+	return nil
 }
 
 // recoverPanic converts a panic into errp and logs it with the stack,
@@ -34,7 +50,7 @@ func recoverPanic(logger log.Logger, op string, errp *error) {
 			Str("stack", string(debug.Stack())).
 			Msg("recovered panic from the search engine")
 
-		*errp = fmt.Errorf("%s: search engine panic: %v", op, r)
+		*errp = fmt.Errorf("%s: %w: %v", op, errEnginePanic, r)
 	}
 }
 
@@ -45,11 +61,23 @@ func (e *RecoveringEngine) DocCount() (count uint64, err error) {
 	return e.next.DocCount()
 }
 
-// Search delegates to the wrapped Engine and converts a panic into an error.
+// Search delegates to the wrapped Engine and converts a panic into an error. After a
+// panic the index is reloaded and the search is retried once.
 func (e *RecoveringEngine) Search(ctx context.Context, req *searchService.SearchIndexRequest) (res *searchService.SearchIndexResponse, err error) {
-	defer recoverPanic(e.log, "Search", &err)
+	res, err = e.search(ctx, req)
+	if !errors.Is(err, errEnginePanic) {
+		return res, err
+	}
 
-	return e.next.Search(ctx, req)
+	e.unhealthy.Store(true)
+
+	reloadErr := e.next.Reload()
+	if reloadErr != nil {
+		e.log.Error().Err(reloadErr).Msg("could not reload the search index")
+		return nil, err
+	}
+
+	return e.search(ctx, req)
 }
 
 // Upsert guards the engine level mutations as well: the backend builds its own
@@ -95,6 +123,11 @@ func (e *RecoveringEngine) PurgeSpace(rootID string) (err error) {
 	return e.next.PurgeSpace(rootID)
 }
 
+// Reload delegates to the wrapped Engine.
+func (e *RecoveringEngine) Reload() error {
+	return e.next.Reload()
+}
+
 // NewBatch doesn't recover, creating a batch only allocates and never touches
 // the index. It wraps the returned batch so its index writes are guarded too.
 func (e *RecoveringEngine) NewBatch(batchSize int) (BatchOperator, error) {
@@ -104,6 +137,13 @@ func (e *RecoveringEngine) NewBatch(batchSize int) (BatchOperator, error) {
 	}
 
 	return &recoveringBatch{next: next, log: e.log}, nil
+}
+
+// search converts a panic of the wrapped Engine into an error.
+func (e *RecoveringEngine) search(ctx context.Context, req *searchService.SearchIndexRequest) (res *searchService.SearchIndexResponse, err error) {
+	defer recoverPanic(e.log, "Search", &err)
+
+	return e.next.Search(ctx, req)
 }
 
 // recoveringBatch guards the batch calls that read from or write to the index.

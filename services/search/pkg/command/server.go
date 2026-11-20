@@ -74,13 +74,15 @@ func Server(cfg *config.Config) *cobra.Command {
 					return err
 				}
 
+				backend := bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
+
 				defer func() {
-					if err = idx.Close(); err != nil {
+					if err = backend.Close(); err != nil {
 						logger.Error().Err(err).Msg("could not close bleve index")
 					}
 				}()
 
-				eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
+				eng = backend
 			case "open-search":
 				client, err := opensearch.NewClient(cfg.Engine.OpenSearch.Client)
 				if err != nil {
@@ -101,7 +103,8 @@ func Server(cfg *config.Config) *cobra.Command {
 			}
 
 			// a wrapper for the engine that recovers from panics
-			eng = search.NewRecoveringEngine(eng, logger)
+			recovering := search.NewRecoveringEngine(eng, logger)
+			eng = recovering
 
 			// initialize gateway selector
 			selector, err := pool.GatewaySelector(cfg.Reva.Address, pool.WithRegistry(registry.GetRegistry()), pool.WithTracerProvider(traceProvider))
@@ -216,6 +219,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					debug.Logger(logger),
 					debug.Context(ctx),
 					debug.Config(cfg),
+					debug.IndexHealth(recovering.Healthy),
 				)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "debug").Msg("Failed to initialize server")

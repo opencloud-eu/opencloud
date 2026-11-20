@@ -2,6 +2,7 @@ package bleve_test
 
 import (
 	"fmt"
+	"os"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -105,6 +106,47 @@ var _ = Describe("Bleve", func() {
 			count, err := idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(1)), "only the record of the other space is left")
+		})
+	})
+
+	Describe("Reload", func() {
+		It("reopens the index from disk", func() {
+			diskIdx, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+
+			b := bleve.NewBackend(diskIdx, bleveQuery.DefaultCreator, log.NopLogger())
+			DeferCleanup(func() { _ = b.Close() })
+
+			Expect(b.Upsert(rootResource.ID, rootResource)).To(Succeed())
+			Expect(b.Reload()).To(Succeed())
+
+			count, err := b.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(1)))
+			Expect(diskIdx.DocCount()).Error().To(HaveOccurred(), "the old index is closed")
+		})
+	})
+
+	Describe("Reload fails to reopen", func() {
+		It("does not panic on Close or a second Reload", func() {
+			diskIdx, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+
+			b := bleve.NewBackend(diskIdx, bleveQuery.DefaultCreator, log.NopLogger())
+			DeferCleanup(func() { _ = b.Close() })
+
+			Expect(os.Rename(diskIdx.Name(), diskIdx.Name()+".moved")).To(Succeed())
+
+			Expect(b.Reload()).ToNot(Succeed())
+			Expect(b.Close()).To(Succeed())
+			Expect(b.Reload()).To(MatchError(Not(ContainSubstring("panic"))))
+		})
+	})
+
+	Describe("Close", func() {
+		It("closes the index", func() {
+			Expect(eng.Close()).To(Succeed())
+			Expect(idx.DocCount()).Error().To(HaveOccurred())
 		})
 	})
 

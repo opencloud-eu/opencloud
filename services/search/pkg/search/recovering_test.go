@@ -18,6 +18,7 @@ import (
 
 func TestRecoveringEngineSearchRecoversPanic(t *testing.T) {
 	engine := mocks.NewEngine(t)
+	engine.EXPECT().Reload().Return(nil)
 	engine.EXPECT().Search(mock.Anything, mock.Anything).Run(func(context.Context, *searchService.SearchIndexRequest) {
 		panic("assignment to entry in nil map")
 	})
@@ -46,6 +47,7 @@ func TestRecoveringEngineSearchLogsPanic(t *testing.T) {
 	logger := log.Logger{Logger: zerolog.New(&buf)}
 
 	engine := mocks.NewEngine(t)
+	engine.EXPECT().Reload().Return(nil)
 	engine.EXPECT().Search(mock.Anything, mock.Anything).Run(func(context.Context, *searchService.SearchIndexRequest) {
 		panic("assignment to entry in nil map")
 	})
@@ -60,6 +62,47 @@ func TestRecoveringEngineSearchLogsPanic(t *testing.T) {
 	}
 	if !strings.Contains(out, `"stack":"`) || strings.Contains(out, `"stack":""`) {
 		t.Errorf("expected a non-empty stack field, got %q", out)
+	}
+}
+
+func TestRecoveringEngineSearchReloadsAndRetries(t *testing.T) {
+	expected := &searchService.SearchIndexResponse{TotalMatches: 1}
+
+	engine := mocks.NewEngine(t)
+	engine.EXPECT().Search(mock.Anything, mock.Anything).Run(func(context.Context, *searchService.SearchIndexRequest) {
+		panic("assignment to entry in nil map")
+	}).Once()
+	engine.EXPECT().Reload().Return(nil).Once()
+	engine.EXPECT().Search(mock.Anything, mock.Anything).Return(expected, nil).Once()
+
+	recovering := search.NewRecoveringEngine(engine, log.NopLogger())
+
+	if err := recovering.Healthy(); err != nil {
+		t.Errorf("expected no error before a panic, got %v", err)
+	}
+
+	res, err := recovering.Search(context.Background(), &searchService.SearchIndexRequest{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if res != expected {
+		t.Errorf("expected %v, got %v", expected, res)
+	}
+	if err := recovering.Healthy(); err == nil {
+		t.Error("expected the engine to be unhealthy after a panic")
+	}
+}
+
+func TestRecoveringEngineSearchReloadFailure(t *testing.T) {
+	engine := mocks.NewEngine(t)
+	engine.EXPECT().Search(mock.Anything, mock.Anything).Run(func(context.Context, *searchService.SearchIndexRequest) {
+		panic("assignment to entry in nil map")
+	}).Once()
+	engine.EXPECT().Reload().Return(errors.New("reload failed")).Once()
+
+	_, err := search.NewRecoveringEngine(engine, log.NopLogger()).Search(context.Background(), &searchService.SearchIndexRequest{})
+	if err == nil || !strings.Contains(err.Error(), "search engine panic") {
+		t.Errorf("expected the panic error, got %v", err)
 	}
 }
 
