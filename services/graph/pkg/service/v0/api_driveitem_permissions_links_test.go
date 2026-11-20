@@ -205,7 +205,41 @@ var _ = Describe("createLinkTests", func() {
 			Expect(libreGraphActions[1]).To(Equal("libre.graph/driveItem/upload/create"))
 			Expect(libreGraphActions[2]).To(Equal("libre.graph/driveItem/path/update"))
 		})
+
+		It("does not alter the provided expiration timestamp", func() {
+			// prepare test timestamp
+			providedExp := time.Date(2025, 5, 12, 7, 37, 0, 0, time.UTC)
+			driveItemCreateLink.ExpirationDateTime = libregraph.PtrTime(providedExp)
+
+			// prepare expected permissions for response
+			permissions, err := linktype.CS3ResourcePermissionsFromSharingLink(driveItemCreateLink, provider.ResourceType_RESOURCE_TYPE_CONTAINER)
+			Expect(err).ToNot(HaveOccurred())
+
+			// mock Stat
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+
+			// assert that the CreatePublicShare request contains EXACT expiration time (no end-of-day adjustment)
+			gatewayClient.On("CreatePublicShare", mock.Anything, mock.MatchedBy(func(req *link.CreatePublicShareRequest) bool {
+				exp := utils.TSToTime(req.GetGrant().GetExpiration())
+				return exp.Equal(providedExp)
+			})).Return(&link.CreatePublicShareResponse{
+				Status: status.NewOK(ctx),
+				Share: &link.PublicShare{
+					Id:          &link.PublicShareId{OpaqueId: "expTest"},
+					Expiration:  utils.TimeToTS(providedExp),
+					DisplayName: ViewerLinkString,
+					Token:       "token",
+					Permissions: &link.PublicSharePermissions{Permissions: permissions},
+				},
+			}, nil)
+
+			perm, err := svc.CreateLink(context.Background(), driveItemId, driveItemCreateLink)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(perm.GetId()).To(Equal("expTest"))
+			Expect(perm.GetExpirationDateTime().Equal(providedExp)).To(BeTrue())
+		})
 	})
+
 	Describe("SetLinPassword", func() {
 		var (
 			updatePublicShareMockResponse link.UpdatePublicShareResponse

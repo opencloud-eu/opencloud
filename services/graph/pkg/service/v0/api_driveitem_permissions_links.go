@@ -62,7 +62,7 @@ func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID
 	}
 	expirationDate, isSet := createLink.GetExpirationDateTimeOk()
 	if isSet {
-		expireTime := parseAndFillUpTime(expirationDate)
+		expireTime := timePointerToTS(expirationDate)
 		if expireTime == nil {
 			s.logger.Debug().Interface("createLink", createLink).Send()
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid expiration date")
@@ -307,7 +307,7 @@ func (s DriveItemPermissionsService) updatePublicLinkPermission(ctx context.Cont
 		expirationDate := newPermission.GetExpirationDateTime()
 		update := &link.UpdatePublicShareRequest_Update{
 			Type:  link.UpdatePublicShareRequest_Update_TYPE_EXPIRATION,
-			Grant: &link.Grant{Expiration: parseAndFillUpTime(&expirationDate)},
+			Grant: &link.Grant{Expiration: timePointerToTS(&expirationDate)},
 		}
 		perm, err = s.updatePublicLink(ctx, permissionID, update)
 		if err != nil {
@@ -419,19 +419,9 @@ func (s DriveItemPermissionsService) updatePublicLink(ctx context.Context, permi
 	return permission, nil
 }
 
-func parseAndFillUpTime(t *time.Time) *types.Timestamp {
+func timePointerToTS(t *time.Time) *types.Timestamp {
 	if t == nil || t.IsZero() {
 		return nil
 	}
-
-	// the link needs to be valid for the whole day
-	tLink := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-	tLink = tLink.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-
-	final := tLink.UnixNano()
-
-	return &types.Timestamp{
-		Seconds: uint64(final / 1000000000),
-		Nanos:   uint32(final % 1000000000),
-	}
+	return utils.TimeToTS(*t)
 }
