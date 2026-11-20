@@ -448,6 +448,7 @@ func (c *coordinator) prepare(ctx context.Context, session Session, info storage
 	}
 	session.SetSizeDiff(prepared.SizeDiff)
 	session.SetVersionCreated(prepared.VersionCreated)
+	session.SetObsoleteBlobID(prepared.ObsoleteBlobID)
 	if prepared.Committed {
 		// the upload is complete, the session is about to be removed
 		return true, nil
@@ -642,11 +643,12 @@ func (c *coordinator) commit(ctx context.Context, session Session) (*provider.Re
 	// CommitUpload does not own the body; we opened it, so we close it. The path
 	// lets a driver that can move the staged file into place skip the copy.
 	err = c.fs.CommitUpload(ctx, &ref, session.ID(), storage.UploadSource{
-		Body:       f,
-		Path:       session.BinPath(),
-		Length:     session.Size(),
-		ScanResult: scanResult,
-		ScanDate:   scanDate,
+		Body:           f,
+		Path:           session.BinPath(),
+		Length:         session.Size(),
+		ObsoleteBlobID: session.ObsoleteBlobID(),
+		ScanResult:     scanResult,
+		ScanDate:       scanDate,
 	})
 	f.Close()
 	if err != nil {

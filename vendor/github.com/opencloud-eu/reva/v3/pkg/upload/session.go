@@ -83,6 +83,8 @@ type Session interface {
 	SetSizeDiff(d int64)
 	VersionCreated() bool
 	SetVersionCreated(v bool)
+	ObsoleteBlobID() string
+	SetObsoleteBlobID(id string)
 	Metadata() map[string]string
 	Persist(ctx context.Context) error
 	Cleanup(ctx context.Context, cleanBin, cleanInfo bool)
@@ -318,6 +320,18 @@ func (s *FileSession) VersionCreated() bool {
 // reason as the size diff: on the async path the commit runs in another process.
 func (s *FileSession) SetVersionCreated(v bool) {
 	s.info.MetaData["versionCreated"] = strconv.FormatBool(v)
+}
+
+// ObsoleteBlobID returns the blob PrepareUpload reported as replaced by this
+// upload, for the driver to delete once the new content is stored.
+func (s *FileSession) ObsoleteBlobID() string {
+	return s.info.MetaData["obsoleteBlobID"]
+}
+
+// SetObsoleteBlobID records what PrepareUpload reported. Persisted for the same
+// reason as the size diff: on the async path the commit runs in another process.
+func (s *FileSession) SetObsoleteBlobID(id string) {
+	s.info.MetaData["obsoleteBlobID"] = id
 }
 
 // SetScanData stores AV scan results on the session.

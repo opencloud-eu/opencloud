@@ -78,6 +78,10 @@ const (
 	CtxKeySpaceGID CtxKey = iota
 )
 
+// maxDownloadAttempts is the number of times Download tries to open the blob of a node
+// whose blob id changed in the meantime.
+const maxDownloadAttempts = 3
+
 var (
 	tracer trace.Tracer
 
@@ -136,12 +140,10 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 
 	var lu *lookup.Lookup
 	switch o.MetadataBackend {
-	case "xattrs":
-		lu = lookup.New(metadata.NewXattrsBackend(o.FileMetadataCache), o, &timemanager.Manager{})
 	case "messagepack":
 		lu = lookup.New(metadata.NewMessagePackBackend(o.FileMetadataCache), o, &timemanager.Manager{})
 	default:
-		return nil, fmt.Errorf("unknown metadata backend %s, only 'messagepack' or 'xattrs' (default) supported", o.MetadataBackend)
+		return nil, fmt.Errorf("unknown metadata backend %s, only 'messagepack' (default) supported", o.MetadataBackend)
 	}
 
 	permissionsSelector, err := pool.PermissionsSelector(o.PermissionsSVC, pool.WithTLSMode(o.PermTLSMode))
@@ -376,7 +378,7 @@ func (fs *Decomposedfs) GetQuota(ctx context.Context, ref *provider.Reference) (
 	switch {
 	case err != nil:
 		return 0, 0, 0, err
-	case !rp.GetQuota && !fs.p.ListAllSpaces(ctx):
+	case !rp.GetQuota && !fs.canListAllSpaces(ctx, n):
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
 			return 0, 0, 0, errtypes.PermissionDenied(f)
@@ -992,14 +994,54 @@ func (fs *Decomposedfs) Download(ctx context.Context, ref *provider.Reference, o
 	if err != nil {
 		return nil, nil, err
 	}
-	var reader io.ReadCloser
 	if openReaderFunc(ri) {
-		reader, err = fs.tp.ReadBlob(n)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "Decomposedfs: error download blob '"+n.ID+"'")
+		// A concurrent upload finalization can replace and delete the blob between resolving
+		// the node and opening the blob. If opening fails and the blob id of the node has
+		// changed, retry with the new blob.
+		log := appctx.GetLogger(ctx)
+		for attempt := 1; ; attempt++ {
+			reader, err := fs.tp.ReadBlob(n)
+			if err == nil {
+				return ri, reader, nil
+			}
+			err = errors.Wrap(err, "Decomposedfs: error download blob '"+n.ID+"'")
+			if attempt == maxDownloadAttempts {
+				return nil, nil, err
+			}
+
+			currentNode, readErr := node.ReadNode(ctx, fs.lu, n.SpaceID, n.ID, "", true, n.SpaceRoot, false)
+			if readErr != nil {
+				log.Warn().Err(readErr).AnErr("blobError", err).Str("nodeid", n.ID).Msg("could not re-read node after failing to open blob")
+				return nil, nil, err
+			}
+			if !currentNode.Exists {
+				return nil, nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
+			}
+			// a newer upload may have marked the node as processing, its blob is not written yet.
+			if currentNode.IsProcessing(ctx) {
+				return nil, nil, errtypes.TooEarly("file is still being processed")
+			}
+			if currentNode.BlobID != n.BlobID {
+				// the blob was replaced: retry with the new one
+				refreshed, riErr := currentNode.AsResourceInfo(ctx, rp, nil, []string{"size", "mimetype", "etag"}, true)
+				if riErr != nil {
+					log.Warn().Err(err).Str("nodeid", n.ID).Msg("dropped blob error, could not refresh resource info of replaced blob")
+					return nil, nil, riErr
+				}
+				log.Debug().
+					Err(err).
+					Str("nodeid", n.ID).
+					Str("oldblobid", n.BlobID).
+					Str("newblobid", currentNode.BlobID).
+					Int("attempt", attempt).
+					Msg("blob was replaced while opening it, retrying")
+				n, ri = currentNode, refreshed
+				continue
+			}
+			return nil, nil, err
 		}
 	}
-	return ri, reader, nil
+	return ri, nil, nil
 }
 
 // GetLock returns an existing lock on the given reference
