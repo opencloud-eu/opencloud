@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -28,7 +29,9 @@ const defaultBatchSize = 50
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
+	mu           sync.RWMutex
 	index        bleve.Index
+	closed       bool
 	queryCreator searchQuery.Creator[query.Query]
 	log          log.Logger
 }
@@ -58,6 +61,56 @@ func (i *serialIndex) Batch(b *bleve.Batch) error {
 	i.batchMu.Lock()
 	defer i.batchMu.Unlock()
 	return i.bleveIndex.Batch(b)
+}
+
+// Reload reopens the index from disk, recovering an in-memory index that is
+// broken. If the old index can't be closed or opened, Reload fails and can be retried.
+// Batches created before a reload and searches that already took the old handle
+// fail with an index closed error.
+func (b *Backend) Reload() (err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	name := b.index.Name()
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("bleve: panic while reloading the index: %v", r)
+		}
+	}()
+
+	if !b.closed {
+		// set before closing, bleve is closed even if Close fails and can't be closed twice
+		b.closed = true
+
+		err = b.index.Close()
+		if err != nil {
+			return fmt.Errorf("bleve: could not close the index: %w", err)
+		}
+	}
+
+	index, err := bleve.OpenUsing(name, openRuntimeConfig)
+	if err != nil {
+		return fmt.Errorf("bleve: could not reopen the index: %w", err)
+	}
+
+	b.index = &serialIndex{bleveIndex: index}
+	b.closed = false
+
+	return nil
+}
+
+// Close closes the current index, it is safe to call after a failed Reload.
+func (b *Backend) Close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.closed {
+		return nil
+	}
+	b.closed = true
+
+	return b.index.Close()
 }
 
 // Search executes a search request operation within the index.
@@ -115,7 +168,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	}
 
 	bleveReq.Fields = []string{"*"}
-	res, err := b.index.Search(bleveReq)
+	res, err := b.currentIndex().Search(bleveReq)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +228,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 }
 
 func (b *Backend) DocCount() (uint64, error) {
-	return b.index.DocCount()
+	return b.currentIndex().DocCount()
 }
 
 func (b *Backend) Upsert(id string, r search.Resource) error {
@@ -244,11 +297,12 @@ func (b *Backend) Purge(id string, onlyDeleted bool) error {
 }
 
 func (b *Backend) PurgeSpace(rootID string) error {
+	index := b.currentIndex()
 	for {
 		req := bleve.NewSearchRequest(&query.TermQuery{FieldVal: "RootID", Term: rootID})
 		req.Size = defaultBatchSize
 
-		res, err := b.index.Search(req)
+		res, err := index.Search(req)
 		if err != nil {
 			return err
 		}
@@ -257,17 +311,24 @@ func (b *Backend) PurgeSpace(rootID string) error {
 			return nil
 		}
 
-		batch := b.index.NewBatch()
+		batch := index.NewBatch()
 		for _, hit := range res.Hits {
 			batch.Delete(hit.ID)
 		}
 
-		if err := b.index.Batch(batch); err != nil {
+		if err := index.Batch(batch); err != nil {
 			return err
 		}
 	}
 }
 
 func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {
-	return NewBatch(b.index, size)
+	return NewBatch(b.currentIndex(), size)
+}
+
+func (b *Backend) currentIndex() bleve.Index {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	return b.index
 }

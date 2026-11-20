@@ -38,6 +38,14 @@ func Server(opts ...Option) (*http.Server, error) {
 			return nil
 		})
 
+	// the index health is reported on /healthz only, not on /readyz
+	if options.IndexHealth != nil {
+		healthHandlerConfiguration = healthHandlerConfiguration.
+			WithCheck("search index", func(context.Context) error {
+				return options.IndexHealth()
+			})
+	}
+
 	return debug.NewService(
 		debug.Logger(options.Logger),
 		debug.Name(options.Config.Service.Name),
