@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 	"image"
 	"image/draw"
 	"image/png"
@@ -26,6 +27,8 @@ import (
 // FileConverter is the interface for the file converter
 type FileConverter interface {
 	Convert(r io.Reader) (*Image, error)
+	// Name tells cached results of different extractors apart.
+	Name() string
 }
 
 // Image is what a converter hands on: the bytes and the type they are in.
@@ -36,14 +39,17 @@ type Image struct {
 	Data        []byte
 }
 
-// GgsDecoder is a converter for the geogebra slides file
+// GgsDecoder is a converter for the geogebra slides file.
+//
+// Deprecated: Tika provides the thumbnail; kept for setups without Tika.
 type GgsDecoder struct {
 	thumbnailpath string
 
-	// maxSize bounds the extracted image, because a deflated entry expands by
-	// orders of magnitude and the container's own size says nothing about it.
+	// a deflated entry expands by orders of magnitude, so its own size says nothing
 	maxSize uint64
 }
+
+func (GgsDecoder) Name() string { return "oc-ggs" }
 
 // Convert reads the ggs file and returns the thumbnail image.
 //
@@ -84,11 +90,15 @@ func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 			return &Image{ContentType: "image/png", Data: data}, nil
 		}
 	}
-	return nil, errors.Errorf("%s not found", g.thumbnailpath)
+	return nil, ErrNoThumbnail
 }
 
-// AudioDecoder is a converter for the audio file
+// AudioDecoder is a converter for the audio file.
+//
+// Deprecated: Tika provides the cover art; kept for setups without Tika.
 type AudioDecoder struct{}
+
+func (AudioDecoder) Name() string { return "oc-audio" }
 
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag.
 //
@@ -107,12 +117,8 @@ func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
 	}
 
 	picture := m.Picture()
-	if picture == nil {
-		return nil, ErrNoImageFromAudioFile
-	}
-
-	if !strings.HasPrefix(picture.MIMEType, "image/") {
-		return nil, ErrNoConverterForExtractedImageFromAudioFile
+	if picture == nil || !strings.HasPrefix(picture.MIMEType, "image/") {
+		return nil, ErrNoThumbnail
 	}
 
 	return &Image{ContentType: picture.MIMEType, Data: picture.Data}, nil
@@ -122,6 +128,8 @@ func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
 type TxtToImageConverter struct {
 	fontLoader *FontLoader
 }
+
+func (TxtToImageConverter) Name() string { return "oc-text" }
 
 // Convert reads the text file and renders it into a thumbnail image
 func (t TxtToImageConverter) Convert(r io.Reader) (*Image, error) {
@@ -226,8 +234,12 @@ type GGPStruct struct {
 	}
 }
 
-// GgpDecoder is a converter for the geogebra pinboard file
+// GgpDecoder is a converter for the geogebra pinboard file.
+//
+// Deprecated: see GgsDecoder.
 type GgpDecoder struct{}
+
+func (GgpDecoder) Name() string { return "oc-ggp" }
 
 // Convert reads the ggp file and returns the first thumbnail image.
 //
@@ -254,7 +266,7 @@ func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
 
 	contentType := http.DetectContentType(b)
 	if !strings.HasPrefix(contentType, "image/") {
-		return nil, ErrNoConverterForExtractedImageFromGgpFile
+		return nil, ErrNoThumbnail
 	}
 
 	return &Image{ContentType: contentType, Data: b}, nil
@@ -262,12 +274,12 @@ func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
 
 func extractBase64ImageFromGGP(ggp *GGPStruct) (string, error) {
 	if len(ggp.Sections) < 1 || len(ggp.Sections[0].Cards) < 1 {
-		return "", errors.New("cant find thumbnail in ggp file")
+		return "", ErrNoThumbnail
 	}
 
 	raw := strings.Split(ggp.Sections[0].Cards[0].Element.Image.Base64Image, "base64,")
 	if len(raw) < 2 {
-		return "", errors.New("cant decode ggp thumbnail")
+		return "", ErrNoThumbnail
 	}
 
 	return raw[1], nil
@@ -355,13 +367,39 @@ type Options struct {
 	FontMapFile  string
 	FontFace     *opentype.FaceOptions
 	MaxImageSize uint64
+	Tika         thumbnail.Tika
+	Filename     string
 }
 
-// ForType returns the converter for the specified mimeType
+func toTika(opts Options, mimeType string) FileConverter {
+	return TikaThumbnail{tikaURL: opts.Tika.URL, filename: opts.Filename, contentType: opts.Tika.ContentType(mimeType)}
+}
+
+// ForType says what has to happen to a file of this type before the generator
+// sees it: a converter to run, or nil when the file goes to the generator as it
+// is, which answers whether it can read it. Only types that passed the gate
+// get here: announced ones, and those the Tika list takes.
+//
+// Every type has exactly one taker, the first that applies:
+//  1. a type the Tika list names goes to Tika, an image too, which is how a raw
+//     photo is extracted instead of being handed to a generator that cannot
+//     read it
+//  2. a type with a converter here is converted here
+//  3. an image goes to the generator
+//  4. what is left goes to Tika when it was told to take everything
+//  5. and otherwise to the generator
+//
+// So "*" never sends an image: images belong to the generator, and sending one
+// to Tika would move the file for nothing.
 func ForType(mimeType string, opts Options) FileConverter {
-	// We can ignore the error here because we parse it in IsMimeTypeSupported before and if it fails
-	// return the service call. So we should only get here when the mimeType parses fine.
+	// We can ignore the error here because the caller parses it as well, so we
+	// only get here when the mimeType parses fine.
 	mimeType, _, _ = mime.ParseMediaType(mimeType)
+
+	if opts.Tika.ConfiguredFor(mimeType) {
+		return toTika(opts, mimeType)
+	}
+
 	switch mimeType {
 	case "text/plain":
 		fontFace := opts.FontFace
@@ -379,22 +417,23 @@ func ForType(mimeType string, opts Options) FileConverter {
 			// try to use the default font
 			fontLoader, _ = NewFontLoader("", fontFace)
 		}
-		return TxtToImageConverter{
-			fontLoader: fontLoader,
-		}
+
+		return TxtToImageConverter{fontLoader: fontLoader}
 	case "application/vnd.geogebra.slides":
 		return GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)}
 	case "application/vnd.geogebra.pinboard":
 		return GgpDecoder{}
-	case "audio/flac":
-		fallthrough
-	case "audio/mpeg":
-		fallthrough
-	case "audio/ogg":
+	case "audio/flac", "audio/mpeg", "audio/ogg":
 		return AudioDecoder{}
-	default:
-		// webdav decodes no image: a type without a converter is streamed to
-		// the generator untouched, which answers whether it can read it.
+	}
+
+	if strings.HasPrefix(mimeType, "image/") {
 		return nil
 	}
+
+	if opts.Tika.TakesAll() {
+		return toTika(opts, mimeType)
+	}
+
+	return nil
 }

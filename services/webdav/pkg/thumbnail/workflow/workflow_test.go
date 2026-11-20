@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -827,6 +828,87 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).ToNot(BeEmpty())
 			Expect(captured.data).ToNot(Equal(mp3Bytes))
+		})
+
+		It("keeps what an extractor found, under one key for the whole file", func() {
+			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
+			Expect(err).ToNot(HaveOccurred())
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", mp3Bytes)
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+
+			cached, err := testCache.Get(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cached).To(Equal(captured.data), "the cover art is kept as the source, not per size")
+		})
+
+		It("sends the kept source instead of extracting a second time", func() {
+			pngBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "noise.png"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), pngBytes)).To(Succeed())
+
+			//the file itself is not an mp3: extracting it would fail, so what
+			//reaches the generator can only come from the cache
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    128,
+				Height:   128,
+			}
+
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.data).To(Equal(pngBytes))
+		})
+
+		It("asks once for a file that carries nothing, whatever size follows", func() {
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), nil)).To(Succeed())
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    256,
+				Height:   256,
+			}
+
+			_, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).To(MatchError(ErrNoThumbnail))
+			Expect(captured.data).To(BeEmpty(), "the generator is not asked at all")
+
+			_, err = testCache.Get(thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", 256, 256, "jpg", "fill"))
+			Expect(err).To(MatchError(cache.ErrCacheMiss), "only the source entry says there is nothing")
+		})
+
+		It("does not take another extractor's empty answer", func() {
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "tika"), nil)).To(Succeed())
+
+			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
+			Expect(err).ToNot(HaveOccurred())
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", mp3Bytes)
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.data).ToNot(BeEmpty())
 		})
 
 		It("extracts the embedded thumbnail from geogebra slides", func() {
@@ -1670,5 +1752,23 @@ var _ = Describe("postToGenerator", func() {
 		Expect(outType).To(HavePrefix("text/plain"), "the generator's own answer, whatever it says")
 		Expect(partType).To(Equal("image/png"), "application/octet-stream is rejected by imagor")
 		Expect(partDisposition).To(Equal(`form-data; name="image"; filename="we\"ird.png"`))
+	})
+})
+
+var _ = Describe("storage keys", func() {
+	It("keeps a checksum from leaving the cache directory", func() {
+		key := sourceStorageKey("../../../../../tmp/x", "audio/mpeg", "tika")
+		Expect(key).To(MatchRegexp(`^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{60}/source-tika$`))
+	})
+
+	It("gives the same bytes under two types two source entries", func() {
+		Expect(sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "application/pdf", "tika")).
+			ToNot(Equal(sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "text/plain", "oc-text")))
+	})
+
+	It("files a thumbnail and its source under one prefix", func() {
+		source := sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef", "tika")
+		thumb := thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef", 64, 64, "jpg", "fill")
+		Expect(path.Dir(thumb)).To(Equal(path.Dir(source)))
 	})
 })
