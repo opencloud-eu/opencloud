@@ -53,7 +53,7 @@ dirs = {
     "zip": "/woodpecker/src/github.com/%s/zip" % repo_slug,
     "webZip": "/woodpecker/src/github.com/%s/zip/web.tar.gz" % repo_slug,
     "webPnpmZip": "/woodpecker/src/github.com/%s/zip/web-pnpm.tar.gz" % repo_slug,
-    "playwrightBrowsersArchive": "/woodpecker/src/github.com/%s/zip/playwright-browsers.tar.gz" % repo_slug,
+    "chromiumArchive": "/woodpecker/src/github.com/%s/zip/chromium.tar.gz" % repo_slug,
     "baseGo": "/go/src/github.com/%s" % repo_slug,
     "gobinTar": "go-bin.tar.gz",
     "gobinTarPath": "/go/src/github.com/%s/go-bin.tar.gz" % repo_slug,
@@ -1600,7 +1600,6 @@ def e2eTestPipeline(ctx):
                         },
                         "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "pnpm playwright install chromium",
                             "pnpm bddgen",
                             "pnpm playwright test %s --project=chromium" % e2e_args,
                         ],
@@ -1749,7 +1748,6 @@ def multiServiceE2ePipeline(ctx):
                         },
                         "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "pnpm playwright install chromium",
                             "pnpm bddgen",
                             "pnpm playwright test %s --project=chromium" % e2e_args,
                         ],
@@ -3122,7 +3120,7 @@ def cacheBrowsers(ctx):
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
             "mc ls --recursive s3/$CACHE_BUCKET/web",
             "cd %s" % dirs["web"],
-            "bash tests/woodpecker/script.sh check_browsers_cache",
+            "bash tests/woodpecker/script.sh check_browsers_cache chromium",
         ],
     }]
 
@@ -3137,16 +3135,12 @@ def cacheBrowsers(ctx):
         {
             "name": "install-browsers",
             "image": OC_CI_NODEJS,
-            "environment": {
-                "PLAYWRIGHT_BROWSERS_PATH": ".playwright",
-            },
             "commands": [
                 "cd %s" % dirs["web"],
                 ". ./.woodpecker.env",
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
-                "pnpm exec playwright install",
-                "pnpm exec playwright install --list",
-                "tar -czf %s .playwright" % dirs["playwrightBrowsersArchive"],
+                "PLAYWRIGHT_BROWSERS_PATH=/tmp/chromium/.playwright pnpm exec playwright install chromium",
+                "tar -czf %s -C /tmp/chromium .playwright" % dirs["chromiumArchive"],
             ],
         },
         {
@@ -3159,7 +3153,7 @@ def cacheBrowsers(ctx):
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
                 "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
                 "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                "mc cp -r -a %s s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/" % dirs["playwrightBrowsersArchive"],
+                "mc cp -a %s s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/" % dirs["chromiumArchive"],
                 "mc ls --recursive s3/$CACHE_BUCKET/web",
             ],
         },
@@ -3246,26 +3240,17 @@ def restoreWebPnpmCache(extra_commands = []):
     }]
 
 def restoreBrowsersCache():
-    return [
-        {
-            "name": "restore-browsers-cache",
-            "image": MINIO_MC,
-            "environment": MINIO_MC_ENV,
-            "commands": [
-                "cd %s" % dirs["web"],
-                "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
-                "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                "mc cp -r -a s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/playwright-browsers.tar.gz %s" % dirs["web"],
-            ],
-        },
-        {
-            "name": "unzip-browsers-cache",
-            "image": OC_CI_NODEJS,
-            "commands": [
-                "tar -xf /woodpecker/src/github.com/%s/webTestRunner/playwright-browsers.tar.gz -C ." % repo_slug,
-            ],
-        },
-    ]
+    return [{
+        "name": "restore-browsers-cache",
+        "image": MINIO_MC,
+        "environment": MINIO_MC_ENV,
+        "commands": [
+            "cd %s" % dirs["web"],
+            "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
+            "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
+            "mc cat s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/chromium.tar.gz | tar -xzf - -C %s" % dirs["base"],
+        ],
+    }]
 
 def emailService():
     return [{
