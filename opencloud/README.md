@@ -67,6 +67,24 @@ When a shared space or directory got deleted, use the `shares cleanup` command t
 opencloud shares cleanup
 ```
 
+### Cleanup Orphaned Grants
+
+Detect and optionally delete storage grants that have no corresponding share-manager entry.
+
+Usage:
+```bash
+opencloud shares clean-orphaned-grants \
+  --service-account-id "<id>" \
+  --service-account-secret "<secret>" \
+  [--space-id "<space-opaque-id>"] \
+  [--dry-run=false]
+```
+
+Notes:
+- `--dry-run` defaults to `true` (no deletions). Set to `false` to remove orphaned grants.
+- `--space-id` limits the scan; omit to scan all spaces.
+- Public links are not touched.
+
 ### Revisions CLI
 
 The revisions command allows removing the revisions of files in the storage.

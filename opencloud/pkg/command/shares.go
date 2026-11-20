@@ -2,9 +2,14 @@ package command
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,13 +22,23 @@ import (
 	mregistry "github.com/opencloud-eu/opencloud/pkg/registry"
 	sharing "github.com/opencloud-eu/opencloud/services/sharing/pkg/config"
 	sharingparser "github.com/opencloud-eu/opencloud/services/sharing/pkg/config/parser"
+	"github.com/opencloud-eu/reva/v3/pkg/auth"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	sdk "github.com/opencloud-eu/reva/v3/pkg/sdk/common"
 	"github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3"
 	migration "github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/migrations"
 	"github.com/opencloud-eu/reva/v3/pkg/share/manager/registry"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/walker"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
+	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	storageregistry "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
+	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/rs/zerolog"
+	"github.com/shamaton/msgpack/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -39,24 +54,24 @@ const cleanupTimeout = 1 * time.Minute
 // grants of many project spaces is not fast, so this is generous.
 const migrationTimeout = 30 * time.Minute
 
+const (
+	jsoncs3Driver            = "jsoncs3"
+	mpkExtension             = ".mpk"
+	serviceAccountIDFlag     = "service-account-id"
+	serviceAccountSecretFlag = "service-account-secret"
+	oncs3MetadataSpace       = "oncs3-share-manager-metadata"
+)
+
 // SharesCommand is the entrypoint for the groups command.
 func SharesCommand(cfg *config.Config) *cobra.Command {
 	sharesCmd := &cobra.Command{
 		Use:   "shares",
 		Short: `cli tools to manage entries in the share manager.`,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Parse base config
-			if err := parser.ParseConfig(cfg, true); err != nil {
-				return configlog.ReturnError(err)
-			}
-
-			// Parse sharing config
-			cfg.Sharing.Commons = cfg.Commons
-			return configlog.ReturnError(sharingparser.ParseConfig(cfg.Sharing))
-		},
 	}
 	sharesCmd.AddCommand(cleanupCmd(cfg))
+	sharesCmd.AddCommand(cleanOrphanedGrantsCmd(cfg))
 	sharesCmd.AddCommand(migrateCmd(cfg))
+	sharesCmd.AddCommand(moveStuckUploadBlobsCmd(cfg))
 
 	return sharesCmd
 }
@@ -83,15 +98,15 @@ func cleanupCmd(cfg *config.Config) *cobra.Command {
 			return cleanup(cmd, cfg)
 		},
 	}
-	cleanCmd.Flags().String("service-account-id", "", "Name of the service account to use for the cleanup")
-	_ = cleanCmd.MarkFlagRequired("service-account-id")
-	_ = viper.BindEnv("service-account-id", "OC_SERVICE_ACCOUNT_ID")
-	_ = viper.BindPFlag("service-account-id", cleanCmd.Flags().Lookup("service-account-id"))
+	cleanCmd.Flags().String(serviceAccountIDFlag, "", "Name of the service account to use for the cleanup")
+	_ = cleanCmd.MarkFlagRequired(serviceAccountIDFlag)
+	_ = viper.BindEnv(serviceAccountIDFlag, "OC_SERVICE_ACCOUNT_ID")
+	_ = viper.BindPFlag(serviceAccountIDFlag, cleanCmd.Flags().Lookup(serviceAccountIDFlag))
 
-	cleanCmd.Flags().String("service-account-secret", "", "Secret for the service account")
-	_ = cleanCmd.MarkFlagRequired("service-account-secret")
-	_ = viper.BindEnv("service-account-secret", "OC_SERVICE_ACCOUNT_SECRET")
-	_ = viper.BindPFlag("service-account-secret", cleanCmd.Flags().Lookup("service-account-secret"))
+	cleanCmd.Flags().String(serviceAccountSecretFlag, "", "Secret for the service account")
+	_ = cleanCmd.MarkFlagRequired(serviceAccountSecretFlag)
+	_ = viper.BindEnv(serviceAccountSecretFlag, "OC_SERVICE_ACCOUNT_SECRET")
+	_ = viper.BindPFlag(serviceAccountSecretFlag, cleanCmd.Flags().Lookup(serviceAccountSecretFlag))
 
 	return cleanCmd
 }
@@ -99,7 +114,7 @@ func cleanupCmd(cfg *config.Config) *cobra.Command {
 func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	driver := cfg.Sharing.UserSharingDriver
 	// cleanup is only implemented for the jsoncs3 share manager
-	if driver != "jsoncs3" {
+	if driver != jsoncs3Driver {
 		return configlog.ReturnError(errors.New("cleanup is only implemented for the jsoncs3 share manager"))
 	}
 
@@ -126,9 +141,9 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 		return configlog.ReturnError(err)
 	}
 
-	serviceAccountIDFlag := viper.GetString("service-account-id")
-	serviceAccountSecretFlag := viper.GetString("service-account-secret")
-	serviceUserCtx, err := utils.GetServiceUserContext(serviceAccountIDFlag, client, serviceAccountSecretFlag)
+	serviceAccountID := viper.GetString(serviceAccountIDFlag)
+	serviceAccountSecret := viper.GetString(serviceAccountSecretFlag)
+	serviceUserCtx, err := utils.GetServiceUserContext(serviceAccountID, client, serviceAccountSecret)
 	if err != nil {
 		return configlog.ReturnError(err)
 	}
@@ -141,6 +156,718 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+func cleanOrphanedGrantsCmd(cfg *config.Config) *cobra.Command {
+	cleanOrphanedCmd := &cobra.Command{
+		Use:   "clean-orphaned-grants",
+		Short: `Detect and clean orphaned share-manager grants.`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// bound when this command runs, not when it is built: the cleanup command binds the same keys
+			_ = viper.BindPFlag(serviceAccountIDFlag, cmd.Flags().Lookup(serviceAccountIDFlag))
+			_ = viper.BindPFlag(serviceAccountSecretFlag, cmd.Flags().Lookup(serviceAccountSecretFlag))
+
+			if err := parser.ParseConfig(cfg, true); err != nil {
+				return configlog.ReturnError(err)
+			}
+
+			cfg.Sharing.Commons = cfg.Commons
+			return configlog.ReturnError(sharingparser.ParseConfig(cfg.Sharing))
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cleanOrphanedGrants(cmd, cfg)
+		},
+	}
+	cleanOrphanedCmd.Flags().String(serviceAccountIDFlag, "", "Name of the service account to use for the scan")
+	_ = cleanOrphanedCmd.MarkFlagRequired(serviceAccountIDFlag)
+	_ = viper.BindEnv(serviceAccountIDFlag, "OC_SERVICE_ACCOUNT_ID")
+
+	cleanOrphanedCmd.Flags().String(serviceAccountSecretFlag, "", "Secret for the service account")
+	_ = cleanOrphanedCmd.MarkFlagRequired(serviceAccountSecretFlag)
+	_ = viper.BindEnv(serviceAccountSecretFlag, "OC_SERVICE_ACCOUNT_SECRET")
+
+	cleanOrphanedCmd.Flags().String("space-id", "", "Limit the scan to a specific storage space (opaque ID)")
+	cleanOrphanedCmd.Flags().Bool("dry-run", true, "Dry run mode enabled")
+	cleanOrphanedCmd.Flags().Bool("force", false, "Force removal of suspected orphans even when listing shares fails")
+	cleanOrphanedCmd.Flags().BoolP("verbose", "v", false, "Verbose logging enabled")
+
+	return cleanOrphanedCmd
+}
+
+func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	spaceID, _ := cmd.Flags().GetString("space-id")
+	force, _ := cmd.Flags().GetBool("force")
+	serviceAccountID := viper.GetString(serviceAccountIDFlag)
+	serviceAccountSecret := viper.GetString(serviceAccountSecretFlag)
+
+	revaOpts := append(cfg.Sharing.Reva.GetRevaOptions(), pool.WithRegistry(mregistry.GetRegistry()))
+	// Pre-flight: surface execution mode and flags before the main scan.
+	fmt.Printf("\n== %s ==\n", "Pre-flight")
+	if dryRun {
+		fmt.Println("mode: dry run enabled")
+	} else {
+		fmt.Println("mode: dry run disabled: grants may be changed")
+	}
+	if spaceID != "" {
+		fmt.Printf("scope: limiting scan to space %s\n", spaceID)
+	}
+	if force {
+		fmt.Println("flags: --force active (will remove grants even on share list errors)")
+	}
+
+	gatewaySelector, err := pool.GatewaySelector(cfg.Sharing.Reva.Address, revaOpts...)
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
+
+	client, err := gatewaySelector.Next()
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
+
+	serviceUserCtx, err := utils.GetServiceUserContext(serviceAccountID, client, serviceAccountSecret)
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
+
+	// Stale cleanup: remove shares of deleted resources before scanning (not in a dry run)
+	preprocessCleanupStaleShares(serviceUserCtx, cfg, dryRun)
+
+	storageRegistrySelector, err := pool.StorageRegistrySelector(cfg.Sharing.Reva.Address, revaOpts...)
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
+
+	spaces, err := resolveTargetSpaces(serviceUserCtx, gatewaySelector, spaceID)
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
+	if len(spaces) == 0 {
+		fmt.Println("No storage spaces found")
+		fmt.Println("Nothing to do")
+		return nil
+	}
+	fmt.Printf("%d target space(s)\n", len(spaces))
+
+	fmt.Printf("\n== %s ==\n", "Primary scan")
+	stats := scanAndCleanOrphansForSpaces(serviceUserCtx, orphanScanArgs{
+		GatewaySelector:         gatewaySelector,
+		StorageRegistrySelector: storageRegistrySelector,
+		RevaOpts:                revaOpts,
+		Spaces:                  spaces,
+		DryRun:                  dryRun,
+		Verbose:                 verbose,
+		Force:                   force,
+	})
+	fmt.Printf("Summary: %d space(s), %d node(s) visited, %d nodes with grants, %d grants total\n", len(spaces), stats.TotalNodes, stats.TotalNodesWithGrants, stats.TotalGrants)
+	if dryRun {
+		fmt.Println("Dry run mode: no grants were modified")
+	} else {
+		fmt.Printf("Orphans: %d candidate(s), %d removed, %d errors\n", stats.OrphanCandidates, stats.OrphanDeleted, stats.OrphanDeleteErrors)
+		// Post-cleanup reconciliation: only run when orphans were removed
+		if stats.OrphanDeleted > 0 {
+			if cfg.Sharing.UserSharingDriver == jsoncs3Driver {
+				rcfg := revaShareConfig(cfg.Sharing)
+				if f, ok := registry.NewFuncs[jsoncs3Driver]; ok {
+					l := logger("clean-orphaned-grants")
+					if mgr, mErr := f(rcfg[jsoncs3Driver].(map[string]interface{}), &l); mErr == nil {
+						zerolog.SetGlobalLevel(zerolog.InfoLevel)
+						cleanCtx := l.WithContext(serviceUserCtx)
+						mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanCtx)
+					}
+				}
+			}
+		}
+	}
+
+	// Reverse-orphan cleanup (shares without corresponding storage grants)
+	// Always executed after the primary orphan-grant pass. Honors --dry-run/--force/--verbose.
+	fmt.Printf("\n== %s ==\n", "Reverse orphan scan")
+	reverseStats := postprocessCleanReverseOrphans(serviceUserCtx, reverseOrphanArgs{
+		GatewaySelector:         gatewaySelector,
+		StorageRegistrySelector: storageRegistrySelector,
+		RevaOpts:                revaOpts,
+		Spaces:                  spaces,
+		DryRun:                  dryRun,
+		Verbose:                 verbose,
+		Force:                   force,
+	})
+	if !dryRun {
+		fmt.Printf("Reverse orphans: %d candidate(s), %d removed, %d errors\n", reverseStats.Candidates, reverseStats.Deleted, reverseStats.Errors)
+	}
+
+	return nil
+}
+
+// OrphanStats aggregates counters for the main orphan scan pass.
+type OrphanStats struct {
+	TotalNodes           int
+	TotalNodesWithGrants int
+	TotalGrants          int
+	OrphanCandidates     int
+	OrphanDeleted        int
+	OrphanDeleteErrors   int
+}
+
+// ReverseOrphanStats aggregates counters for the reverse orphan scan pass.
+type ReverseOrphanStats struct {
+	Candidates int
+	Deleted    int
+	Errors     int
+}
+
+// preprocessCleanupStaleShares runs CleanupStaleShares prior to scanning. It removes shares,
+// so it is skipped in a dry run.
+func preprocessCleanupStaleShares(ctx context.Context, cfg *config.Config, dryRun bool) {
+	if dryRun || cfg.Sharing.UserSharingDriver != jsoncs3Driver {
+		return
+	}
+
+	rcfg := revaShareConfig(cfg.Sharing)
+	if f, ok := registry.NewFuncs[jsoncs3Driver]; ok {
+		l := logger("clean-orphaned-grants")
+		if mgr, mErr := f(rcfg[jsoncs3Driver].(map[string]interface{}), &l); mErr == nil {
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+			cleanCtx := l.WithContext(ctx)
+			mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanCtx)
+		}
+	}
+}
+
+type orphanScanArgs struct {
+	GatewaySelector         pool.Selectable[gateway.GatewayAPIClient]
+	StorageRegistrySelector pool.Selectable[storageregistry.RegistryAPIClient]
+	RevaOpts                []pool.Option
+	Spaces                  []*provider.StorageSpace
+	DryRun, Verbose, Force  bool
+}
+
+// scanAndCleanOrphansForSpaces performs the main pass to detect and remove orphan storage grants.
+func scanAndCleanOrphansForSpaces(
+	ctx context.Context,
+	args orphanScanArgs,
+) OrphanStats {
+	stats := OrphanStats{}
+	w := walker.NewWalker(args.GatewaySelector)
+	for idx, space := range args.Spaces {
+		rootResourceID := space.GetRoot()
+		identifier := describeSpace(space)
+		if space.GetRoot() == nil {
+			fmt.Printf("[%d/%d] Skipping space %s: missing root resource\n", idx+1, len(args.Spaces), identifier)
+			continue
+		}
+
+		nodeCount := 0
+		nodesWithGrants := 0
+		grantCount := 0
+		spaceProvidersCache := make(map[string][]*storageregistry.ProviderInfo)
+		err := w.Walk(auth.NewStaticSession(ctx), space.GetRoot(), func(wd string, info *provider.ResourceInfo, walkErr error) error {
+			pathLabel := renderWalkerPath(wd, info)
+			if walkErr != nil {
+				fmt.Printf("  Warning: failed to access %s: %v\n", pathLabel, walkErr)
+				return nil
+			}
+
+			if info == nil || info.GetId() == nil {
+				fmt.Printf("  Warning: missing resource identifier for %s\n", pathLabel)
+				return nil
+			}
+
+			nodeCount++
+
+			grants, grantErr := listResourceGrants(ctx, args.StorageRegistrySelector, info.GetId(), args.RevaOpts, spaceProvidersCache)
+			if grantErr != nil {
+				fmt.Printf("  Warning: failed to list grants for %s: %v\n", pathLabel, grantErr)
+				return nil
+			}
+
+			if len(grants) == 0 {
+				if args.Verbose {
+					fmt.Printf("  %s\n", pathLabel)
+				}
+				return nil
+			}
+
+			shares, shareErr := listSharesForResource(ctx, args.GatewaySelector, info.GetId())
+			if shareErr != nil && !args.DryRun && !args.Force {
+				fmt.Printf("  Warning: failed to list shares for %s: %v\n", pathLabel, shareErr)
+			}
+
+			nodesWithGrants++
+			grantCount += len(grants)
+			fmt.Printf("  %s -> %d grant(s)\n", pathLabel, len(grants))
+			if args.Verbose {
+				for _, g := range grants {
+					fmt.Printf("    - %s\n", describeGrant(g))
+				}
+			}
+
+			for _, g := range grants {
+				if gr := g.GetGrantee(); gr != nil {
+					if gr.GetType() != provider.GranteeType_GRANTEE_TYPE_USER && gr.GetType() != provider.GranteeType_GRANTEE_TYPE_GROUP {
+						if args.Verbose {
+							fmt.Printf("    SKIP(non-user/group): %s\n", describeGrant(g))
+						}
+						continue
+					}
+				}
+				if resourceIDEqual(info.GetId(), rootResourceID) {
+					if args.Verbose {
+						fmt.Printf("    SKIP(root): %s\n", describeGrant(g))
+					}
+					continue
+				}
+				if hasMatchingShareForGrant(shares, g) {
+					continue
+				}
+				stats.OrphanCandidates++
+				canModify := !args.DryRun && (shareErr == nil || args.Force)
+				if !canModify {
+					if shareErr != nil && !args.DryRun && !args.Force {
+						fmt.Printf("    ORPHAN: %s (not removed due to share list error; rerun with --force to remove)\n", describeGrant(g))
+					} else {
+						fmt.Printf("    ORPHAN: %s\n", describeGrant(g))
+					}
+					continue
+				}
+				if err := removeGrantForResource(ctx, args.StorageRegistrySelector, info.GetId(), g, args.RevaOpts); err != nil {
+					fmt.Printf("    REMOVE-FAILED: %s error=%v\n", describeGrant(g), err)
+					stats.OrphanDeleteErrors++
+					continue
+				}
+				fmt.Printf("    REMOVED: %s\n", describeGrant(g))
+				stats.OrphanDeleted++
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Printf("[%d/%d] Failed to walk space %s: %v\n", idx+1, len(args.Spaces), identifier, err)
+			continue
+		}
+
+		stats.TotalNodes += nodeCount
+		stats.TotalNodesWithGrants += nodesWithGrants
+		stats.TotalGrants += grantCount
+		fmt.Printf("[%d/%d] Space %s: %d nodes visited, %d nodes with grants, %d grants total\n", idx+1, len(args.Spaces), identifier, nodeCount, nodesWithGrants, grantCount)
+	}
+	return stats
+}
+
+type reverseOrphanArgs struct {
+	GatewaySelector         pool.Selectable[gateway.GatewayAPIClient]
+	StorageRegistrySelector pool.Selectable[storageregistry.RegistryAPIClient]
+	RevaOpts                []pool.Option
+	Spaces                  []*provider.StorageSpace
+	DryRun, Verbose, Force  bool
+}
+
+// postprocessCleanReverseOrphans removes shares without corresponding storage grants.
+func postprocessCleanReverseOrphans(
+	ctx context.Context,
+	args reverseOrphanArgs,
+) ReverseOrphanStats {
+	stats := ReverseOrphanStats{}
+	w := walker.NewWalker(args.GatewaySelector)
+	for idx, space := range args.Spaces {
+		rootResourceID := space.GetRoot()
+		identifier := describeSpace(space)
+		if space.GetRoot() == nil {
+			continue
+		}
+		spaceProvidersCache := make(map[string][]*storageregistry.ProviderInfo)
+		err := w.Walk(auth.NewStaticSession(ctx), space.GetRoot(), func(wd string, info *provider.ResourceInfo, walkErr error) error {
+			pathLabel := renderWalkerPath(wd, info)
+			if walkErr != nil {
+				fmt.Printf("  Warning: failed to access %s: %v\n", pathLabel, walkErr)
+				return nil
+			}
+			if info == nil || info.GetId() == nil {
+				fmt.Printf("  Warning: missing resource identifier for %s\n", pathLabel)
+				return nil
+			}
+			if resourceIDEqual(info.GetId(), rootResourceID) {
+				return nil
+			}
+			shares, shareErr := listSharesForResource(ctx, args.GatewaySelector, info.GetId())
+			if shareErr != nil {
+				fmt.Printf("  Warning: failed to list shares for %s: %v\n", pathLabel, shareErr)
+				return nil
+			}
+			if len(shares) == 0 {
+				if args.Verbose {
+					fmt.Printf("  %s\n", pathLabel)
+				}
+				return nil
+			}
+			grants, grantsErr := listResourceGrants(ctx, args.StorageRegistrySelector, info.GetId(), args.RevaOpts, spaceProvidersCache)
+			if grantsErr != nil {
+				fmt.Printf("  Warning: failed to list grants for %s: %v\n", pathLabel, grantsErr)
+				if !args.Force {
+					return nil
+				}
+			}
+			if len(grants) > 0 {
+				return nil
+			}
+			for _, s := range shares {
+				stats.Candidates++
+				shareID := ""
+				if s.GetId() != nil {
+					shareID = s.GetId().GetOpaqueId()
+				}
+				granteeLabel := describeGrantee(s.GetGrantee())
+				fmt.Printf("  WARN REV-ORPHAN: %s -> share:%s %s (no storage grants)\n", pathLabel, shareID, granteeLabel)
+				if args.DryRun {
+					continue
+				}
+				if err := removeShare(ctx, args.GatewaySelector, s); err != nil {
+					fmt.Printf("    REV-REMOVE-FAILED share:%s %s error=%v\n", shareID, granteeLabel, err)
+					stats.Errors++
+				} else {
+					fmt.Printf("    REV-REMOVED share:%s %s\n", shareID, granteeLabel)
+					stats.Deleted++
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Printf("[%d/%d] Reverse pass failed to walk space %s: %v\n", idx+1, len(args.Spaces), identifier, err)
+			continue
+		}
+	}
+	return stats
+}
+
+// removeShare removes a collaboration share via the gateway, given its Share object.
+func removeShare(ctx context.Context, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], share *collaboration.Share) error {
+	if share == nil || share.GetId() == nil {
+		return errors.New("missing share id")
+	}
+	client, err := gatewaySelector.Next()
+	if err != nil {
+		return err
+	}
+	req := &collaboration.RemoveShareRequest{
+		Ref: &collaboration.ShareReference{
+			Spec: &collaboration.ShareReference_Id{
+				Id: share.GetId(),
+			},
+		},
+	}
+	res, err := client.RemoveShare(ctx, req)
+	if err != nil {
+		return err
+	}
+	if res.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		return fmt.Errorf("remove share failed: %s", res.GetStatus().GetMessage())
+	}
+	return nil
+}
+
+// resourceIDEqual compares two provider.ResourceId values by fields.
+func resourceIDEqual(a, b *provider.ResourceId) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.GetStorageId() == b.GetStorageId() &&
+		a.GetSpaceId() == b.GetSpaceId() &&
+		a.GetOpaqueId() == b.GetOpaqueId()
+}
+
+// listResourceGrants fetches grants for a resource, reusing storage provider
+// resolution per space via the provided cache (keyed by space_id).
+// Test locally with: simple-opencloud-blobs/test_clean_orphaned_grants.sh
+func listResourceGrants(ctx context.Context, registrySelector pool.Selectable[storageregistry.RegistryAPIClient], resourceID *provider.ResourceId, revaOpts []pool.Option, providerCache map[string][]*storageregistry.ProviderInfo) ([]*provider.Grant, error) {
+	if resourceID == nil {
+		return nil, errors.New("missing resource id")
+	}
+
+	spaceID := resourceID.GetSpaceId()
+	providerInfos, ok := providerCache[spaceID]
+	if !ok {
+		registryClient, err := registrySelector.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		filters := map[string]string{
+			"storage_id": resourceID.GetStorageId(),
+			"space_id":   spaceID,
+			"opaque_id":  resourceID.GetOpaqueId(),
+		}
+		listReq := &storageregistry.ListStorageProvidersRequest{Opaque: &types.Opaque{}}
+		sdk.EncodeOpaqueMap(listReq.Opaque, filters)
+
+		providersResp, err := registryClient.ListStorageProviders(ctx, listReq)
+		if err != nil {
+			return nil, err
+		}
+		if providersResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			return nil, fmt.Errorf("list storage providers failed: %s", providersResp.GetStatus().GetMessage())
+		}
+		if len(providersResp.GetProviders()) == 0 {
+			// Cache empty to avoid repeated lookups for this space in this run
+			providerCache[spaceID] = nil
+			return nil, nil
+		}
+		providerInfos = providersResp.GetProviders()
+		providerCache[spaceID] = providerInfos
+	}
+
+	ref := &provider.Reference{ResourceId: resourceID}
+	grants := make([]*provider.Grant, 0)
+	for _, info := range providerInfos {
+		if info.GetAddress() == "" {
+			continue
+		}
+		provClient, err := pool.GetStorageProviderServiceClient(info.GetAddress(), revaOpts...)
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err := provClient.ListGrants(ctx, &provider.ListGrantsRequest{Ref: ref})
+		if err != nil {
+			return nil, err
+		}
+		if resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			return nil, fmt.Errorf("list grants failed: %s", resp.GetStatus().GetMessage())
+		}
+		grants = append(grants, resp.GetGrants()...)
+	}
+
+	return grants, nil
+}
+
+func listSharesForResource(ctx context.Context, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], resourceID *provider.ResourceId) ([]*collaboration.Share, error) {
+	// ListShares filtered by resource id. This reads the share-manager indexes
+	// to determine if a share exists that matches a storage grant.
+	client, err := gatewaySelector.Next()
+	if err != nil {
+		return nil, err
+	}
+	req := &collaboration.ListSharesRequest{
+		Filters: []*collaboration.Filter{
+			{
+				Type: collaboration.Filter_TYPE_RESOURCE_ID,
+				Term: &collaboration.Filter_ResourceId{ResourceId: resourceID},
+			},
+		},
+	}
+	res, err := client.ListShares(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if res.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		return nil, fmt.Errorf("list shares failed: %s", res.GetStatus().GetMessage())
+	}
+	return res.GetShares(), nil
+}
+
+func removeGrantForResource(ctx context.Context, registrySelector pool.Selectable[storageregistry.RegistryAPIClient], resourceID *provider.ResourceId, grant *provider.Grant, revaOpts []pool.Option) error {
+	if resourceID == nil || grant == nil || grant.Grantee == nil {
+		return errors.New("missing resource or grant")
+	}
+	registryClient, err := registrySelector.Next()
+	if err != nil {
+		return err
+	}
+	listReq := &storageregistry.ListStorageProvidersRequest{Opaque: &types.Opaque{}}
+	sdk.EncodeOpaqueMap(listReq.Opaque, map[string]string{
+		"storage_id": resourceID.GetStorageId(),
+		"space_id":   resourceID.GetSpaceId(),
+		"opaque_id":  resourceID.GetOpaqueId(),
+	})
+	providersResp, err := registryClient.ListStorageProviders(ctx, listReq)
+	if err != nil {
+		return err
+	}
+	if providersResp.GetStatus().GetCode() != rpc.Code_CODE_OK || len(providersResp.GetProviders()) == 0 {
+		return fmt.Errorf("resolve provider failed: %s", providersResp.GetStatus().GetMessage())
+	}
+	ref := &provider.Reference{ResourceId: resourceID}
+	for _, info := range providersResp.GetProviders() {
+		if info.GetAddress() == "" {
+			continue
+		}
+		provClient, err := pool.GetStorageProviderServiceClient(info.GetAddress(), revaOpts...)
+		if err != nil {
+			return err
+		}
+		_, err = provClient.RemoveGrant(ctx, &provider.RemoveGrantRequest{Ref: ref, Grant: grant})
+		if err != nil {
+			return err
+		}
+		// We consider success on first provider answering OK
+		return nil
+	}
+	return errors.New("no provider with address")
+}
+
+func hasMatchingShareForGrant(shares []*collaboration.Share, g *provider.Grant) bool {
+	// Compare grantee identity between storage grant and share-manager share.
+	// ResourceId already matched by the ListShares filter.
+	for _, s := range shares {
+		// resource already filtered; compare grantee
+		sg := s.GetGrantee()
+		if sg == nil || g == nil || g.Grantee == nil {
+			continue
+		}
+		if sg.GetType() != g.Grantee.GetType() {
+			continue
+		}
+		switch sg.GetType() {
+		case provider.GranteeType_GRANTEE_TYPE_USER:
+			if sg.GetUserId() != nil && g.Grantee.GetUserId() != nil && utils.UserIDEqual(sg.GetUserId(), g.Grantee.GetUserId()) {
+				return true
+			}
+		case provider.GranteeType_GRANTEE_TYPE_GROUP:
+			if sg.GetGroupId() != nil && g.Grantee.GetGroupId() != nil && sg.GetGroupId().GetOpaqueId() == g.Grantee.GetGroupId().GetOpaqueId() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func resolveTargetSpaces(ctx context.Context, selector pool.Selectable[gateway.GatewayAPIClient], spaceID string) ([]*provider.StorageSpace, error) {
+	client, err := selector.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	req := &provider.ListStorageSpacesRequest{}
+	if spaceID != "" {
+		req.Filters = []*provider.ListStorageSpacesRequest_Filter{
+			{
+				Type: provider.ListStorageSpacesRequest_Filter_TYPE_ID,
+				Term: &provider.ListStorageSpacesRequest_Filter_Id{Id: &provider.StorageSpaceId{OpaqueId: spaceID}},
+			},
+		}
+	} else {
+		req.Opaque = &types.Opaque{Map: map[string]*types.OpaqueEntry{
+			"unrestricted": {
+				Decoder: "plain",
+				Value:   []byte(strconv.FormatBool(true)),
+			},
+		}}
+	}
+
+	resp, err := client.ListStorageSpaces(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		return nil, fmt.Errorf("list storage spaces failed: %s", resp.GetStatus().GetMessage())
+	}
+	if spaceID != "" && len(resp.GetStorageSpaces()) == 0 {
+		return nil, fmt.Errorf("space not found: %s", spaceID)
+	}
+
+	return resp.GetStorageSpaces(), nil
+}
+
+func describeSpace(space *provider.StorageSpace) string {
+	if space == nil {
+		return "<nil>"
+	}
+	spaceID := ""
+	if space.GetId() != nil {
+		spaceID = space.GetId().GetOpaqueId()
+	}
+	spaceName := space.GetName()
+	if spaceName == "" {
+		if spaceID == "" {
+			return "<unknown>"
+		}
+		return spaceID
+	}
+	if spaceID == "" {
+		return spaceName
+	}
+	return spaceName + " (" + spaceID + ")"
+}
+
+func describeGrant(grant *provider.Grant) string {
+	if grant == nil {
+		return "<nil>"
+	}
+	grantee := describeGrantee(grant.GetGrantee())
+	perms := summarizePermissions(grant.GetPermissions())
+	return grantee + " permissions=[" + perms + "]"
+}
+
+func describeGrantee(grantee *provider.Grantee) string {
+	if grantee == nil {
+		return "grantee:<nil>"
+	}
+	switch grantee.GetType() {
+	case provider.GranteeType_GRANTEE_TYPE_USER:
+		if grantee.GetUserId() == nil {
+			return "user:<unknown>"
+		}
+		return "user:" + grantee.GetUserId().GetOpaqueId()
+	case provider.GranteeType_GRANTEE_TYPE_GROUP:
+		if grantee.GetGroupId() == nil {
+			return "group:<unknown>"
+		}
+		return "group:" + grantee.GetGroupId().GetOpaqueId()
+	default:
+		return strings.ToLower(grantee.GetType().String())
+	}
+}
+
+func summarizePermissions(p *provider.ResourcePermissions) string {
+	if p == nil {
+		return "none"
+	}
+	perms := make([]string, 0, 8)
+	if p.GetAddGrant() {
+		perms = append(perms, "add-grant")
+	}
+	if p.GetInitiateFileDownload() {
+		perms = append(perms, "download")
+	}
+	if p.GetInitiateFileUpload() {
+		perms = append(perms, "upload")
+	}
+	if p.GetListGrants() {
+		perms = append(perms, "list-grants")
+	}
+	if p.GetListContainer() {
+		perms = append(perms, "list")
+	}
+	if p.GetStat() {
+		perms = append(perms, "stat")
+	}
+	if p.GetRemoveGrant() {
+		perms = append(perms, "remove-grant")
+	}
+	if p.GetUpdateGrant() {
+		perms = append(perms, "update-grant")
+	}
+	if len(perms) == 0 {
+		return "none"
+	}
+	return strings.Join(perms, ",")
+}
+
+func renderWalkerPath(wd string, info *provider.ResourceInfo) string {
+	base := strings.TrimPrefix(filepath.ToSlash(wd), "/")
+	segment := ""
+	if info != nil {
+		segment = strings.TrimPrefix(filepath.ToSlash(info.GetPath()), "/")
+		if segment == "." {
+			segment = ""
+		}
+	}
+	combined := path.Join(base, segment)
+	combined = strings.TrimPrefix(combined, "/")
+	if combined == "" {
+		return "/"
+	}
+	return "/" + combined
 }
 
 func migrateCmd(cfg *config.Config) *cobra.Command {
@@ -295,4 +1022,215 @@ func revaShareConfig(cfg *sharing.Config) map[string]any {
 			"service_account_secret": cfg.ServiceAccount.ServiceAccountSecret,
 		},
 	}
+}
+
+// OpenCloud directory structure for share-manager metadata and user spaces:
+//
+// opencloudHome/storage/
+// ...
+// └── metadata/
+//     ├── spaces/js/oncs3-share-manager-metadata/    (rootMetadata - Phase 1,3,4)
+//     │   ├── blobs/
+//     │   │   ├── 9c/a3/b2/f5/-42a1-4b8e-9123-456789abcdef   (Phase 4: MISSING received.json blob - reconstructed here)
+//     │   │   │   {"Spaces": {"215fee7a-...:480049db-...": {"States": {"...:...:84652da9-...": {State: 2, MountPoint: {path: "file.txt"}}}}}}
+//     │   │   └── d7/02/d7/e1/-37b0-4d41-b8dc-4b90c1d1f907   (Phase 1: read <spaceID>.json blob for Shares data)
+//     │   │       {"Shares": {"215fee7a-...:480049db-...:84652da9-...": {resource_id: {...}, grantee: {...}, creator: {...}}}}
+//     │   └── nodes/
+//     │       ├── 3a/5f/c2/d8/-1234-5678-abcd-ef0123456789.mpk  (Phase 4: received.json MPK → points to MISSING blob)
+//     │       │   {"user.oc.name": "received.json", "user.oc.blobid": "9ca3b2f5-42a1-4b8e-9123-456789abcdef", "user.oc.parentid": "a9a54ce7-..."}
+//     │       ├── 99/98/b8/bf/-6871-49cc-aca9-dab4984dc1e4.mpk  (Phase 1: <spaceID>.json MPK → points to Shares blob)
+//     │       │   {"user.oc.name": "480049db-...-...-....json", "user.oc.blobid": "d702d7e1-37b0-4d41-b8dc-4b90c1d1f907"}
+//     │       └── a9/a5/4c/e7/-de30-4d27-94f8-10e4612c66c2.mpk  (Phase 3: parent node for ancestry lookup)
+//     │           {"user.oc.name": "einstein", "user.oc.id": "a9a54ce7-...", "user.oc.parentid": "...users-node-id..."}
+//     └── uploads/                                   (rootMetadataUploads)
+//         ├── d702d7e1-37b0-4d41-b8dc-4b90c1d1f907   (Phase 1: read <spaceID>.json blob for Shares data; blobUploadsPath = filepath.Join(rootMetadataUploads, blobID))
+//         │       {"Shares": {"215fee7a-...:480049db-...:84652da9-...": {resource_id: {...}, grantee: {...}, creator: {...}}}}
+//         └── 1c93b82b-d22d-41e0-8038-5a706e9b409e.info
+//                 {"MetaData": {"dir": "/users/4c510ada-c86b-4815-8820-42cdf82c3d51", "filename": "received.json", ...}, "Storage": {"NodeName": "received.json", "SpaceRoot": "jsoncs3-share-manager-metadata", ...}}
+
+func moveStuckUploadBlobsCmd(cfg *config.Config) *cobra.Command {
+	moveCmd := &cobra.Command{
+		Use:   "move-stuck-upload-blobs",
+		Short: `move stuck upload blobs to the jsoncs3 share-manager metadata`,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Parse base config to align with other shares subcommands; no config fields are required here
+			if err := parser.ParseConfig(cfg, true); err != nil {
+				return configlog.ReturnError(err)
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filename, _ := cmd.Flags().GetString("filename")
+			verbose, _ := cmd.Flags().GetBool("verbose")
+
+			dryRun := true
+			if cmd.Flags().Changed("dry-run") {
+				dryRun, _ = cmd.Flags().GetBool("dry-run")
+			}
+			if dryRun {
+				fmt.Print("Dry run mode enabled\n\n")
+			}
+
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return configlog.ReturnError(err)
+			}
+
+			opencloudHome := filepath.Join(home, ".opencloud")
+			if cmd.Flags().Changed("opencloud-home") {
+				opencloudHome, _ = cmd.Flags().GetString("opencloud-home")
+			}
+
+			rootMetadata := filepath.Join(opencloudHome, "storage", "metadata")
+			rootMetadataBlobs := filepath.Join(rootMetadata, "spaces", "js", oncs3MetadataSpace)
+
+			fmt.Printf("Scanning for missing blobs in: %s \n\n", rootMetadataBlobs)
+			missingBlobs, err := scanMissingBlobs(rootMetadataBlobs, filename)
+			if err != nil {
+				return err
+			}
+			if verbose {
+				printJSON(missingBlobs, "missingBlobs")
+			}
+
+			if len(missingBlobs) == 0 {
+				fmt.Println("No missing blobs found")
+				return nil
+			}
+
+			rootMetadataUploads := filepath.Join(rootMetadata, "uploads")
+			fmt.Printf("Found %d missing blobs. Restoring from %s\n", len(missingBlobs), rootMetadataUploads)
+			remainingBlobIDs := restoreFromUploads(rootMetadataUploads, missingBlobs, dryRun)
+
+			if verbose {
+				printJSON(remainingBlobIDs, "remainingBlobIDs")
+			}
+
+			return nil
+		},
+	}
+	moveCmd.Flags().Bool("dry-run", false, "Dry run mode enabled")
+	moveCmd.Flags().String("opencloud-home", "~/.opencloud", "OpenCloud home directory")
+	moveCmd.Flags().String("filename", "received.json", "file to move from uploads/ to share manager metadata blobs/")
+	moveCmd.Flags().Bool("verbose", false, "Verbose logging enabled")
+
+	return moveCmd
+}
+
+func printJSON(v any, label string) {
+	jbs, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshalling JSON: %v\n", err)
+		return
+	}
+	fmt.Println(label, string(jbs))
+}
+
+// Scan for missing received.json blobs
+func scanMissingBlobs(rootMetadata, filename string) (map[string]string, error) {
+	missingBlobs := make(map[string]string) // blobID -> blobPathAbs
+	nodesRoot := filepath.Join(rootMetadata, "nodes")
+
+	walkErr := filepath.WalkDir(nodesRoot, func(path string, dir os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if dir.IsDir() || filepath.Ext(path) != mpkExtension {
+			return nil
+		}
+		mpkBin, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		mpk := unmarshalMPK(mpkBin)
+		if mpk["user.oc.name"] != filename {
+			return nil
+		}
+		blobID := mpk["user.oc.blobid"]
+		blobPathRel, ok := computeBlobPathRelative(blobID)
+		if !ok {
+			return nil
+		}
+		blobPathAbs := filepath.Join(rootMetadata, blobPathRel)
+		if _, statErr := os.Stat(blobPathAbs); statErr == nil {
+			return nil
+		}
+		missingBlobs[blobID] = blobPathAbs
+		return nil
+	})
+
+	if walkErr != nil {
+		return nil, walkErr
+	}
+
+	return missingBlobs, nil
+}
+
+// Attempt fast path restoration from uploads/ folder
+func restoreFromUploads(rootMetadataUploads string, missing map[string]string, dryRun bool) map[string]bool {
+	remainingBlobIDs := make(map[string]bool)
+
+	for blobID, blobPathAbs := range missing {
+		remainingBlobIDs[blobID] = true
+
+		blobUploadsPath := filepath.Join(rootMetadataUploads, blobID)
+		if dryRun {
+			fmt.Printf("    DRY RUN: move %s to %s\n", blobUploadsPath, blobPathAbs)
+			continue
+		}
+
+		// Check if the blob exists in the uploads folder and move it to the share manager metadata blobs/ folder
+		if _, err := os.Stat(blobUploadsPath); err != nil {
+			fmt.Printf("    Blob %s: not found in %s\n", blobID, blobUploadsPath)
+			continue
+		}
+		fmt.Printf("    Move %s to %s\n", blobUploadsPath, blobPathAbs)
+		if err := os.MkdirAll(filepath.Dir(blobPathAbs), 0755); err != nil {
+			fmt.Printf("    Warning: Failed to create dir: %v\n", err)
+			continue
+		}
+		if err := os.Rename(blobUploadsPath, blobPathAbs); err != nil {
+			fmt.Printf("    Warning: Failed to move blob: %v\n", err)
+			continue
+		}
+
+		// Remove the info file after the blob is moved
+		infoPath := blobUploadsPath + ".info"
+		if _, err := os.Stat(infoPath); err != nil {
+			fmt.Printf("    Info file %s: not found\n", infoPath)
+			continue
+		}
+		if err := os.Remove(infoPath); err != nil {
+			fmt.Printf("    Warning: Failed to remove info file: %v\n", err)
+			continue
+		}
+
+		remainingBlobIDs[blobID] = false
+	}
+
+	return remainingBlobIDs
+}
+
+func computeBlobPathRelative(bid string) (string, bool) {
+	hyphen := strings.Index(bid, "-")
+	if hyphen < 0 || hyphen < 8 {
+		return "", false
+	}
+	prefix8 := bid[:hyphen]
+	if len(prefix8) < 8 {
+		return "", false
+	}
+	d1, d2, d3, d4 := prefix8[0:2], prefix8[2:4], prefix8[4:6], prefix8[6:8]
+	suffix := bid[hyphen:]
+	return filepath.Join("blobs", d1, d2, d3, d4, suffix), true
+}
+
+func unmarshalMPK(bin []byte) map[string]string {
+	keyValue := map[string][]byte{}
+	_ = msgpack.Unmarshal(bin, &keyValue)
+	out := make(map[string]string, len(keyValue))
+	for k, v := range keyValue {
+		out[k] = string(v)
+	}
+	return out
 }

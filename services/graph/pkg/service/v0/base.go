@@ -599,16 +599,21 @@ func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *c
 	if share.GetCtime() != nil {
 		perm.SetCreatedDateTime(cs3TimestampToTime(share.GetCtime()))
 	}
+	// Resolve permissions: use legacy Share.Permissions when available; otherwise treat as nil
+	var resolvedPerms *storageprovider.ResourcePermissions
+	if share.GetPermissions() != nil && share.GetPermissions().GetPermissions() != nil {
+		resolvedPerms = share.GetPermissions().GetPermissions()
+	}
 	role := unifiedrole.CS3ResourcePermissionsToRole(
 		g.availableRoles,
-		share.GetPermissions().GetPermissions(),
+		resolvedPerms,
 		roleCondition,
 		false,
 	)
 	if role != nil {
 		perm.SetRoles([]string{role.GetId()})
 	} else {
-		actions := unifiedrole.CS3ResourcePermissionsToLibregraphActions(share.GetPermissions().GetPermissions())
+		actions := unifiedrole.CS3ResourcePermissionsToLibregraphActions(resolvedPerms)
 		// neither a role nor actions are set, we need to return "none" as a hint in the actions
 		if len(actions) == 0 {
 			actions = []string{"none"}
