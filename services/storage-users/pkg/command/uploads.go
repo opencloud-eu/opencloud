@@ -117,6 +117,9 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				fmt.Fprintf(os.Stderr, "No configuration found for filesystem driver '%s'\n", cfg.Driver)
 				os.Exit(1)
 			}
+			// Clean up revisions without background workers: the command could exit before
+			// they are done, and stop the cleanup of a file midway.
+			driverConf["revisions_cleanup_async"] = false
 			fs, err := f(driverConf, fsStream, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s'\n", cfg.Driver)

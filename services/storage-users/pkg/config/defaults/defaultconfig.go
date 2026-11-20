@@ -173,6 +173,12 @@ func DefaultConfig() *config.Config {
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "ids-storage-users",
 		},
+		RevisionsCleanup: config.RevisionsCleanup{
+			Strategy:              "disabled",
+			Async:                 true,
+			AsyncQueueFull:        "drop",
+			AsyncQueueFullTimeout: 5 * time.Second,
+		},
 		Tasks: config.Tasks{
 			PurgeTrashBin: config.PurgeTrashBin{
 				ProjectDeleteBefore:  30 * 24 * time.Hour,
