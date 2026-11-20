@@ -2,10 +2,8 @@ package command
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -28,7 +26,6 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3"
 	migration "github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/migrations"
 	"github.com/opencloud-eu/reva/v3/pkg/share/manager/registry"
-	metadatacs3 "github.com/opencloud-eu/reva/v3/pkg/storage/utils/metadata"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/walker"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
@@ -39,7 +36,6 @@ import (
 	storageregistry "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/rs/zerolog"
-	"github.com/shamaton/msgpack/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -57,21 +53,9 @@ const migrationTimeout = 30 * time.Minute
 
 const (
 	jsoncs3Driver            = "jsoncs3"
-	defaultOpenCloudBaseDir  = "/var/lib/opencloud"
-	mpkExtension             = ".mpk"
 	serviceAccountIDFlag     = "service-account-id"
 	serviceAccountSecretFlag = "service-account-secret"
-	jsoncs3MetadataSpace     = "jsoncs3-share-manager-metadata"
-	oncs3MetadataSpace       = "oncs3-share-manager-metadata"
 )
-
-func opencloudBaseDataPath() string {
-	basepath := os.Getenv("OC_BASE_DATA_PATH")
-	if basepath == "" {
-		return defaultOpenCloudBaseDir
-	}
-	return basepath
-}
 
 // SharesCommand is the entrypoint for the groups command.
 func SharesCommand(cfg *config.Config) *cobra.Command {
@@ -223,8 +207,7 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 	serviceAccountSecret := viper.GetString(serviceAccountSecretFlag)
 
 	revaOpts := append(cfg.Sharing.Reva.GetRevaOptions(), pool.WithRegistry(mregistry.GetRegistry()))
-	// Pre-flight: surface execution mode/flags and run metadata healers before the main scan.
-	// The healers are best-effort; missing trees are reported but do not abort the scan.
+	// Pre-flight: surface execution mode and flags before the main scan.
 	fmt.Printf("\n== %s ==\n", "Pre-flight")
 	if dryRun {
 		fmt.Println("mode: dry run enabled")
@@ -253,8 +236,8 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 		return configlog.ReturnError(err)
 	}
 
-	// Stale cleanup: reconcile jsoncs3 caches before scanning
-	preprocessReconcileJsoncs3(serviceUserCtx, cfg, dryRun, verbose)
+	// Stale cleanup: remove shares of deleted resources before scanning (not in a dry run)
+	preprocessCleanupStaleShares(serviceUserCtx, cfg, dryRun)
 
 	storageRegistrySelector, err := pool.StorageRegistrySelector(cfg.Sharing.Reva.Address, revaOpts...)
 	if err != nil {
@@ -271,8 +254,6 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 		return nil
 	}
 	fmt.Printf("%d target space(s)\n", len(spaces))
-	// Provider cache healer
-	preprocessPrepareProviderCache(serviceUserCtx, cfg, spaces, dryRun, verbose, force)
 
 	fmt.Printf("\n== %s ==\n", "Primary scan")
 	stats := scanAndCleanOrphansForSpaces(serviceUserCtx, orphanScanArgs{
@@ -308,7 +289,7 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 	// Reverse-orphan cleanup (shares without corresponding storage grants)
 	// Always executed after the primary orphan-grant pass. Honors --dry-run/--force/--verbose.
 	fmt.Printf("\n== %s ==\n", "Reverse orphan scan")
-	reverseStats := postprocessCleanReverseOrphans(serviceUserCtx, cfg, reverseOrphanArgs{
+	reverseStats := postprocessCleanReverseOrphans(serviceUserCtx, reverseOrphanArgs{
 		GatewaySelector:         gatewaySelector,
 		StorageRegistrySelector: storageRegistrySelector,
 		RevaOpts:                revaOpts,
@@ -319,14 +300,6 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 	})
 	if !dryRun {
 		fmt.Printf("Reverse orphans: %d candidate(s), %d removed, %d errors\n", reverseStats.Candidates, reverseStats.Deleted, reverseStats.Errors)
-		postprocessReconcileJsoncs3AfterRemovals(serviceUserCtx, cfg, jsoncs3ReconcileArgs{
-			Spaces:           spaces,
-			DryRun:           dryRun,
-			Verbose:          verbose,
-			HadDeletions:     reverseStats.Deleted > 0,
-			ServiceAccountID: serviceAccountID,
-			GatewaySelector:  gatewaySelector,
-		})
 	}
 
 	return nil
@@ -349,22 +322,11 @@ type ReverseOrphanStats struct {
 	Errors     int
 }
 
-// preprocessReconcileJsoncs3 normalizes jsoncs3 storages docs and runs CleanupStaleShares
-// prior to scanning so that ListShares/ListGrants won't fail on corrupt or empty JSON.
-func preprocessReconcileJsoncs3(ctx context.Context, cfg *config.Config, dryRun, verbose bool) {
-	if cfg.Sharing.UserSharingDriver != jsoncs3Driver {
+// preprocessCleanupStaleShares runs CleanupStaleShares prior to scanning. It removes shares,
+// so it is skipped in a dry run.
+func preprocessCleanupStaleShares(ctx context.Context, cfg *config.Config, dryRun bool) {
+	if dryRun || cfg.Sharing.UserSharingDriver != jsoncs3Driver {
 		return
-	}
-	basepath := os.Getenv("OC_BASE_DATA_PATH")
-	if basepath == "" {
-		basepath = defaultOpenCloudBaseDir
-	}
-	if verbose {
-		printStoragesRootsSummary(basepath)
-	}
-	fixed, invalid, zero := healJsoncs3StoragesDocs(basepath, dryRun, verbose)
-	if verbose {
-		fmt.Printf("Healer(pre): fixed=%d invalid=%d zero=%d\n", fixed, invalid, zero)
 	}
 
 	rcfg := revaShareConfig(cfg.Sharing)
@@ -374,49 +336,6 @@ func preprocessReconcileJsoncs3(ctx context.Context, cfg *config.Config, dryRun,
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
 			cleanCtx := l.WithContext(ctx)
 			mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanCtx)
-		}
-	}
-}
-
-// preprocessPrepareProviderCache creates/repairs provider-cache docs and blobs before scanning.
-// Missing trees here are expected on fresh or partially-migrated systems and are reported
-// as informational output only.
-func preprocessPrepareProviderCache(ctx context.Context, cfg *config.Config, spaces []*provider.StorageSpace, dryRun, verbose, force bool) {
-	if cfg.Sharing.UserSharingDriver != jsoncs3Driver {
-		return
-	}
-	basepath := os.Getenv("OC_BASE_DATA_PATH")
-	if basepath == "" {
-		basepath = defaultOpenCloudBaseDir
-	}
-	pcFixed, pcInvalid, pcZero, pcCreated := healJsoncs3ProviderCacheDocs(basepath, spaces, dryRun, verbose)
-	if verbose {
-		fmt.Printf("ProviderCacheHealer(pre): fixed=%d invalid=%d zero=%d created=%d\n", pcFixed, pcInvalid, pcZero, pcCreated)
-	}
-	bFixed, bCreated := healJsoncs3ProviderCacheBlobs(basepath, spaces, dryRun, verbose)
-	if verbose {
-		fmt.Printf("ProviderCacheBlobHealer(pre): fixed=%d created=%d\n", bFixed, bCreated)
-	}
-	uCount := repairProviderCacheViaCS3(ctx, cfg, spaces, dryRun, verbose)
-	if verbose {
-		fmt.Printf("ProviderCacheCS3Repair(pre): uploaded=%d\n", uCount)
-	}
-	removed := cleanupProviderCacheNodes(basepath, spaces, dryRun, verbose)
-	if verbose {
-		fmt.Printf("ProviderCachePurge(pre): removed=%d\n", removed)
-	}
-	if force {
-		roots := providerCacheRoots(basepath)
-		for _, r := range roots {
-			for _, sub := range []string{"nodes", "blobs"} {
-				target := filepath.Join(r, sub)
-				if _, statErr := os.Stat(target); statErr == nil {
-					if verbose {
-						fmt.Printf("provider-cache-purge(force): removing %s\n", target)
-					}
-					_ = os.RemoveAll(target)
-				}
-			}
 		}
 	}
 }
@@ -524,9 +443,6 @@ func scanAndCleanOrphansForSpaces(
 				}
 				fmt.Printf("    REMOVED: %s\n", describeGrant(g))
 				stats.OrphanDeleted++
-				if shareErr != nil {
-					_ = pruneJsoncs3SharesDoc(opencloudBaseDataPath(), info.GetId())
-				}
 			}
 			return nil
 		})
@@ -554,7 +470,6 @@ type reverseOrphanArgs struct {
 // postprocessCleanReverseOrphans removes shares without corresponding storage grants.
 func postprocessCleanReverseOrphans(
 	ctx context.Context,
-	cfg *config.Config,
 	args reverseOrphanArgs,
 ) ReverseOrphanStats {
 	stats := ReverseOrphanStats{}
@@ -581,16 +496,7 @@ func postprocessCleanReverseOrphans(
 			}
 			shares, shareErr := listSharesForResource(ctx, args.GatewaySelector, info.GetId())
 			if shareErr != nil {
-				fmt.Printf("  Warning: failed to list shares for %s: %v; can be pruned with --force\n", pathLabel, shareErr)
-				if args.Force && !args.DryRun && cfg.Sharing.UserSharingDriver == jsoncs3Driver {
-					if err := pruneJsoncs3SharesDoc(opencloudBaseDataPath(), info.GetId()); err == nil {
-						fmt.Printf("  REV-FORCE-PRUNED: %s (jsoncs3 storages doc pruned due to share list error)\n", pathLabel)
-						stats.Deleted++
-					} else {
-						fmt.Printf("  REV-FORCE-PRUNE-FAILED: %s (jsoncs3 storages doc prune failed)\n", pathLabel)
-						stats.Errors++
-					}
-				}
+				fmt.Printf("  Warning: failed to list shares for %s: %v\n", pathLabel, shareErr)
 				return nil
 			}
 			if len(shares) == 0 {
@@ -623,9 +529,6 @@ func postprocessCleanReverseOrphans(
 				if err := removeShare(ctx, args.GatewaySelector, s); err != nil {
 					fmt.Printf("    REV-REMOVE-FAILED share:%s %s error=%v\n", shareID, granteeLabel, err)
 					stats.Errors++
-					if cfg.Sharing.UserSharingDriver == jsoncs3Driver {
-						_ = pruneJsoncs3SharesDoc(opencloudBaseDataPath(), info.GetId())
-					}
 				} else {
 					fmt.Printf("    REV-REMOVED share:%s %s\n", shareID, granteeLabel)
 					stats.Deleted++
@@ -639,107 +542,6 @@ func postprocessCleanReverseOrphans(
 		}
 	}
 	return stats
-}
-
-type jsoncs3ReconcileArgs struct {
-	Spaces           []*provider.StorageSpace
-	DryRun           bool
-	Verbose          bool
-	HadDeletions     bool
-	ServiceAccountID string
-	GatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
-}
-
-// postprocessReconcileJsoncs3AfterRemovals runs CleanupStaleShares and post-healers if there were deletions.
-func postprocessReconcileJsoncs3AfterRemovals(
-	ctx context.Context,
-	cfg *config.Config,
-	args jsoncs3ReconcileArgs,
-) {
-	if !args.HadDeletions || cfg.Sharing.UserSharingDriver != jsoncs3Driver {
-		return
-	}
-	rcfg := revaShareConfig(cfg.Sharing)
-	if f, ok := registry.NewFuncs[jsoncs3Driver]; ok {
-		l := logger("clean-orphaned-grants")
-		if mgr, mErr := f(rcfg[jsoncs3Driver].(map[string]interface{}), &l); mErr == nil {
-			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			cleanCtx := l.WithContext(ctx)
-			mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanCtx)
-		}
-	}
-	basepath := os.Getenv("OC_BASE_DATA_PATH")
-	if basepath == "" {
-		basepath = defaultOpenCloudBaseDir
-	}
-	if args.Verbose {
-		printStoragesRootsSummary(basepath)
-	}
-	fixed, invalid, zero := healJsoncs3StoragesDocs(basepath, args.DryRun, args.Verbose)
-	if args.Verbose {
-		fmt.Printf("Healer(post): fixed=%d invalid=%d zero=%d\n", fixed, invalid, zero)
-	}
-	pcFixed, pcInvalid, pcZero, pcCreated := healJsoncs3ProviderCacheDocs(basepath, args.Spaces, args.DryRun, args.Verbose)
-	if args.Verbose {
-		fmt.Printf("ProviderCacheHealer(post): fixed=%d invalid=%d zero=%d created=%d\n", pcFixed, pcInvalid, pcZero, pcCreated)
-	}
-	bFixed, bCreated := healJsoncs3ProviderCacheBlobs(basepath, args.Spaces, args.DryRun, args.Verbose)
-	if args.Verbose {
-		fmt.Printf("ProviderCacheBlobHealer(post): fixed=%d created=%d\n", bFixed, bCreated)
-	}
-	uCount := repairProviderCacheViaCS3(ctx, cfg, args.Spaces, args.DryRun, args.Verbose)
-	if args.Verbose {
-		fmt.Printf("ProviderCacheCS3Repair(post): uploaded=%d\n", uCount)
-	}
-	removed := cleanupProviderCacheNodes(basepath, args.Spaces, args.DryRun, args.Verbose)
-	if args.Verbose {
-		fmt.Printf("ProviderCachePurge(post): removed=%d\n", removed)
-	}
-	triggerShareManagerCacheSync(ctx, args.GatewaySelector, args.Spaces, args.Verbose)
-}
-
-// triggerShareManagerCacheSync issues ListShares(resource-id) gRPC calls to force jsoncs3.Manager
-// to run Cache.ListSpace -> syncWithLock for every touched space (see reva/pkg/share/manager/jsoncs3/jsoncs3.go).
-func triggerShareManagerCacheSync(
-	ctx context.Context,
-	gatewaySelector pool.Selectable[gateway.GatewayAPIClient],
-	spaces []*provider.StorageSpace,
-	verbose bool,
-) {
-	if gatewaySelector == nil {
-		return
-	}
-	seen := make(map[string]struct{})
-	for _, space := range spaces {
-		root := space.GetRoot()
-		if root == nil {
-			continue
-		}
-		key := root.GetStorageId() + "!" + root.GetSpaceId()
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		client, err := gatewaySelector.Next()
-		if err != nil {
-			fmt.Printf("ShareCacheSync warn: storage=%s space=%s selector error=%v\n", root.GetStorageId(), root.GetSpaceId(), err)
-			continue
-		}
-		if verbose {
-			fmt.Printf("ShareCacheSync: storage=%s space=%s\n", root.GetStorageId(), root.GetSpaceId())
-		}
-		req := &collaboration.ListSharesRequest{
-			Filters: []*collaboration.Filter{
-				{
-					Type: collaboration.Filter_TYPE_RESOURCE_ID,
-					Term: &collaboration.Filter_ResourceId{ResourceId: root},
-				},
-			},
-		}
-		if _, err := client.ListShares(ctx, req); err != nil {
-			fmt.Printf("ShareCacheSync warn: storage=%s space=%s list shares error=%v\n", root.GetStorageId(), root.GetSpaceId(), err)
-		}
-	}
 }
 
 // removeShare removes a collaboration share via the gateway, given its Share object.
@@ -765,265 +567,6 @@ func removeShare(ctx context.Context, gatewaySelector pool.Selectable[gateway.Ga
 	if res.GetStatus().GetCode() != rpc.Code_CODE_OK {
 		return fmt.Errorf("remove share failed: %s", res.GetStatus().GetMessage())
 	}
-	return nil
-}
-
-// healJsoncs3StoragesDocs scans jsoncs3 share-manager storages docs for invalid/empty JSON
-// and rewrites them to a minimal valid document to prevent list-all failures.
-func healJsoncs3StoragesDocs(basepath string, dryRun bool, verbose bool) (fixed, invalid, zero int) {
-	roots := providerCacheRoots(basepath)
-	type sharesDoc struct {
-		Shares map[string]json.RawMessage `json:"Shares"`
-		Etag   string                     `json:"Etag,omitempty"`
-	}
-	for _, root := range roots {
-		storagesRoot := filepath.Join(root, "storages")
-		walkErr := filepath.WalkDir(storagesRoot, func(p string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() || filepath.Ext(p) != ".json" {
-				return nil
-			}
-			bin, rerr := os.ReadFile(p)
-			if rerr != nil {
-				return rerr
-			}
-			// empty or whitespace-only
-			trimmed := strings.TrimSpace(string(bin))
-			if trimmed == "" {
-				zero++
-				if verbose {
-					fmt.Printf("  healer: zero-length %s\n", p)
-				}
-				if !dryRun {
-					_ = os.WriteFile(p, []byte(`{"Shares":{}}`), 0644)
-					fixed++
-				}
-				return nil
-			}
-			var doc sharesDoc
-			if jerr := json.Unmarshal(bin, &doc); jerr != nil || doc.Shares == nil {
-				invalid++
-				if verbose {
-					fmt.Printf("  healer: invalid %s err=%v\n", p, jerr)
-				}
-				if !dryRun {
-					_ = os.WriteFile(p, []byte(`{"Shares":{}}`), 0644)
-					fixed++
-				}
-				return nil
-			}
-			return nil
-		})
-		if walkErr != nil && verbose {
-			fmt.Printf("  healer: tree not found %s err=%v\n", storagesRoot, walkErr)
-		}
-	}
-	return fixed, invalid, zero
-}
-
-// repairProviderCacheViaCS3 writes minimal provider-cache JSON to the CS3 metadata storage
-// for both modern and legacy share-manager metadata spaces, ensuring Download() returns a valid payload.
-func repairProviderCacheViaCS3(ctx context.Context, cfg *config.Config, spaces []*provider.StorageSpace, dryRun, verbose bool) int {
-	if len(spaces) == 0 {
-		return 0
-	}
-	spaceNames := []string{jsoncs3MetadataSpace, oncs3MetadataSpace}
-	gw := cfg.Sharing.Reva.Address
-	prov := cfg.Sharing.Reva.Address
-	uploads := 0
-	for _, metaSpace := range spaceNames {
-		cs3 := metadatacs3.NewCS3(gw, prov)
-		if err := cs3.Init(ctx, metaSpace); err != nil {
-			if verbose {
-				fmt.Printf("  provider-cache-cs3: Init failed for %s: %v\n", metaSpace, err)
-			}
-			continue
-		}
-		// Ensure /storages and per-storage folders exist
-		if !dryRun {
-			_ = cs3.MakeDirIfNotExist(ctx, "/storages")
-		}
-		for _, sp := range spaces {
-			root := sp.GetRoot()
-			if root == nil || root.GetStorageId() == "" || root.GetSpaceId() == "" {
-				continue
-			}
-			storageID := root.GetStorageId()
-			spaceOpaque := root.GetSpaceId()
-			dir := "/storages/" + storageID
-			file := dir + "/" + spaceOpaque + ".json"
-			if verbose {
-				fmt.Printf("  provider-cache-cs3: ensure %s\n", file)
-			}
-			if dryRun {
-				continue
-			}
-			_ = cs3.MakeDirIfNotExist(ctx, dir)
-			if err := cs3.SimpleUpload(ctx, file, []byte(`{"Shares":{}}`)); err != nil {
-				if verbose {
-					fmt.Printf("    upload failed: %v\n", err)
-				}
-				continue
-			}
-			uploads++
-		}
-	}
-	return uploads
-}
-
-// cleanupProviderCacheNodes deletes provider-cache MPK nodes and blobs for given spaces,
-// forcing the metadata Download to return NotFound rather than returning a truncated blob.
-func cleanupProviderCacheNodes(basepath string, spaces []*provider.StorageSpace, dryRun bool, verbose bool) int {
-	roots := providerCacheRoots(basepath)
-	targetNames := make(map[string]bool)
-	for _, sp := range spaces {
-		if sp.GetRoot() == nil || sp.GetRoot().GetSpaceId() == "" {
-			continue
-		}
-		targetNames[sp.GetRoot().GetSpaceId()+".json"] = true
-	}
-	removed := 0
-	for _, root := range roots {
-		nodesRoot := filepath.Join(root, "nodes")
-		walkErr := filepath.WalkDir(nodesRoot, func(p string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() || filepath.Ext(p) != mpkExtension {
-				return nil
-			}
-			mpkBin, rerr := os.ReadFile(p)
-			if rerr != nil {
-				return rerr
-			}
-			meta := unmarshalMPK(mpkBin)
-			name := meta["user.oc.name"]
-			if !targetNames[name] {
-				return nil
-			}
-			blobID := meta["user.oc.blobid"]
-			rel, ok := computeBlobPathRelative(blobID)
-			if !ok {
-				return nil
-			}
-			blobPath := filepath.Join(root, rel)
-			if verbose {
-				fmt.Printf("  provider-cache-purge: node=%s blob=%s\n", p, blobPath)
-			}
-			if dryRun {
-				removed++
-				return nil
-			}
-			_ = os.Remove(blobPath)
-			_ = os.Remove(p)
-			removed++
-			return nil
-		})
-		if walkErr != nil && verbose {
-			fmt.Printf("  provider-cache-purge: tree not found %s err=%v\n", nodesRoot, walkErr)
-		}
-	}
-	return removed
-}
-
-// storagesRoots returns both possible jsoncs3 share-manager roots to handle naming differences.
-// (storagesRoots removed; use providerCacheRoots(basepath)+\"storages\" instead)
-
-// providerCacheRoots returns the jsoncs3 share-manager metadata roots (without the trailing "storages").
-func providerCacheRoots(basepath string) []string {
-	prefix := filepath.Join(basepath, "storage", "metadata", "spaces", "js")
-	return []string{
-		filepath.Join(prefix, jsoncs3MetadataSpace),
-		filepath.Join(prefix, oncs3MetadataSpace),
-	}
-}
-
-func printStoragesRootsSummary(basepath string) {
-	for _, r := range providerCacheRoots(basepath) {
-		count := 0
-		sroot := filepath.Join(r, "storages")
-		_ = filepath.WalkDir(sroot, func(p string, d os.DirEntry, err error) error {
-			if err == nil && !d.IsDir() && filepath.Ext(p) == ".json" {
-				count++
-			}
-			return nil
-		})
-		fmt.Printf("storagesRoot: %s files=%d\n", sroot, count)
-	}
-}
-
-// pruneJsoncs3SharesDoc removes share-manager entries for the given resourceId from the on-disk jsoncs3 storages doc.
-// This is a last-resort consistency fix used when --force was needed and share listing errored, to avoid leaving
-// share-manager entries without corresponding storage grants.
-func pruneJsoncs3SharesDoc(basepath string, resourceID *provider.ResourceId) error {
-	if resourceID == nil {
-		return nil
-	}
-	storageID := resourceID.GetStorageId()
-	spaceID := resourceID.GetSpaceId()
-	if storageID == "" || spaceID == "" {
-		return nil
-	}
-	// Prefer modern root; fallback to legacy
-	var docPath string
-	modern := filepath.Join(basepath, "storage", "metadata", "spaces", "js", jsoncs3MetadataSpace, "storages", storageID, spaceID+".json")
-	legacy := filepath.Join(basepath, "storage", "metadata", "spaces", "js", oncs3MetadataSpace, "storages", storageID, spaceID+".json")
-	if _, err := os.Stat(modern); err == nil {
-		docPath = modern
-	} else if errors.Is(err, os.ErrNotExist) {
-		docPath = legacy
-	} else {
-		return err
-	}
-	bin, err := os.ReadFile(docPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil // nothing to prune
-		}
-		return err
-	}
-	type resourceIDDoc struct {
-		StorageId string `json:"storage_id"`
-		SpaceId   string `json:"space_id"`
-		OpaqueId  string `json:"opaque_id"`
-	}
-	type shareEntry struct {
-		ResourceID resourceIDDoc `json:"resource_id"`
-	}
-	type sharesDoc struct {
-		Shares map[string]json.RawMessage `json:"Shares"`
-	}
-	var doc sharesDoc
-	if err := json.Unmarshal(bin, &doc); err != nil {
-		return err
-	}
-	if len(doc.Shares) == 0 {
-		return nil
-	}
-	changed := false
-	for k, v := range doc.Shares {
-		var se shareEntry
-		if err := json.Unmarshal(v, &se); err != nil {
-			continue
-		}
-		if se.ResourceID.StorageId == storageID && se.ResourceID.SpaceId == spaceID && se.ResourceID.OpaqueId == resourceID.GetOpaqueId() {
-			delete(doc.Shares, k)
-			changed = true
-		}
-	}
-	if !changed {
-		return nil
-	}
-	nb, err := json.Marshal(doc)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(docPath), 0755); err != nil {
-		return err
-	}
-	_ = os.WriteFile(docPath, nb, 0644)
 	return nil
 }
 
@@ -1331,154 +874,6 @@ func renderWalkerPath(wd string, info *provider.ResourceInfo) string {
 	return "/" + combined
 }
 
-// healJsoncs3ProviderCacheDocs ensures per-space provider-cache JSON docs exist and are valid JSON
-// for both legacy and modern roots. Missing or invalid/empty files are normalized to {"Shares":{}}.
-func healJsoncs3ProviderCacheDocs(basepath string, spaces []*provider.StorageSpace, dryRun, verbose bool) (fixed, invalid, zero, created int) {
-	roots := providerCacheRoots(basepath)
-	type sharesDoc struct {
-		Shares map[string]json.RawMessage `json:"Shares"`
-		Etag   string                     `json:"Etag,omitempty"`
-	}
-	for _, sp := range spaces {
-		rootID := sp.GetRoot()
-		if rootID == nil {
-			continue
-		}
-		storageID := rootID.GetStorageId()
-		spaceOpaque := rootID.GetSpaceId()
-		if storageID == "" || spaceOpaque == "" {
-			continue
-		}
-		for _, root := range roots {
-			docPath := filepath.Join(root, "storages", storageID, spaceOpaque+".json")
-			if _, err := os.Stat(docPath); err != nil {
-				// missing -> create
-				if verbose {
-					fmt.Printf("  provider-cache: missing %s\n", docPath)
-				}
-				if !dryRun && os.MkdirAll(filepath.Dir(docPath), 0755) == nil {
-					_ = os.WriteFile(docPath, []byte(`{"Shares":{}}`), 0644)
-					created++
-				}
-				continue
-			}
-			bin, rerr := os.ReadFile(docPath)
-			if rerr != nil {
-				continue
-			}
-			trimmed := strings.TrimSpace(string(bin))
-			if trimmed == "" {
-				zero++
-				if verbose {
-					fmt.Printf("  provider-cache: zero-length %s\n", docPath)
-				}
-				if !dryRun {
-					_ = os.WriteFile(docPath, []byte(`{"Shares":{}}`), 0644)
-					fixed++
-				}
-				continue
-			}
-			var doc sharesDoc
-			if jerr := json.Unmarshal(bin, &doc); jerr != nil || doc.Shares == nil {
-				invalid++
-				if verbose {
-					fmt.Printf("  provider-cache: invalid %s err=%v\n", docPath, jerr)
-				}
-				if !dryRun {
-					_ = os.WriteFile(docPath, []byte(`{"Shares":{}}`), 0644)
-					fixed++
-				}
-			}
-		}
-	}
-	return fixed, invalid, zero, created
-}
-
-// healJsoncs3ProviderCacheBlobs repairs missing or truncated provider-cache blobs by inspecting MPK nodes.
-// It writes {"Shares":{}} into the blob file referenced by nodes named "<spaceOpaqueID>.json".
-func healJsoncs3ProviderCacheBlobs(basepath string, spaces []*provider.StorageSpace, dryRun, verbose bool) (fixed, created int) {
-	// Build set of target filenames per space
-	targetNames := make(map[string]bool)
-	for _, sp := range spaces {
-		if sp.GetRoot() == nil || sp.GetRoot().GetSpaceId() == "" {
-			continue
-		}
-		targetNames[sp.GetRoot().GetSpaceId()+".json"] = true
-	}
-	if len(targetNames) == 0 {
-		return 0, 0
-	}
-	roots := providerCacheRoots(basepath)
-	for _, root := range roots {
-		nodesRoot := filepath.Join(root, "nodes")
-		walkErr := filepath.WalkDir(nodesRoot, func(p string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() || filepath.Ext(p) != mpkExtension {
-				return nil
-			}
-			mpkBin, rerr := os.ReadFile(p)
-			if rerr != nil {
-				return rerr
-			}
-			meta := unmarshalMPK(mpkBin)
-			name := meta["user.oc.name"]
-			if !targetNames[name] {
-				return nil
-			}
-			blobID := meta["user.oc.blobid"]
-			rel, ok := computeBlobPathRelative(blobID)
-			if !ok {
-				return nil
-			}
-			blobPath := filepath.Join(root, rel)
-			bin, rerr := os.ReadFile(blobPath)
-			if rerr != nil {
-				// missing -> create
-				if verbose {
-					fmt.Printf("  provider-cache-blob: missing %s (from %s)\n", blobPath, p)
-				}
-				if !dryRun && os.MkdirAll(filepath.Dir(blobPath), 0755) == nil {
-					_ = os.WriteFile(blobPath, []byte(`{"Shares":{}}`), 0644)
-					created++
-				}
-				return nil
-			}
-			trim := strings.TrimSpace(string(bin))
-			if trim == "" {
-				if verbose {
-					fmt.Printf("  provider-cache-blob: zero-length %s (from %s)\n", blobPath, p)
-				}
-				if !dryRun {
-					_ = os.WriteFile(blobPath, []byte(`{"Shares":{}}`), 0644)
-					fixed++
-				}
-				return nil
-			}
-			// Validate JSON minimally contains "Shares"
-			type sharesDoc struct {
-				Shares map[string]json.RawMessage `json:"Shares"`
-			}
-			var doc sharesDoc
-			if jerr := json.Unmarshal(bin, &doc); jerr != nil || doc.Shares == nil {
-				if verbose {
-					fmt.Printf("  provider-cache-blob: invalid %s err=%v (from %s)\n", blobPath, jerr, p)
-				}
-				if !dryRun {
-					_ = os.WriteFile(blobPath, []byte(`{"Shares":{}}`), 0644)
-					fixed++
-				}
-			}
-			return nil
-		})
-		if walkErr != nil && verbose {
-			fmt.Printf("  provider-cache-blob: tree not found %s err=%v\n", nodesRoot, walkErr)
-		}
-	}
-	return fixed, created
-}
-
 func migrateCmd(cfg *config.Config) *cobra.Command {
 	migrateCmd := &cobra.Command{
 		Use: "migrate [migration]",
@@ -1631,28 +1026,4 @@ func revaShareConfig(cfg *sharing.Config) map[string]any {
 			"service_account_secret": cfg.ServiceAccount.ServiceAccountSecret,
 		},
 	}
-}
-
-func computeBlobPathRelative(bid string) (string, bool) {
-	hyphen := strings.Index(bid, "-")
-	if hyphen < 0 || hyphen < 8 {
-		return "", false
-	}
-	prefix8 := bid[:hyphen]
-	if len(prefix8) < 8 {
-		return "", false
-	}
-	d1, d2, d3, d4 := prefix8[0:2], prefix8[2:4], prefix8[4:6], prefix8[6:8]
-	suffix := bid[hyphen:]
-	return filepath.Join("blobs", d1, d2, d3, d4, suffix), true
-}
-
-func unmarshalMPK(bin []byte) map[string]string {
-	keyValue := map[string][]byte{}
-	_ = msgpack.Unmarshal(bin, &keyValue)
-	out := make(map[string]string, len(keyValue))
-	for k, v := range keyValue {
-		out[k] = string(v)
-	}
-	return out
 }
