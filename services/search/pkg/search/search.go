@@ -35,6 +35,9 @@ const SchemaVersion = 5
 // the scope clause is removed together with the boolean operator that joins it to the rest of the query.
 var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
+// ErrResourceNotFound is returned when the index holds no document with the requested id
+var ErrResourceNotFound = errors.New("resource not found")
+
 // Engine is the interface to the search engine
 type Engine interface {
 	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
@@ -46,6 +49,7 @@ type Engine interface {
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error
 	PurgeSpace(rootID string) error
+	Get(ctx context.Context, id string) (*Resource, error)
 
 	NewBatch(batchSize int) (BatchOperator, error)
 }

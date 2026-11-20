@@ -1,7 +1,9 @@
 package bleve_test
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -105,6 +107,34 @@ var _ = Describe("Bleve", func() {
 			count, err := idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(1)), "only the record of the other space is left")
+		})
+	})
+
+	Describe("Get", func() {
+		It("returns the indexed resource with its exact mtime", func() {
+			mtime := time.Unix(1700000000, 123456789).UTC()
+			childResource.Mtime = &mtime
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			r, err := eng.Get(context.Background(), childResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.ID).To(Equal(childResource.ID))
+			Expect(r.Mtime).ToNot(BeNil())
+			Expect(r.Mtime.Equal(mtime)).To(BeTrue(), "got %s", r.Mtime)
+		})
+
+		It("returns a trashed resource", func() {
+			childResource.Deleted = true
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			r, err := eng.Get(context.Background(), childResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Deleted).To(BeTrue())
+		})
+
+		It("fails with ErrResourceNotFound for an unknown id", func() {
+			_, err := eng.Get(context.Background(), "1$2!unknown")
+			Expect(err).To(MatchError(search.ErrResourceNotFound))
 		})
 	})
 
