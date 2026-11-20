@@ -26,8 +26,38 @@ type Config struct {
 	IDP     Settings `yaml:"idp"`
 	Clients []Client `yaml:"clients"`
 	Ldap    Ldap     `yaml:"ldap"`
+	MFA     MFA      `yaml:"mfa"`
 
 	Context context.Context `yaml:"-"`
+}
+
+// MFA defines the available configuration for two-factor authentication.
+type MFA struct {
+	Enabled bool     `yaml:"enabled" env:"IDP_MFA_ENABLED" desc:"Allow users to protect their account with two-factor authentication. Users enable it themselves in their account settings with an authenticator app (TOTP) like Google Authenticator. A one-time code is then required in addition to the password to log in. Only users who enabled it are affected. It is available with the identity managers 'ldap' and 'cs3' and when 'IDP_ENCRYPTION_SECRET_FILE' is set, otherwise this setting has no effect." introductionVersion:"%%NEXT%%"`
+	Issuer  string   `yaml:"issuer" env:"IDP_MFA_ISSUER" desc:"The name of this OpenCloud instance as shown in the authenticator app of the users." introductionVersion:"%%NEXT%%"`
+	Store   MFAStore `yaml:"store"`
+}
+
+// MFAAvailable tells if two-factor authentication can be offered with this configuration. It
+// needs an identity manager with a wrappable identifier backend and a persistent
+// encryption secret to protect the secrets of the users.
+func (c *Config) MFAAvailable() bool {
+	if !c.MFA.Enabled || c.IDP.EncryptionSecretFile == "" {
+		return false
+	}
+	return c.IDP.IdentityManager == "ldap" || c.IDP.IdentityManager == "cs3"
+}
+
+// MFAStore configures the store for the two-factor authentication secrets.
+type MFAStore struct {
+	Store                string   `yaml:"store" env:"OC_PERSISTENT_STORE;IDP_MFA_STORE" desc:"The type of the store for the two-factor authentication secrets of the users. Supported values are: 'memory', 'nats-js-kv'. Secrets in a 'memory' store are lost on restart, only use it for testing." introductionVersion:"%%NEXT%%"`
+	Nodes                []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;IDP_MFA_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Database             string   `yaml:"database" env:"IDP_MFA_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"%%NEXT%%"`
+	AuthUsername         string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;IDP_MFA_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
+	AuthPassword         string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;IDP_MFA_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
+	EnableTLS            bool     `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;IDP_MFA_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
+	TLSInsecure          bool     `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;IDP_MFA_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
+	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;IDP_MFA_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided IDP_MFA_STORE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
 }
 
 // Ldap defines the available LDAP configuration.
