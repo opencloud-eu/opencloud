@@ -32,3 +32,14 @@ Feature: reindex space via CLI command
     When user "Alice" searches for "Tags:tag1" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "0" entries
+
+  @issue-3559
+  Scenario: reindex all spaces including disabled ones
+    Given user "Alice" has created a space "disabled" with the default quota using the Graph API
+    And user "Alice" has disabled a space "disabled"
+    When the administrator reindexes all spaces using the CLI
+    Then the command should be successful
+    When user "Alice" searches for "textfile.txt" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these entries:
+      | textfile.txt |
