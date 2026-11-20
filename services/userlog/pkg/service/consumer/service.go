@@ -160,6 +160,14 @@ func (s *Service) processEvent(event events.Event) {
 		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
 	case events.ShareExpired:
 		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
+
+	// ocm share related, the grantee is always a local user
+	case events.OCMCoreShareCreated:
+		executant = e.Sharer
+		users = append(users, e.GranteeUserID.GetOpaqueId())
+	case events.OCMCoreShareDelete:
+		executant = e.Sharer
+		users = append(users, e.Grantee.GetOpaqueId())
 	}
 
 	if err != nil {
