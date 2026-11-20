@@ -92,10 +92,11 @@ function Mfascreen(props) {
   const { classes, history } = props;
   const { t } = useTranslation();
 
-  const [view, setView] = useState(VIEW_LOADING);
+  // The view together with the data only it shows (the setup, or new recovery codes), so
+  // they always change in one update and a view never renders without its data.
+  const [screen, setScreen] = useState({ view: VIEW_LOADING });
+  // The account, shown above every view once it is known.
   const [status, setStatus] = useState(null);
-  const [setup, setSetup] = useState(null);
-  const [recoveryCodes, setRecoveryCodes] = useState([]);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -110,7 +111,7 @@ function Mfascreen(props) {
       case "locked":
         return t(
           "opencloud.mfa.error.locked",
-          "Too many wrong codes. Please wait a few minutes and try again."
+          "Too many wrong codes. Please wait and try again later."
         );
       case "no_pending_setup":
         return t("opencloud.mfa.error.setupExpired", "The setup has expired. Please start again.");
@@ -129,16 +130,16 @@ function Mfascreen(props) {
       switch (response.status) {
         case 200:
           setStatus(response.data);
-          setView(response.data.enabled ? VIEW_ENABLED : VIEW_DISABLED);
+          setScreen({ view: response.data.enabled ? VIEW_ENABLED : VIEW_DISABLED });
           break;
         case 401:
           signIn();
           break;
         default:
-          setView(VIEW_UNAVAILABLE);
+          setScreen({ view: VIEW_UNAVAILABLE });
       }
     }).catch(() => {
-      setView(VIEW_UNAVAILABLE);
+      setScreen({ view: VIEW_UNAVAILABLE });
     });
   }, [signIn]);
 
@@ -174,50 +175,43 @@ function Mfascreen(props) {
     });
   }
 
+  function showRecoveryCodes(response) {
+    setScreen({ view: VIEW_RECOVERY_CODES, recoveryCodes: response.data.recoveryCodes });
+  }
+
+  function reload() {
+    setScreen({ view: VIEW_LOADING });
+    loadStatus();
+  }
+
   function handleSetup(event) {
     submit(event, "post", "setup", { password }, (response) => {
-      setSetup(response.data);
-      setView(VIEW_SETUP);
+      setScreen({ view: VIEW_SETUP, setup: response.data });
     });
   }
 
   function handleEnable(event) {
-    submit(event, "post", "enable", { code }, (response) => {
-      // state updates after a request are not batched: switch the view before
-      // dropping the data the current view renders
-      setRecoveryCodes(response.data.recoveryCodes);
-      setView(VIEW_RECOVERY_CODES);
-      setSetup(null);
-    });
+    submit(event, "post", "enable", { code }, showRecoveryCodes);
   }
 
   function handleRecoveryCodes(event) {
-    submit(event, "post", "recovery-codes", { code }, (response) => {
-      setRecoveryCodes(response.data.recoveryCodes);
-      setView(VIEW_RECOVERY_CODES);
-    });
+    submit(event, "post", "recovery-codes", { code }, showRecoveryCodes);
   }
 
   function handleDisable(event) {
-    submit(event, "post", "disable", { code }, () => {
-      setView(VIEW_LOADING);
-      loadStatus();
-    });
+    submit(event, "post", "disable", { code }, reload);
   }
 
   function handleDone(event) {
     event.preventDefault();
-    setRecoveryCodes([]);
-    setView(VIEW_LOADING);
-    loadStatus();
+    reload();
   }
 
   function handleCancelSetup(event) {
     event.preventDefault();
-    setSetup(null);
     setCode("");
     setError("");
-    setView(VIEW_DISABLED);
+    setScreen({ view: VIEW_DISABLED });
   }
 
   const errorElement = error && (
@@ -251,7 +245,7 @@ function Mfascreen(props) {
   );
 
   let content = null;
-  switch (view) {
+  switch (screen.view) {
     case VIEW_DISABLED:
       content = (
         <form action="" className="oc-login-form" onSubmit={handleSetup}>
@@ -292,7 +286,7 @@ function Mfascreen(props) {
       break;
 
     case VIEW_SETUP:
-      content = setup && (
+      content = (
         <form action="" className="oc-login-form" onSubmit={handleEnable}>
           <Typography className={classes.text} variant="body2">
             {t(
@@ -302,7 +296,7 @@ function Mfascreen(props) {
           </Typography>
           <div className={classes.qr}>
             <QRCodeSVG
-              value={setup.uri}
+              value={screen.setup.uri}
               size={200}
               marginSize={2}
               title={t("opencloud.mfa.setup.qrTitle", "QR code for your authenticator app")}
@@ -311,7 +305,7 @@ function Mfascreen(props) {
           </div>
           <Typography className={classes.text} variant="body2">
             {t("opencloud.mfa.setup.manual", "Cannot scan? Enter this key in the app:")}{" "}
-            <span className={classes.secret} id="oc-mfa-secret">{setup.secret}</span>
+            <span className={classes.secret} id="oc-mfa-secret">{screen.setup.secret}</span>
           </Typography>
           {codeInput}
           {errorElement}
@@ -350,7 +344,7 @@ function Mfascreen(props) {
             )}
           </Typography>
           <ul className={classes.codes} id="oc-mfa-recovery-codes">
-            {recoveryCodes.map((recoveryCode) => (
+            {screen.recoveryCodes.map((recoveryCode) => (
               <li key={recoveryCode}>{recoveryCode}</li>
             ))}
           </ul>
@@ -368,7 +362,7 @@ function Mfascreen(props) {
       break;
 
     case VIEW_ENABLED:
-      content = status && (
+      content = (
         <form action="" className="oc-login-form" onSubmit={handleDisable}>
           <Typography className={classes.status} id="oc-mfa-status">
             {t("opencloud.mfa.enabled.status", "Two-factor authentication is on.")}
@@ -426,12 +420,12 @@ function Mfascreen(props) {
 
   return (
     // nowrap: this page can be taller than the window, the footer must stay below it
-    <ResponsiveScreen loading={view === VIEW_LOADING} withoutPadding wrap="nowrap">
+    <ResponsiveScreen loading={screen.view === VIEW_LOADING} withoutPadding wrap="nowrap">
       <div className={classes.main}>
         <h1 className={classes.header}>
           {t("opencloud.mfa.headline", "Two-factor authentication")}
         </h1>
-        {status && status.username && view !== VIEW_UNAVAILABLE && (
+        {status && status.username && screen.view !== VIEW_UNAVAILABLE && (
           <Typography className={classes.text} variant="body2" id="oc-mfa-username">
             {t("opencloud.mfa.account", "Account: {{username}}", { username: status.username })}
           </Typography>

@@ -2,7 +2,6 @@ package mfa
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -298,23 +297,6 @@ func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
 		h.logger.Error().Err(err).Msg("two-factor authentication request failed")
 		writeError(w, http.StatusInternalServerError, "internal_error")
 	}
-}
-
-// verifyPassword checks the password of the logged in user with the identifier backend.
-func (s *Service) verifyPassword(ctx context.Context, user User, password string) (bool, error) {
-	if s.passwordVerifier == nil {
-		return false, errors.New("mfa: the identifier backend is not wrapped")
-	}
-	if password == "" {
-		return false, nil
-	}
-
-	userID, ok, err := s.passwordVerifier(ctx, user.Username, password)
-	if err != nil {
-		return false, err
-	}
-	// make sure the password belongs to the logged in user
-	return ok && userID == user.ID, nil
 }
 
 func readRequest(w http.ResponseWriter, r *http.Request) (secretRequest, bool) {

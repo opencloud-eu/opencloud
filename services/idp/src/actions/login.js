@@ -23,10 +23,22 @@ export const ModeLogonUsernameEmptyPasswordCookie = '0';
 export const ModeLogonUsernamePassword = '1';
 
 // Values of the response header 'opencloud-mfa' of a rejected logon. It tells if and
-// why the second factor (two-factor authentication) of the user rejected it.
-const MFAResultRequired = 'required';
+// why the second factor (two-factor authentication) of the user rejected it: 'required'
+// when no code was sent, or one of these.
 const MFAResultInvalid = 'invalid';
 const MFAResultLocked = 'locked';
+
+// mfaAttempt is the result of a logon whose password was correct, but whose second
+// factor is still missing or was not accepted.
+function mfaAttempt(state, result) {
+  const errors = {};
+  if (result === MFAResultInvalid) {
+    errors.code = new Error(ERROR_LOGIN_MFA_INVALID);
+  } else if (result === MFAResultLocked) {
+    errors.code = new Error(ERROR_LOGIN_MFA_LOCKED);
+  }
+  return { success: false, state, mfaRequired: true, errors };
+}
 
 // Route of the page to manage the two-factor authentication.
 export const MFARoute = '/mfa';
@@ -130,44 +142,21 @@ export function executeLogon(username, password, mode=ModeLogonUsernamePassword,
         case 200:
           // success.
           return response.data;
-        case 204:
-          // login failed.
-          switch (response.headers['opencloud-mfa']) {
-            case MFAResultRequired:
-              // password was correct, the second factor is missing.
-              return {
-                success: false,
-                state: response.headers['kopano-konnect-state'],
-                mfaRequired: true,
-                errors: {}
-              };
-            case MFAResultInvalid:
-              return {
-                success: false,
-                state: response.headers['kopano-konnect-state'],
-                mfaRequired: true,
-                errors: {
-                  code: new Error(ERROR_LOGIN_MFA_INVALID)
-                }
-              };
-            case MFAResultLocked:
-              return {
-                success: false,
-                state: response.headers['kopano-konnect-state'],
-                mfaRequired: true,
-                errors: {
-                  code: new Error(ERROR_LOGIN_MFA_LOCKED)
-                }
-              };
-            default:
+        case 204: {
+          // login failed. The header tells when it was the second factor.
+          const state = response.headers['kopano-konnect-state'];
+          const mfaResult = response.headers['opencloud-mfa'];
+          if (mfaResult) {
+            return mfaAttempt(state, mfaResult);
           }
           return {
             success: false,
-            state: response.headers['kopano-konnect-state'],
+            state,
             errors: {
               http: new Error(ERROR_LOGIN_FAILED)
             }
           };
+        }
         default:
           // error.
           throw new ExtendedError(ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS, response);

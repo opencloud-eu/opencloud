@@ -2,6 +2,7 @@ package mfa
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/libregraph/lico/identifier/backends"
@@ -53,6 +54,23 @@ func (s *Service) WrapBackend(b backends.Backend) backends.Backend {
 	}
 
 	return &backend{Backend: b, svc: s}
+}
+
+// verifyPassword checks the password of the logged in user with the identifier backend.
+func (s *Service) verifyPassword(ctx context.Context, user User, password string) (bool, error) {
+	if s.passwordVerifier == nil {
+		return false, errors.New("mfa: the identifier backend is not wrapped")
+	}
+	if password == "" {
+		return false, nil
+	}
+
+	userID, ok, err := s.passwordVerifier(ctx, user.Username, password)
+	if err != nil {
+		return false, err
+	}
+	// make sure the password belongs to the logged in user
+	return ok && userID == user.ID, nil
 }
 
 // Logon implements the Backend interface. It delegates the password check to the wrapped
