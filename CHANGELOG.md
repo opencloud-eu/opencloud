@@ -1,5 +1,31 @@
 # Changelog
 
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-20
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @maki5, @pbleser-oc, @v-scharf
+
+### 🐛 Bug Fixes
+
+- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
+- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
+- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
+- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
+### ✅ Tests
+
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
+
+### 📈 Enhancement
+
+- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
+- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
+### 📦️ Dependencies
+
+- [full-ci] build: bump reva to the ocm share permission fixes [[#4065](https://github.com/opencloud-eu/opencloud/pull/4065)]
+
 ## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
@@ -9,6 +35,16 @@
 ### 🔒 Security
 
 - Bump reva to v3.0.1 [[#4031](https://github.com/opencloud-eu/opencloud/pull/4031)]
+
+### 📈 Enhancement
+
+- feat(graph): add logging and tracing to the single-permission GET endpoints [[#4038](https://github.com/opencloud-eu/opencloud/pull/4038)]
+- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
+- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
+- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
+- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
+- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
+- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
 ### 📚 Documentation
 
@@ -36,15 +72,6 @@
 - Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
 - fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
 - fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
-
-### 📈 Enhancement
-
-- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
-- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
-- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
-- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
-- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
-- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
 ### 📦️ Dependencies
 
