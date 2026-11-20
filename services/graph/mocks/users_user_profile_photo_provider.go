@@ -163,6 +163,69 @@ func (_c *UsersUserProfilePhotoProvider_GetPhoto_Call) RunAndReturn(run func(ctx
 	return _c
 }
 
+// SyncPhotoFromURL provides a mock function for the type UsersUserProfilePhotoProvider
+func (_mock *UsersUserProfilePhotoProvider) SyncPhotoFromURL(ctx context.Context, userID string, rawURL string) error {
+	ret := _mock.Called(ctx, userID, rawURL)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SyncPhotoFromURL")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, userID, rawURL)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SyncPhotoFromURL'
+type UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call struct {
+	*mock.Call
+}
+
+// SyncPhotoFromURL is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - rawURL string
+func (_e *UsersUserProfilePhotoProvider_Expecter) SyncPhotoFromURL(ctx any, userID any, rawURL any) *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call {
+	return &UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call{Call: _e.mock.On("SyncPhotoFromURL", ctx, userID, rawURL)}
+}
+
+func (_c *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call) Run(run func(ctx context.Context, userID string, rawURL string)) *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call) Return(err error) *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call) RunAndReturn(run func(ctx context.Context, userID string, rawURL string) error) *UsersUserProfilePhotoProvider_SyncPhotoFromURL_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdatePhoto provides a mock function for the type UsersUserProfilePhotoProvider
 func (_mock *UsersUserProfilePhotoProvider) UpdatePhoto(ctx context.Context, id string, r io.Reader) error {
 	ret := _mock.Called(ctx, id, r)

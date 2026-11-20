@@ -52,6 +52,9 @@ type Options struct {
 	// TenantOIDCClaim is a JMESPath expression to extract the tenant ID from the OIDC claims.
 	// When set, the extracted value is verified against the tenant ID on the resolved user.
 	TenantOIDCClaim string
+	// PictureClaim names the OIDC claim used for profile picture sync.
+	PictureClaim string
+
 	// AutoprovisionAccounts when an accountResolver does not exist.
 	AutoprovisionAccounts bool
 	// EnableBasicAuth to allow basic auth
@@ -292,5 +295,12 @@ func EventsPublisher(ep events.Publisher) Option {
 func GuestLinkAuth(cfg config.GuestLinkAuth) Option {
 	return func(o *Options) {
 		o.GuestLinkAuth = cfg
+	}
+}
+
+// PictureClaim configures the OIDC claim used for profile picture sync.
+func PictureClaim(claim string) Option {
+	return func(o *Options) {
+		o.PictureClaim = claim
 	}
 }
