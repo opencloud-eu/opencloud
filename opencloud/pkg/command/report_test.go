@@ -11,6 +11,8 @@ import (
 
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
+	gatewayconfig "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
 	graphconfig "github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 )
 
@@ -707,6 +709,86 @@ func TestNewGraphHTTPClient(t *testing.T) {
 			}
 			if !transport.ForceAttemptHTTP2 {
 				t.Error("expected HTTP/2 to stay enabled after the clone")
+			}
+		})
+	}
+}
+
+// TestConfiguredGraphURL covers the fallback used when the service registry
+// holds no entry, e.g. a deployment running with MICRO_REGISTRY=memory.
+func TestConfiguredGraphURL(t *testing.T) {
+	newCfg := func(addr, root string, tlsEnabled bool) *config.Config {
+		cfg := &config.Config{
+			Commons: &shared.Commons{
+				HTTPServiceTLS: shared.HTTPServiceTLS{Enabled: tlsEnabled},
+			},
+			Graph: &graphconfig.Config{},
+		}
+		cfg.Graph.HTTP.Addr = addr
+		cfg.Graph.HTTP.Root = root
+		return cfg
+	}
+
+	testCases := []struct {
+		name     string
+		cfg      *config.Config
+		expected string
+	}{
+		{
+			name:     "plain http",
+			cfg:      newCfg("127.0.0.1:9120", "/graph", false),
+			expected: "http://127.0.0.1:9120/graph",
+		},
+		{
+			name:     "https when the http services serve TLS",
+			cfg:      newCfg("127.0.0.1:9120", "/graph", true),
+			expected: "https://127.0.0.1:9120/graph",
+		},
+		{
+			name:     "no address configured leaves it to the caller",
+			cfg:      newCfg("", "/graph", false),
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := configuredGraphURL(tc.cfg); got != tc.expected {
+				t.Errorf("expected %q, got %q", tc.expected, got)
+			}
+		})
+	}
+}
+
+// TestConfiguredGatewayAddress covers the dns:/// fallback target. A wildcard
+// bind address has to become loopback: the report runs next to the gateway, and
+// 0.0.0.0 is not a dialable destination.
+func TestConfiguredGatewayAddress(t *testing.T) {
+	newCfg := func(addr string) *config.Config {
+		cfg := &config.Config{Gateway: &gatewayconfig.Config{}}
+		cfg.Gateway.GRPC.Addr = addr
+		return cfg
+	}
+
+	testCases := []struct {
+		name     string
+		cfg      *config.Config
+		expected string
+	}{
+		{name: "loopback stays", cfg: newCfg("127.0.0.1:9142"), expected: "dns:///127.0.0.1:9142"},
+		{name: "ipv4 wildcard becomes loopback", cfg: newCfg("0.0.0.0:9142"), expected: "dns:///127.0.0.1:9142"},
+		{name: "ipv6 wildcard becomes loopback", cfg: newCfg("[::]:9142"), expected: "dns:///127.0.0.1:9142"},
+		{name: "empty host becomes loopback", cfg: newCfg(":9142"), expected: "dns:///127.0.0.1:9142"},
+		{name: "a real host is kept", cfg: newCfg("gateway.internal:9142"), expected: "dns:///gateway.internal:9142"},
+		{name: "no address configured", cfg: newCfg(""), expected: ""},
+		{name: "not a host:port", cfg: newCfg("eu.opencloud.api.gateway"), expected: ""},
+		{name: "no gateway config at all", cfg: &config.Config{}, expected: ""},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := configuredGatewayAddress(tc.cfg); got != tc.expected {
+				t.Errorf("expected %q, got %q", tc.expected, got)
 			}
 		})
 	}

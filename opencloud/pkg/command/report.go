@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"slices"
@@ -19,12 +20,14 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/opencloud/pkg/register"
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
 	mregistry "github.com/opencloud-eu/opencloud/pkg/registry"
+	gatewayparser "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/parser"
 	graphparser "github.com/opencloud-eu/opencloud/services/graph/pkg/config/parser"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -154,7 +157,14 @@ func ReportCommand(cfg *config.Config) *cobra.Command {
 
 			// Parse graph config, the report talks to the graph service
 			cfg.Graph.Commons = cfg.Commons
-			return configlog.ReturnError(graphparser.ParseConfig(cfg.Graph))
+			if err := graphparser.ParseConfig(cfg.Graph); err != nil {
+				return configlog.ReturnError(err)
+			}
+
+			// Parse gateway config, it carries the address the report falls back
+			// to when the service registry holds no entry for the gateway
+			cfg.Gateway.Commons = cfg.Commons
+			return configlog.ReturnError(gatewayparser.ParseConfig(cfg.Gateway))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			days, err := cmd.Flags().GetInt(_reportDaysFlagName)
@@ -395,11 +405,7 @@ func newLibregraphServiceAccountClient(ctx context.Context, cfg *config.Config, 
 	// Initialize registry to make service lookup work
 	reg := mregistry.GetRegistry()
 
-	gatewaySelector, err := pool.GatewaySelector(cfg.Graph.Reva.Address)
-	if err != nil {
-		return nil, err
-	}
-	gatewayClient, err := gatewaySelector.Next()
+	gatewayClient, err := selectGateway(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -415,23 +421,25 @@ func newLibregraphServiceAccountClient(ctx context.Context, cfg *config.Config, 
 	}
 
 	serviceName := cfg.Graph.HTTP.Namespace + "." + cfg.Graph.Service.Name
-	services, err := reg.GetService(serviceName)
-	if err != nil {
-		return nil, fmt.Errorf("could not look up the '%s' service, is OpenCloud running? %w", serviceName, err)
-	}
-
 	var baseURL string
-	for _, s := range services {
-		for _, n := range s.Nodes {
-			baseURL = fmt.Sprintf("%s://%s%s", nodeProtocol(n.Metadata), n.Address, cfg.Graph.HTTP.Root)
-			break
-		}
-		if baseURL != "" {
-			break
+	// A lookup error means the registry holds no entry, which is not fatal:
+	// the fallback below covers it.
+	if services, err := reg.GetService(serviceName); err == nil {
+		for _, s := range services {
+			for _, n := range s.Nodes {
+				baseURL = fmt.Sprintf("%s://%s%s", nodeProtocol(n.Metadata), n.Address, cfg.Graph.HTTP.Root)
+				break
+			}
+			if baseURL != "" {
+				break
+			}
 		}
 	}
 	if baseURL == "" {
-		return nil, fmt.Errorf("no running instance of the '%s' service found", serviceName)
+		baseURL = configuredGraphURL(cfg)
+	}
+	if baseURL == "" {
+		return nil, fmt.Errorf("could not find the '%s' service, is OpenCloud running?", serviceName)
 	}
 
 	lgconf := libregraph.NewConfiguration()
@@ -458,6 +466,70 @@ func newGraphHTTPClient(opts reportOptions) *http.Client {
 		Timeout:   opts.timeout,
 		Transport: transport,
 	}
+}
+
+// selectGateway returns a CS3 gateway client. It first tries the configured
+// reva address, which is a service registry name by default, and falls back to
+// dialling the configured gateway address directly over dns:///. That covers a
+// deployment running the services with MICRO_REGISTRY=memory, where a separate
+// process finds an empty registry but the gateway still listens next to it.
+func selectGateway(cfg *config.Config) (gateway.GatewayAPIClient, error) {
+	addresses := []string{cfg.Graph.Reva.Address}
+	if fallback := configuredGatewayAddress(cfg); fallback != "" {
+		addresses = append(addresses, fallback)
+	}
+
+	var lastErr error
+	for _, address := range addresses {
+		selector, err := pool.GatewaySelector(address)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		client, err := selector.Next()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return client, nil
+	}
+	return nil, lastErr
+}
+
+// configuredGatewayAddress renders the configured gateway bind address as a
+// dns:/// target, so that it is dialled directly instead of being looked up in
+// the service registry. A wildcard bind address is rewritten to loopback,
+// because the report runs next to the gateway it talks to.
+func configuredGatewayAddress(cfg *config.Config) string {
+	if cfg.Gateway == nil || cfg.Gateway.GRPC.Addr == "" {
+		return ""
+	}
+	host, port, err := net.SplitHostPort(cfg.Gateway.GRPC.Addr)
+	if err != nil {
+		return ""
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "127.0.0.1"
+	}
+	return "dns:///" + net.JoinHostPort(host, port)
+}
+
+// configuredGraphURL builds the graph base URL from the local configuration.
+// It is the fallback when the service registry holds no entry, which is the
+// case on a deployment that runs the services with MICRO_REGISTRY=memory and
+// discovers them through Kubernetes instead. The report has to run next to the
+// services anyway, so the configured address of the local graph service is the
+// right answer rather than a guess.
+func configuredGraphURL(cfg *config.Config) string {
+	if cfg.Graph.HTTP.Addr == "" {
+		return ""
+	}
+	scheme := "http"
+	if cfg.Commons != nil && cfg.Commons.HTTPServiceTLS.Enabled {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s%s", scheme, cfg.Graph.HTTP.Addr, cfg.Graph.HTTP.Root)
 }
 
 // nodeProtocol resolves the URL scheme to talk to a registry node with. The
