@@ -341,6 +341,29 @@ The `decomposed`, `decomposeds3` and `posix` storage drivers are supported, with
 
 The default strategy `disabled` keeps all revisions and, as one would expect, does not perform any cleanup process for revisions at all.
 
+Personal spaces and project spaces can have strategies of their own, for example to keep fewer versions of the files of each user than of the files a team works on together:
+
+| Variable | Applies to |
+|---|---|
+| `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` | all spaces that the two below don't apply to |
+| `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL` | the personal spaces |
+| `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT` | the project spaces |
+
+When `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL` or `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT` is empty, which is the default, `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` applies to the spaces of that type. When it is `disabled`, all revisions of the spaces of that type are kept, whatever `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` says. No cleanup runs at all only when none of the three has a strategy.
+
+For example, to keep the versions of personal files for 30 days, but always the 5 newest, and to thin out the versions in project spaces and keep them for a year:
+
+```bash
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL="5, 30d"
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT="7d, auto, 52w"
+```
+
+Or to clean up only the project spaces, and keep all versions of personal files:
+
+```bash
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT="auto, 90d"
+```
+
 The service only cleans up a file when it gets a new revision, so files that are never changed again keep their revisions.
 
 The `revisions cleanup` command cleans up the revisions of whole spaces, folders or files on demand, to cover those files as well, or to apply a different strategy once, e.g. after changing the strategy or to free storage.
@@ -390,11 +413,11 @@ Exactly one of these selects the files to clean up:
 
 #### Options
 
-The strategy and the settings of the background workers default to the configured ones and can be overridden for a run. Only `--queue-full` defaults to `block` without a timeout, whatever is configured: the command finds files faster than the workers clean them up, so dropping the files that find the queue full would skip most of them.
+The strategies and the settings of the background workers default to the configured ones and can be overridden for a run. Only `--queue-full` defaults to `block` without a timeout, whatever is configured: the command finds files faster than the workers clean them up, so dropping the files that find the queue full would skip most of them.
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--strategy`, `-s` | `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` | The strategy, see above. The command fails if there is none. |
+| `--strategy`, `-s` | the configured ones | One strategy for all spaces, see above, instead of the configured strategies, including those of the space types. Without it, every space gets the strategy configured for its type, or `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY`. The command fails if no strategy is given or configured. |
 | `--async` | `STORAGE_USERS_REVISIONS_CLEANUP_ASYNC` | Clean up files in background workers while looking for more. |
 | `--workers` | `STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_WORKERS` | The number of background workers, `0` for half the available CPUs, at least 2. |
 | `--queue-size` | `STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE` | The number of files that can wait for a worker, `0` for 64 per worker. |

@@ -63,9 +63,11 @@ func revisionsCleanupCommand(cfg *config.Config) (*cobra.Command, *revisionsClea
 		Long: `Delete old revisions (versions) of files according to a cleanup strategy.
 
 The storage-users service cleans up the revisions of a file whenever it gets a new one,
-with the strategy configured in STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY. This command
-cleans up the revisions of files that are not changed anymore, or applies a different
-strategy once, e.g. after the strategy was changed or to free storage.
+with the strategy configured in STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY, or the one of
+the type of the file's space, STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL or
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT. This command cleans up the revisions of
+files that are not changed anymore, or applies a different strategy once, e.g. after the
+strategy was changed or to free storage.
 
 Exactly one of these selects the files to clean up:
   --space <id>      all files of a space, repeatable; with --path, only that file or
@@ -73,8 +75,9 @@ Exactly one of these selects the files to clean up:
   --all             all files of all spaces
   --fs-path <path>  a file or folder by its path on disk ('posix' driver only)
 
-The strategy and the settings of the background workers default to the configured
-ones (STORAGE_USERS_REVISIONS_CLEANUP_*) and can be overridden for this run. See the
+The strategies and the settings of the background workers default to the configured
+ones (STORAGE_USERS_REVISIONS_CLEANUP_*) and can be overridden for this run: --strategy
+applies one strategy to all spaces, whatever is configured for their types. See the
 description of STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY for the strategies, e.g. '30d',
 '10' or '7d, auto, 90d'. Only --queue-full defaults to 'block' without a timeout,
 whatever is configured: the command finds files faster than the workers clean them up,
@@ -140,7 +143,7 @@ Exit codes: 0 when done, 1 if the cleanup or any file failed, or if it was inter
 	flags.StringVar(&f.o.request.Path, "path", "", "a file or folder within the space given by --space, to clean up only that")
 	flags.StringVarP(&f.o.request.FSPath, "fs-path", "p", "", "a file or folder to clean up, by its path on disk ('posix' driver only)")
 	flags.BoolVarP(&f.o.request.All, "all", "a", false, "clean up all spaces")
-	flags.StringVarP(&f.strategy, "strategy", "s", "", "the cleanup strategy, defaults to STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY")
+	flags.StringVarP(&f.strategy, "strategy", "s", "", "a cleanup strategy for all spaces, instead of the configured ones (STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY and those of the space types)")
 	flags.BoolVarP(&f.o.request.DryRun, "dry-run", "n", false, "delete nothing, only print what would be deleted")
 	flags.BoolVarP(&f.o.verbose, "verbose", "v", false, "print every file and every revision, with the decision and its reason")
 	flags.BoolVarP(&f.o.json, "json", "j", false, "print JSON objects, one per line, instead of text")
@@ -218,16 +221,13 @@ func (f *revisionsCleanupFlags) options(cfg *config.Config, changed func(name st
 		}
 	}
 
-	r.Strategy = cfg.RevisionsCleanup.Strategy
+	// without --strategy, the storage driver applies the configured strategies, by the type
+	// of each space; with it, that one strategy to all spaces
 	if changed("strategy") {
 		r.Strategy = f.strategy
 	}
-	// check the strategy before the storage is opened
-	switch cleaner, err := revisioncleanup.New(r.Strategy); {
-	case err != nil:
-		return o, fmt.Errorf("invalid strategy %q: %w", r.Strategy, err)
-	case !cleaner.Enabled():
-		return o, errors.New("no strategy: the revisions cleanup is disabled, give one with --strategy or configure STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY")
+	if err := checkStrategies(cfg, *r); err != nil {
+		return o, err
 	}
 
 	async := revisioncleanup.AsyncOptions{
@@ -253,6 +253,36 @@ func (f *revisionsCleanupFlags) options(cfg *config.Config, changed func(name st
 		return o, fmt.Errorf("invalid timeout %s", o.timeout)
 	}
 	return o, nil
+}
+
+// checkStrategies checks the strategies of a run before the storage is opened: each of them,
+// naming the flag or the setting of an invalid one, and that one of them deletes anything.
+func checkStrategies(cfg *config.Config, r revisioncleanup.Request) error {
+	policy := revisioncleanup.PolicyConfig{
+		Default: cfg.RevisionsCleanup.Strategy,
+		SpaceTypes: map[string]string{
+			storagespace.TypePersonal: cfg.RevisionsCleanup.StrategyPersonal,
+			storagespace.TypeProject:  cfg.RevisionsCleanup.StrategyProject,
+		},
+		Forced: r.Strategy,
+	}
+	for _, s := range []struct{ name, strategy string }{
+		{"--strategy", policy.Forced},
+		{"STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY", policy.Default},
+		{"STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL", policy.SpaceTypes[storagespace.TypePersonal]},
+		{"STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT", policy.SpaceTypes[storagespace.TypeProject]},
+	} {
+		if _, err := revisioncleanup.New(s.strategy); err != nil {
+			return fmt.Errorf("invalid strategy %q in %s: %w", s.strategy, s.name, err)
+		}
+	}
+	switch p, err := revisioncleanup.NewPolicy(policy); {
+	case err != nil:
+		return err
+	case !p.Enabled():
+		return errors.New("no strategy: the revisions cleanup is disabled, give one with --strategy or configure STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY, or the ones of a space type, STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL or STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT")
+	}
+	return nil
 }
 
 // localCacheStores are the cache stores that keep the cache in the memory of each process.

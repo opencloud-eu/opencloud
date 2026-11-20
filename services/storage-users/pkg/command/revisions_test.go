@@ -49,7 +49,8 @@ func TestRevisionsCleanupOptions(t *testing.T) {
 		o, err := revisionsCleanupOptionsFor(t, revisionsCleanupConfig(), "--all")
 		require.NoError(t, err)
 		require.True(t, o.request.All)
-		require.Equal(t, "auto, 90d", o.request.Strategy)
+		// the storage driver applies the configured strategies, by the type of each space
+		require.Empty(t, o.request.Strategy)
 		// except for a full queue: the command waits for room as long as it takes
 		require.Equal(t, &revisioncleanup.AsyncOptions{Enabled: true, Workers: 4, QueueSize: 100, QueueFull: revisioncleanup.QueueFullBlock}, o.request.Async)
 		require.False(t, o.request.DryRun)
@@ -115,6 +116,23 @@ func TestRevisionsCleanupOptions(t *testing.T) {
 		}
 	})
 
+	t.Run("the strategy of a space type is enough", func(t *testing.T) {
+		cfg := revisionsCleanupConfig()
+		cfg.RevisionsCleanup.Strategy = "disabled"
+		cfg.RevisionsCleanup.StrategyProject = "auto, 90d"
+		o, err := revisionsCleanupOptionsFor(t, cfg, "--all")
+		require.NoError(t, err)
+		require.Empty(t, o.request.Strategy)
+	})
+
+	t.Run("an invalid strategy of a space type is reported by its setting", func(t *testing.T) {
+		cfg := revisionsCleanupConfig()
+		cfg.RevisionsCleanup.StrategyPersonal = "whenever"
+		_, err := revisionsCleanupOptionsFor(t, cfg, "--all")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid strategy \"whenever\" in STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL")
+	})
+
 	t.Run("a path within a space", func(t *testing.T) {
 		o, err := revisionsCleanupOptionsFor(t, revisionsCleanupConfig(), "--space", "space1", "--path", "/Documents")
 		require.NoError(t, err)
@@ -145,7 +163,7 @@ func TestRevisionsCleanupOptions(t *testing.T) {
 		{name: "a path on disk and a space", args: []string{"--fs-path", "/data", "--space", "space1"}, err: "can't be combined"},
 		{name: "a path on disk without posix", args: []string{"--fs-path", "/data"}, err: "only supported by the 'posix' driver"},
 		{name: "the cleanup is disabled", strategy: "disabled", args: []string{"--all"}, err: "--strategy"},
-		{name: "an invalid strategy", args: []string{"--all", "--strategy", "whenever"}, err: "invalid strategy"},
+		{name: "an invalid strategy", args: []string{"--all", "--strategy", "whenever"}, err: "invalid strategy \"whenever\" in --strategy"},
 		{name: "a negative timeout", args: []string{"--all", "--timeout", "-1s"}, err: "invalid timeout"},
 	} {
 		t.Run("rejects "+tc.name, func(t *testing.T) {
