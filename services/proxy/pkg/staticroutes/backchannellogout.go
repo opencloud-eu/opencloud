@@ -73,17 +73,35 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	lookupRecords, err := bcl.GetLogoutRecords(requestSubjectAndSession, s.UserInfoCache)
-	if errors.Is(err, microstore.ErrNotFound) || len(lookupRecords) == 0 {
-		render.Status(r, http.StatusOK)
-		render.JSON(w, r, nil)
-		return
-	}
-	if err != nil {
-		msg := "failed to read userinfo cache"
+	// The marker alone decides whether tokens are rejected, so it comes first.
+	// This also covers tokens the proxy has not seen yet.
+	if err := s.LogoutMarkers.Record(logoutToken.Subject, logoutToken.SessionId, logoutToken.IssuedAt.Time); err != nil {
+		// we have to return a 400 BadRequest when we fail to log out the session
+		// https://openid.net/specs/openid-connect-backchannel-1_0.html#rfc.section.2.8
+		msg := "failed to record logout"
 		logger.Error().Err(err).Msg(msg)
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
+		return
+	}
+
+	s.notifyAndCleanUp(r.Context(), requestSubjectAndSession)
+
+	render.Status(r, http.StatusOK)
+	render.JSON(w, r, nil)
+}
+
+// notifyAndCleanUp tells connected clients about the logout and removes the cached records.
+// A failure here does not affect the logout, because the marker has already been written.
+func (s *StaticRouteHandler) notifyAndCleanUp(ctx context.Context, requestSubjectAndSession bcl.SuSe) {
+	logger := s.Logger.SubloggerWithRequestID(ctx)
+
+	lookupRecords, err := bcl.GetLogoutRecords(requestSubjectAndSession, s.UserInfoCache)
+	if errors.Is(err, microstore.ErrNotFound) {
+		return
+	}
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to read userinfo cache")
 		return
 	}
 
@@ -106,21 +124,14 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		}
 
 		if requestSubjectAndSession.Mode() == bcl.LogoutModeSession {
-			if err := s.publishBackchannelLogoutEvent(r.Context(), session, value); err != nil {
+			if err := s.publishBackchannelLogoutEvent(ctx, session, value); err != nil {
 				s.Logger.Warn().Err(err).Msgf("failed to publish backchannel logout event for: %s", key)
-				continue
 			}
 		}
 
 		err = s.UserInfoCache.Delete(value)
 		if err != nil && !errors.Is(err, microstore.ErrNotFound) {
-			// we have to return a 400 BadRequest when we fail to delete the session
-			// https://openid.net/specs/openid-connect-backchannel-1_0.html#rfc.section.2.8
-			msg := "failed to delete record"
-			s.Logger.Warn().Err(err).Msgf("%s for: %s", msg, key)
-			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
-			return
+			s.Logger.Warn().Err(err).Msgf("failed to delete record for: %s", key)
 		}
 
 		// we can ignore errors when deleting the lookup record
@@ -129,9 +140,6 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			logger.Debug().Err(err).Msgf("failed to delete record for: %s", key)
 		}
 	}
-
-	render.Status(r, http.StatusOK)
-	render.JSON(w, r, nil)
 }
 
 // publishBackchannelLogoutEvent publishes a backchannel logout event when the callback revived from the identity provider
@@ -148,12 +156,12 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 		return fmt.Errorf("no claim found for key: %s", claimKey)
 	}
 
-	var claims map[string]any
-	if err = msgpack.Unmarshal(claimRecords[0].Value, &claims); err != nil {
+	var cached bcl.TokenRecord
+	if err = msgpack.Unmarshal(claimRecords[0].Value, &cached); err != nil {
 		return fmt.Errorf("failed to unmarshal claims: %w", err)
 	}
 
-	oidcClaim, ok := claims[s.Config.UserOIDCClaim].(string)
+	oidcClaim, ok := cached.Claims[s.Config.UserOIDCClaim].(string)
 	if !ok {
 		return fmt.Errorf("failed to get claim %w", err)
 	}

@@ -37,6 +37,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/server/debug"
 	proxyHTTP "github.com/opencloud-eu/opencloud/services/proxy/pkg/server/http"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 
@@ -69,6 +70,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				store.TLSInsecure(cfg.OIDC.UserinfoCache.TLSInsecure),
 				store.TLSRootCA(cfg.OIDC.UserinfoCache.TLSRootCACertificate),
 			)
+			logoutMarkers := newLogoutMarkers(cfg)
 
 			signingKeyStore := store.Create(
 				store.Store(cfg.PreSignedURL.SigningKeys.Store),
@@ -195,6 +197,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			lh := staticroutes.StaticRouteHandler{
 				Prefix:          cfg.HTTP.Root,
 				UserInfoCache:   userInfoCache,
+				LogoutMarkers:   logoutMarkers,
 				Logger:          logger,
 				Config:          *cfg,
 				OidcClient:      oidcClient,
@@ -209,7 +212,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 			{
-				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
+				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, logoutMarkers, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
 				if err != nil {
 					return err
 				}
@@ -261,7 +264,34 @@ func Server(cfg *config.Config) *cobra.Command {
 	}
 }
 
-func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, httpClient *http.Client) (*middleware.OIDCAuthenticator, error) {
+// newLogoutMarkers creates the backchannel logout markers. They use the store
+// configured for the userinfo cache, with their own database: nats-js-kv only
+// supports one TTL per bucket, and markers must outlive the cached claims.
+func newLogoutMarkers(cfg *config.Config) *bcl.LogoutMarkers {
+	cache := cfg.OIDC.UserinfoCache
+	retention := cfg.OIDC.MaxAccessTokenLifetime + bcl.MarkerRetentionBuffer
+
+	storeType := cache.Store
+	// The noop store disables claims caching, which must not disable logouts as well.
+	if storeType == store.TypeNoop {
+		storeType = store.TypeMemory
+	}
+
+	return bcl.NewLogoutMarkers(store.Create(
+		store.Store(storeType),
+		store.TTL(retention),
+		microstore.Nodes(cache.Nodes...),
+		microstore.Database(cache.Database+"-logout-markers"),
+		microstore.Table(cache.Table),
+		store.DisablePersistence(cache.DisablePersistence),
+		store.Authentication(cache.AuthUsername, cache.AuthPassword),
+		store.TLSEnabled(cache.EnableTLS),
+		store.TLSInsecure(cache.TLSInsecure),
+		store.TLSRootCA(cache.TLSRootCACertificate),
+	), retention)
+}
+
+func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, logoutMarkers *bcl.LogoutMarkers, httpClient *http.Client) (*middleware.OIDCAuthenticator, error) {
 	oidcClient, err := oidc.NewOIDCClient(
 		oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		oidc.WithAccessTokenAudiences(cfg.OIDC.Audiences),
@@ -281,6 +311,8 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 	return middleware.NewOIDCAuthenticator(
 		middleware.Logger(logger),
 		middleware.UserInfoCache(userInfoCache),
+		middleware.LogoutMarkers(logoutMarkers),
+		middleware.MaxAccessTokenLifetime(cfg.OIDC.MaxAccessTokenLifetime),
 		middleware.DefaultAccessTokenTTL(cfg.OIDC.UserinfoCache.TTL),
 		middleware.HTTPClient(httpClient),
 		middleware.OIDCIss(cfg.OIDC.Issuer),
@@ -291,7 +323,7 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 }
 
 func loadMiddlewares(logger log.Logger, cfg *config.Config,
-	userInfoCache, signingKeyStore microstore.Store,
+	userInfoCache microstore.Store, logoutMarkers *bcl.LogoutMarkers, signingKeyStore microstore.Store,
 	traceProvider trace.TracerProvider, metrics metrics.Metrics,
 	userProvider backend.UserBackend, publisher events.Publisher,
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector) (alice.Chain, error) {
@@ -348,7 +380,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			UserRoleAssigner:    roleAssigner,
 		})
 	}
-	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient)
+	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, logoutMarkers, oidcHTTPClient)
 	if err != nil {
 		return alice.Chain{}, err
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	oidcmocks "github.com/opencloud-eu/opencloud/pkg/oidc/mocks"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 )
 
 func TestOIDCCacheTokenVerification(t *testing.T) {
@@ -38,7 +39,7 @@ func TestOIDCCacheTokenVerification(t *testing.T) {
 			if cached {
 				hash := make([]byte, 64)
 				sha3.ShakeSum256(hash, []byte("token"))
-				data, err := msgpack.Marshal(claims)
+				data, err := msgpack.Marshal(bcl.TokenRecord{Claims: claims, Subject: "alice", SessionID: "session"})
 				require.NoError(t, err)
 				require.NoError(t, cache.Write(&store.Record{
 					Key: base64.URLEncoding.EncodeToString(hash), Value: data,

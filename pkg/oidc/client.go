@@ -358,6 +358,10 @@ func (c *oidcClient) VerifyLogoutToken(ctx context.Context, rawToken string) (*L
 	if claims.Subject == "" && claims.SessionId == "" {
 		return nil, fmt.Errorf("oidc: logout token must contain either sub or sid and MAY contain both")
 	}
+	// The iat Claim is the cutoff for tokens covered by this logout, and the spec requires it.
+	if claims.IssuedAt == nil {
+		return nil, fmt.Errorf("oidc: logout token must contain iat")
+	}
 	// 2. Verify that the Logout Token contains an events Claim whose value is JSON object containing the member name http://schemas.openid.net/event/backchannel-logout.
 	if claims.Events.Event == nil {
 		return nil, fmt.Errorf("oidc: logout token must contain logout event")

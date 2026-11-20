@@ -58,6 +58,9 @@ func Validate(cfg *config.Config) error {
 			cfg.OIDC.SkipUserInfo, cfg.Service.Name,
 		)
 	}
+	if cfg.OIDC.MaxAccessTokenLifetime <= 0 {
+		return fmt.Errorf("The maximum access token lifetime (PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME) in service %s must be greater than 0.", cfg.Service.Name)
+	}
 	if len(cfg.OIDC.Audiences) > 0 && cfg.OIDC.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
 		return fmt.Errorf("OIDC audiences (PROXY_OIDC_AUDIENCES) in service %s require access_token_verify_method to be 'jwt'", cfg.Service.Name)
 	}

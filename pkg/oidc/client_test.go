@@ -34,6 +34,21 @@ func TestLogoutVerify(t *testing.T) {
 			signKey: newRSAKey(t),
 		},
 		{
+			name: "missing iat",
+			logoutToken: jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+				"iss": "https://foo",
+				"sub": "248289761001",
+				"aud": "s6BhdRkqt3",
+				"jti": "bWJq",
+				"sid": "08a5019c-17e1-4977-8f42-65a12843ea02",
+				"events": map[string]any{
+					"http://schemas.openid.net/event/backchannel-logout": struct{}{},
+				},
+			}),
+			signKey: newRSAKey(t),
+			wantErr: true,
+		},
+		{
 			name:   "invalid issuer",
 			issuer: "https://bar",
 			logoutToken: jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{

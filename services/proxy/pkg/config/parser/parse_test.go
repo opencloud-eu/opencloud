@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -11,6 +12,38 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config/parser"
 	"github.com/stretchr/testify/require"
 )
+
+func TestParseMaxAccessTokenLifetime(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     string
+		setEnv  bool
+		want    time.Duration
+		wantErr bool
+	}{
+		{name: "default", want: 24 * time.Hour},
+		{name: "ENV", setEnv: true, env: "1h", want: time.Hour},
+		{name: "zero", setEnv: true, env: "0s", wantErr: true},
+		{name: "negative", setEnv: true, env: "-1h", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("OC_CONFIG_DIR", t.TempDir())
+			t.Setenv("PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME", tt.env)
+			if !tt.setEnv {
+				require.NoError(t, os.Unsetenv("PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME"))
+			}
+			cfg := validProxyConfig()
+			err := parser.ParseConfig(cfg)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cfg.OIDC.MaxAccessTokenLifetime)
+		})
+	}
+}
 
 func TestParseOIDCAudiences(t *testing.T) {
 	tests := []struct {
