@@ -36,6 +36,7 @@ var (
 		"/ocs/v1.php/apps/files_sharing/api/v1/tokeninfo/unprotected",
 		"/ocs/v2.php/apps/files_sharing/api/v1/tokeninfo/unprotected",
 		"/ocs/v1.php/cloud/capabilities",
+		"/ocs/v2.php/apps/notifications/api/v1/notifications/sse",
 	}
 )
 
