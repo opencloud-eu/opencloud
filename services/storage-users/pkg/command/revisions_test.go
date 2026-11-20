@@ -116,6 +116,14 @@ func TestRevisionsCleanupOptions(t *testing.T) {
 		}
 	})
 
+	t.Run("the flags of the space types replace their configured strategies", func(t *testing.T) {
+		o, err := revisionsCleanupOptionsFor(t, revisionsCleanupConfig(), "--all", "--strategy-personal", "5, 30d", "--strategy-project", "disabled")
+		require.NoError(t, err)
+		require.Empty(t, o.request.Strategy)
+		require.Equal(t, "5, 30d", o.request.StrategyPersonal)
+		require.Equal(t, "disabled", o.request.StrategyProject)
+	})
+
 	t.Run("the strategy of a space type is enough", func(t *testing.T) {
 		cfg := revisionsCleanupConfig()
 		cfg.RevisionsCleanup.Strategy = "disabled"
@@ -165,6 +173,9 @@ func TestRevisionsCleanupOptions(t *testing.T) {
 		{name: "the cleanup is disabled", strategy: "disabled", args: []string{"--all"}, err: "--strategy"},
 		{name: "an invalid strategy", args: []string{"--all", "--strategy", "whenever"}, err: "invalid strategy \"whenever\" in --strategy"},
 		{name: "a negative timeout", args: []string{"--all", "--timeout", "-1s"}, err: "invalid timeout"},
+		{name: "--strategy with the strategy of a space type", args: []string{"--all", "--strategy", "0", "--strategy-personal", "1"}, err: "can't be combined with --strategy-personal or --strategy-project"},
+		{name: "an invalid strategy of a space type", args: []string{"--all", "--strategy-project", "whenever"}, err: "invalid strategy \"whenever\" in --strategy-project"},
+		{name: "all strategies disabled", strategy: "disabled", args: []string{"--all", "--strategy-personal", "disabled"}, err: "no strategy"},
 	} {
 		t.Run("rejects "+tc.name, func(t *testing.T) {
 			cfg := revisionsCleanupConfig()
@@ -257,6 +268,35 @@ space1 /notes.txt (node node2): deleted 0 of 1 revision (0 B)
   kept      `+local(revisionsCleanupTime)+`      10 B  kept by "auto"
 2 files in 1 space: deleted 1 revision (2.0 KiB) of 1 file, 0 skipped, 0 failed
 `, out)
+	})
+
+	t.Run("the strategy of every file with --verbose", func(t *testing.T) {
+		file := cleanedFile
+		file.Strategy, file.StrategySource = "auto, 90d", revisioncleanup.SourceSpaceType
+		code, out, err := runFakeRevisionsCleanup(t, &fakeOnDemand{results: []revisioncleanup.Result{file}}, revisionsCleanupOptions{verbose: true})
+		require.NoError(t, err)
+		require.Equal(t, 0, code)
+		require.Contains(t, out, `space1 /Documents/report.odt (node node1): deleted 1 of 2 revisions (2.0 KiB), strategy "auto, 90d" (of the space type)`)
+
+		code, out, err = runFakeRevisionsCleanup(t, &fakeOnDemand{results: []revisioncleanup.Result{file}}, revisionsCleanupOptions{verbose: true, json: true})
+		require.NoError(t, err)
+		require.Equal(t, 0, code)
+		require.Contains(t, out, `"strategy":"auto, 90d","strategy_source":"space type"`)
+	})
+
+	t.Run("files in a space whose strategy is disabled need no attention", func(t *testing.T) {
+		disabled := revisioncleanup.Result{SpaceID: "space3", NodeID: "node5", Path: "/private.txt", Skipped: "the revision cleanup is disabled for this space",
+			Strategy: "disabled", StrategySource: revisioncleanup.SourceSpaceType}
+		code, out, err := runFakeRevisionsCleanup(t, &fakeOnDemand{results: []revisioncleanup.Result{cleanedFile, disabled}}, revisionsCleanupOptions{})
+		require.NoError(t, err)
+		require.Equal(t, 0, code)
+		require.NotContains(t, out, "/private.txt")
+		require.Contains(t, out, "2 files in 2 spaces: deleted 1 revision (2.0 KiB) of 1 file, 0 skipped, 0 failed")
+
+		// but they are listed with --verbose
+		_, out, err = runFakeRevisionsCleanup(t, &fakeOnDemand{results: []revisioncleanup.Result{disabled}}, revisionsCleanupOptions{verbose: true})
+		require.NoError(t, err)
+		require.Contains(t, out, `/private.txt (node node5): skipped: the revision cleanup is disabled for this space, strategy "disabled" (of the space type)`)
 	})
 
 	t.Run("JSON lines", func(t *testing.T) {
