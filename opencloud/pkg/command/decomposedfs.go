@@ -183,10 +183,11 @@ func metadataCmd(cfg *config.Config) *cobra.Command {
 		Short: `cli tools to inspect and manipulate node metadata`,
 	}
 	metaCmd.AddCommand(dumpCmd(cfg), getCmd(cfg), setCmd(cfg))
-	metaCmd.Flags().StringP("root", "r", "", "Path to the root directory of the decomposedfs")
-	_ = metaCmd.MarkFlagRequired("root")
-	metaCmd.Flags().StringP("node", "n", "", "Path to or ID of the node to inspect")
-	_ = metaCmd.MarkFlagRequired("node")
+	// persistent, so that the subcommands dump, get and set, which read them, have them
+	metaCmd.PersistentFlags().StringP("root", "r", "", "Path to the root directory of the decomposedfs")
+	_ = metaCmd.MarkPersistentFlagRequired("root")
+	metaCmd.PersistentFlags().StringP("node", "n", "", "Path to or ID of the node to inspect")
+	_ = metaCmd.MarkPersistentFlagRequired("node")
 	return metaCmd
 }
 
