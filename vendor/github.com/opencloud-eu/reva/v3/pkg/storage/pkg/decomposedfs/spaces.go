@@ -699,6 +699,13 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 		}, nil
 	}
 
+	spaceType, err := spaceNode.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
+	if err != nil {
+		return &provider.UpdateStorageSpaceResponse{
+			Status: &v1beta11.Status{Code: v1beta11.Code_CODE_INTERNAL, Message: "space has no type"},
+		}, nil
+	}
+
 	sp, err := fs.p.AssemblePermissions(ctx, spaceNode)
 	if err != nil {
 		return &provider.UpdateStorageSpaceResponse{
@@ -723,17 +730,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 		}
 
 		if mapHasKey(metadata, k...) {
-			typ, err := spaceNode.SpaceRoot.Xattr(ctx, prefixes.SpaceTypeAttr)
-			if err != nil {
-				return &provider.UpdateStorageSpaceResponse{
-					Status: &v1beta11.Status{
-						Code:    v1beta11.Code_CODE_INTERNAL,
-						Message: "space has no type",
-					},
-				}, nil
-			}
-
-			if !fs.p.ManageSpaceProperties(ctx, spaceID, string(typ)) {
+			if !fs.p.ManageSpaceProperties(ctx, spaceID, spaceType) {
 				return &provider.UpdateStorageSpaceResponse{
 					Status: &v1beta11.Status{Code: v1beta11.Code_CODE_PERMISSION_DENIED},
 				}, nil
@@ -741,17 +738,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 		}
 
 		if restore {
-			typ, err := spaceNode.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
-			if err != nil {
-				return &provider.UpdateStorageSpaceResponse{
-					Status: &v1beta11.Status{
-						Code:    v1beta11.Code_CODE_INTERNAL,
-						Message: "space has no type",
-					},
-				}, nil
-			}
-
-			if !fs.p.RestoreSpace(ctx, spaceID, typ) {
+			if !fs.p.RestoreSpace(ctx, spaceID, spaceType) {
 				return &provider.UpdateStorageSpaceResponse{
 					Status: &v1beta11.Status{Code: v1beta11.Code_CODE_NOT_FOUND},
 				}, nil
@@ -760,17 +747,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 	}
 
 	if mapHasKey(metadata, prefixes.QuotaAttr) {
-		typ, err := spaceNode.SpaceRoot.Xattr(ctx, prefixes.SpaceTypeAttr)
-		if err != nil {
-			return &provider.UpdateStorageSpaceResponse{
-				Status: &v1beta11.Status{
-					Code:    v1beta11.Code_CODE_INTERNAL,
-					Message: "space has no type",
-				},
-			}, nil
-		}
-
-		if !fs.p.SetSpaceQuota(ctx, spaceID, string(typ)) {
+		if !fs.p.SetSpaceQuota(ctx, spaceID, spaceType) {
 			return &provider.UpdateStorageSpaceResponse{
 				Status: &v1beta11.Status{Code: v1beta11.Code_CODE_PERMISSION_DENIED},
 			}, nil

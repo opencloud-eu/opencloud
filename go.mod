@@ -68,7 +68,7 @@ require (
 	github.com/open-policy-agent/opa v1.21.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e
-	github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119154313-aa77b15bccec
+	github.com/opencloud-eu/reva/v3 v3.0.2-0.20261120162312-20c6e78244d3
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -404,6 +404,3 @@ replace go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.4-0.202609292135
 exclude github.com/mattn/go-sqlite3 v2.0.3+incompatible
 
 replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
-
-// TEMP: remove once reva#963 (feat/personal_space_permissions) is released and bump reva to the release version
-replace github.com/opencloud-eu/reva/v3 => github.com/maki5/reva/v3 v3.0.0-20261117123005-56afac944faf

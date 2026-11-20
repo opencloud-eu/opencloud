@@ -357,7 +357,9 @@ func (lu *Lookup) TimeManager() node.TimeManager {
 	return lu.tm
 }
 
-// DetectBackendOnDisk returns the name of the metadata backend being used on disk
+// DetectBackendOnDisk returns the name of the metadata backend being used on
+// disk: "mpk" for messagepack, or "unknown" when the storage has no space with
+// messagepack metadata, e.g. because root is wrong.
 func DetectBackendOnDisk(root string) string {
 	matches, _ := filepath.Glob(filepath.Join(root, "spaces", "*", "*"))
 	if len(matches) > 0 {
@@ -370,10 +372,6 @@ func DetectBackendOnDisk(root string) string {
 		if err == nil {
 			return "mpk"
 		}
-		_, err = os.Stat(filepath.Join(base, "nodes", spaceRoot+".ini"))
-		if err == nil {
-			return "ini"
-		}
 	}
-	return "xattrs"
+	return "unknown"
 }
