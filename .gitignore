@@ -19,7 +19,7 @@ services/*/bin
 /opencloud/dist/
 services/*/assets
 opencloud/opencloud
-opencloud/cmd/opencloud/__debug_bin
+opencloud/cmd/opencloud/__debug_bin*
 opencloud/cmd/opencloud/config/
 
 # docs
