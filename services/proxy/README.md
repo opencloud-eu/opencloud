@@ -79,6 +79,42 @@ The disabled default is a compatibility decision. It does not relax the
 a resource server following that JWT access token profile must reject tokens
 whose audience does not identify the resource server.
 
+### OIDC Allowed Client IDs
+
+An audience check alone does not keep out tokens minted through *other clients*
+of the same identity provider. Many IDPs let a client request any audience, and
+with dynamic client registration anyone can create such a client. Identity
+providers attach their login policy to the client: who may sign in, MFA,
+allowed networks and so on. A token obtained through a weaker client carries
+the expected audience just as well and bypasses that policy.
+
+To accept only tokens issued to your OpenCloud clients, list their client ids:
+
+```console
+PROXY_OIDC_ALLOWED_CLIENT_IDS=web,OpenCloudDesktop,OpenCloudAndroid,OpenCloudIOS
+PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=jwt
+```
+
+or in `proxy.yaml`:
+
+```yaml
+oidc:
+  allowed_client_ids:
+    - web
+    - OpenCloudDesktop
+  access_token_verify_method: jwt
+```
+
+The client is read from the access token's `client_id` claim
+([RFC 9068](https://www.rfc-editor.org/rfc/rfc9068.html#name-data-structure)) and,
+if that is absent, from `azp` (OpenID Connect; Keycloak, for example). The value
+must match one entry exactly and case-sensitively. Tokens without a client, with
+a malformed one or with a client that is not listed receive HTTP 401 on
+protected routes. Like audiences, this requires JWT verification, entries must
+not be blank, an empty list disables the check, and it is evaluated on Userinfo
+cache misses. The check works together with `PROXY_OIDC_AUDIENCES`; both must
+pass when both are configured.
+
 ## Configuring Routes
 
 The proxy handles routing to all endpoints that OpenCloud offers. The currently availabe default routes can be found [in the code](https://github.com/opencloud-eu/opencloud/blob/main/services/proxy/pkg/config/defaults/defaultconfig.go). Changing or adding routes can be necessary when writing own OpenCloud extensions.

@@ -104,6 +104,63 @@ func TestValidateOIDCAudiences(t *testing.T) {
 	}
 }
 
+func TestParseOIDCAllowedClientIDs(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		env     string
+		method  string
+		setEnv  bool
+		want    []string
+		wantErr string
+	}{
+		{name: "unset defaults to disabled"},
+		{name: "YAML", yaml: "oidc:\n  allowed_client_ids: [web, desktop]\n", method: "jwt", want: []string{"web", "desktop"}},
+		{name: "ENV", setEnv: true, env: "web,desktop", method: "jwt", want: []string{"web", "desktop"}},
+		{name: "ENV trims list entries", setEnv: true, env: " web, desktop ", method: "jwt", want: []string{"web", "desktop"}},
+		{name: "ENV precedence", yaml: "oidc:\n  allowed_client_ids: [yaml-client]\n", setEnv: true, env: "env-client", method: "jwt", want: []string{"env-client"}},
+		{name: "empty ENV disables YAML", yaml: "oidc:\n  allowed_client_ids: [web]\n", setEnv: true},
+		{name: "YAML preserves case", yaml: "oidc:\n  allowed_client_ids: [Web]\n", method: "jwt", want: []string{"Web"}},
+		{name: "YAML blank entry", yaml: "oidc:\n  allowed_client_ids: ['']\n", method: "jwt", wantErr: "empty or whitespace-only"},
+		{name: "ENV whitespace entry", setEnv: true, env: "web, ", method: "jwt", wantErr: "empty or whitespace-only"},
+		{name: "YAML incompatible verification", yaml: "oidc:\n  allowed_client_ids: [web]\n  access_token_verify_method: none\n", wantErr: "require access_token_verify_method to be 'jwt'"},
+		{name: "ENV incompatible verification", setEnv: true, env: "web", method: "none", wantErr: "require access_token_verify_method to be 'jwt'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("OC_CONFIG_DIR", dir)
+			t.Setenv("PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD", "")
+			require.NoError(t, os.Unsetenv("PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD"))
+			if tt.method != "" {
+				t.Setenv("PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD", tt.method)
+			}
+			t.Setenv("PROXY_OIDC_SKIP_USER_INFO", "false")
+			t.Setenv("PROXY_OIDC_AUDIENCES", "")
+			require.NoError(t, os.Unsetenv("PROXY_OIDC_AUDIENCES"))
+			t.Setenv("PROXY_OIDC_ALLOWED_CLIENT_IDS", "")
+			require.NoError(t, os.Unsetenv("PROXY_OIDC_ALLOWED_CLIENT_IDS"))
+			if tt.setEnv {
+				t.Setenv("PROXY_OIDC_ALLOWED_CLIENT_IDS", tt.env)
+			}
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "proxy.yaml"), []byte(tt.yaml), 0600))
+			cfg := validProxyConfig()
+			err := parser.ParseConfig(cfg)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				require.ErrorContains(t, err, "PROXY_OIDC_ALLOWED_CLIENT_IDS")
+				return
+			}
+			require.NoError(t, err)
+			if len(tt.want) == 0 {
+				require.Empty(t, cfg.OIDC.AllowedClientIDs)
+			} else {
+				require.Equal(t, tt.want, cfg.OIDC.AllowedClientIDs)
+			}
+		})
+	}
+}
+
 func validProxyConfig() *config.Config {
 	cfg := defaults.FullDefaultConfig()
 	cfg.MachineAuthAPIKey = "test-machine-key"
