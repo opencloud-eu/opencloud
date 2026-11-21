@@ -108,7 +108,10 @@ func DefaultConfig() *config.Config {
 			DisplayName: "name",
 			Groups:      "groups",
 		},
-		EnableBasicAuth:               false,
+		EnableBasicAuth: false,
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		InsecureBackends:              false,
 		CSPConfigFileLocation:         "",
 		CSPConfigFileOverrideLocation: "",

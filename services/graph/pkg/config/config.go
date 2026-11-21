@@ -31,6 +31,7 @@ type Config struct {
 	Identity          Identity     `yaml:"identity"`
 	IncludeOCMSharees bool         `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
 	Events            Events       `yaml:"events"`
+	Audit             Audit        `yaml:"audit"`
 	UnifiedRoles      UnifiedRoles `yaml:"unified_roles"`
 	Thumbnails        Thumbnails   `yaml:"thumbnails"`
 
@@ -143,6 +144,12 @@ type API struct {
 	ShowUserEmailInResults      bool   `yaml:"show_email_in_results" env:"OC_SHOW_USER_EMAIL_IN_RESULTS" desc:"Include user email addresses in responses. If absent or set to false emails will be omitted from results. Please note that admin users can always see all email addresses." introductionVersion:"1.0.0"`
 	DisableNewUserShares        bool   `yaml:"disable_new_user_shares" env:"OC_DISABLE_NEW_USER_SHARES" desc:"Reject the creation of new user, group and federated shares. Existing shares keep working. Adding members to spaces is not affected." introductionVersion:"%%NEXT%%"`
 	ExportPersonalDataRateLimit int    `yaml:"export_personal_data_rate_limit" env:"GRAPH_EXPORT_PERSONAL_DATA_RATE_LIMIT" desc:"The maximum number of personal data exports a user can start per minute. Each instance of the graph service counts on its own, so with several instances, a user can start up to this number of exports on each of them. Set it to 0 to disable the limit." introductionVersion:"9.2.0"`
+}
+
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;GRAPH_AUDIT_ENABLED" desc:"Emit audit events for user, group and role changes to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;GRAPH_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort' never blocks a request and counts dropped events, 'strict' waits until the event is stored." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.

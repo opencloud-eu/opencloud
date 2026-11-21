@@ -15,6 +15,7 @@ import (
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/bytesize"
 	"github.com/opencloud-eu/reva/v3/pkg/store"
 
@@ -194,6 +195,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
 		eventsPublisher:          options.EventsPublisher,
+		auditEmitter:             options.AuditEmitter,
 		searchService:            options.SearchService,
 		identityBackend:          options.IdentityBackend,
 		identityEducationBackend: options.IdentityEducationBackend,
@@ -264,7 +266,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1_Beta_1))
-				r.Post("/", svc.CreateDriveV1Beta1)
+				r.With(svc.auditOnDenied(audit.SpaceCreate, "")).Post("/", svc.CreateDriveV1Beta1)
 				r.Route("/{driveID}", func(r chi.Router) {
 					// Rewrites MS Graph colon-syntax lookups (root:/path,
 					// items/{id}:/path) to /items/{resolvedID}... before chi
@@ -332,7 +334,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					r.Delete("/following/{itemID}", svc.UnfollowDriveItem)
 				})
 				r.Get("/drives", svc.GetDrives(APIVersion_1))
-				r.Post("/changePassword", svc.ChangeOwnPassword)
+				r.With(svc.auditOnError(audit.UserPasswordChange, "")).Post("/changePassword", svc.ChangeOwnPassword)
 				r.Route("/photo/$value", func(r chi.Router) {
 					r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetUserIDFromCTX))
 					r.Put("/", usersUserProfilePhotoApi.UpsertProfilePhoto(GetUserIDFromCTX))
@@ -342,11 +344,14 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", svc.GetUsers)
-				r.With(requireAdmin).Post("/", svc.PostUser)
+				r.With(svc.auditOnError(audit.UserCreate, ""), requireAdmin).Post("/", svc.PostUser)
 				r.Route("/{userID}", func(r chi.Router) {
 					r.Get("/", svc.GetUser)
 					r.Get("/drive", svc.GetUserDrive)
 					r.With(
+						// graph publishes no event for the export, successes are audited here too;
+						// first, so that refused and rate limited requests are audited as well
+						svc.auditAlways(audit.PersonalDataExport, "userID"),
 						// users may only export their own personal data, never
 						// that of another user; this comes before the rate
 						// limit, so that requests for other users are rejected
@@ -361,34 +366,34 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					r.Route("/photo/$value", func(r chi.Router) {
 						r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetSlugValue("userID")))
 					})
-					r.With(requireAdmin).Delete("/", svc.DeleteUser)
-					r.With(requireAdmin).Patch("/", svc.PatchUser)
+					r.With(svc.auditOnError(audit.UserDelete, "userID"), requireAdmin).Delete("/", svc.DeleteUser)
+					r.With(svc.auditOnError(audit.UserUpdate, "userID"), requireAdmin).Patch("/", svc.PatchUser)
 					if svc.roleService != nil {
-						r.With(requireAdmin).Route("/appRoleAssignments", func(r chi.Router) {
-							r.Get("/", svc.ListAppRoleAssignments)
-							r.Post("/", svc.CreateAppRoleAssignment)
-							r.Delete("/{appRoleAssignmentID}", svc.DeleteAppRoleAssignment)
+						r.Route("/appRoleAssignments", func(r chi.Router) {
+							r.With(requireAdmin).Get("/", svc.ListAppRoleAssignments)
+							r.With(svc.auditOnError(audit.AppRoleAssign, "userID"), requireAdmin).Post("/", svc.CreateAppRoleAssignment)
+							r.With(svc.auditOnError(audit.AppRoleUnassign, "userID"), requireAdmin).Delete("/{appRoleAssignmentID}", svc.DeleteAppRoleAssignment)
 						})
 					}
 				})
 			})
 			r.Route("/groups", func(r chi.Router) {
 				r.Get("/", svc.GetGroups)
-				r.With(requireAdmin).Post("/", svc.PostGroup)
+				r.With(svc.auditOnError(audit.GroupCreate, ""), requireAdmin).Post("/", svc.PostGroup)
 				r.Route("/{groupID}", func(r chi.Router) {
 					r.Get("/", svc.GetGroup)
-					r.With(requireAdmin).Delete("/", svc.DeleteGroup)
-					r.With(requireAdmin).Patch("/", svc.PatchGroup)
+					r.With(svc.auditOnError(audit.GroupDelete, "groupID"), requireAdmin).Delete("/", svc.DeleteGroup)
+					r.With(svc.auditOnError(audit.GroupUpdate, "groupID"), requireAdmin).Patch("/", svc.PatchGroup)
 					r.Route("/members", func(r chi.Router) {
 						r.With(requireAdmin).Get("/", svc.GetGroupMembers)
-						r.With(requireAdmin).Post("/$ref", svc.PostGroupMember)
-						r.With(requireAdmin).Delete("/{memberID}/$ref", svc.DeleteGroupMember)
+						r.With(svc.auditOnError(audit.GroupMemberAdd, "groupID"), requireAdmin).Post("/$ref", svc.PostGroupMember)
+						r.With(svc.auditOnError(audit.GroupMemberRemove, "groupID"), requireAdmin).Delete("/{memberID}/$ref", svc.DeleteGroupMember)
 					})
 				})
 			})
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1))
-				r.Post("/", svc.CreateDrive)
+				r.With(svc.auditOnDenied(audit.SpaceCreate, "")).Post("/", svc.CreateDrive)
 				r.Route("/{driveID}", func(r chi.Router) {
 					// Rewrites MS Graph colon-syntax lookups (root:/path,
 					// items/{id}:/path) to /items/{resolvedID}... before chi

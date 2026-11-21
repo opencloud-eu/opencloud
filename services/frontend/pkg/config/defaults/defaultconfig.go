@@ -97,6 +97,14 @@ func DefaultConfig() *config.Config {
 			Prefix:            "app",
 			SecureViewAppAddr: "eu.opencloud.api.collaboration",
 		},
+		Events: config.Events{
+			Endpoint:  "127.0.0.1:9233",
+			Cluster:   "opencloud-cluster",
+			EnableTLS: false,
+		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Archiver: config.Archiver{
 			Insecure:    false,
 			Prefix:      "archiver",
