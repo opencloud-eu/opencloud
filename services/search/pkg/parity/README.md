@@ -290,7 +290,7 @@ Fixtures:
 | FIELDS-12 | `id:"1$1!ab-23"` | no match | no match | no match | ✅ |
 | FIELDS-13 | `audio.artist:"Some Artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
 | FIELDS-14 | `audio.artist:"some artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
-| FIELDS-15 | `audio.duration>100` | no match | no match | no match | ✅ |
+| FIELDS-15 | `audio.duration>100` | song.mp3 | song.mp3 | song.mp3 | ✅ |
 
 ### deleted
 
@@ -443,6 +443,23 @@ Fixtures:
 | RANGE-06 | `Mtime:"yesterday"` | no match | no match | no match | ✅ |
 | RANGE-07 | `mtime>2021` | no match | no match | no match | ✅ |
 | RANGE-08 | `name>100` | no match | no match | no match | ✅ |
+
+### photo
+
+Fixtures:
+
+- `bright.jpg`, MimeType = image/jpeg
+- `dark.jpg`, MimeType = image/jpeg
+- `plain.txt`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| PHOTO-01 | `photo.iso>=1000` | dark.jpg | dark.jpg | dark.jpg | ✅ |
+| PHOTO-02 | `Photo.FNumber<2` | bright.jpg | bright.jpg | bright.jpg | ✅ |
+| PHOTO-03 | `photo.focalLength>30 AND photo.iso<=3200` | dark.jpg | dark.jpg | dark.jpg | ✅ |
+| PHOTO-04 | `photo.orientation>1` | dark.jpg | dark.jpg | dark.jpg | ✅ |
+| PHOTO-05 | `photo.iso<=100` | bright.jpg | bright.jpg | bright.jpg | ✅ |
+| PHOTO-06 | `photo.cameraMake>1` | no match | no match | no match | ✅ |
 
 ### scope
 

@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -262,11 +263,79 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:favorite", "1"))
 	}
 
+	propstatOK.Prop = appendPhotoProps(propstatOK.Prop, match.GetEntity().GetPhoto())
+	propstatOK.Prop = appendLocationProps(propstatOK.Prop, match.GetEntity().GetLocation())
+
 	if len(propstatOK.Prop) > 0 {
 		response.Propstat = append(response.Propstat, propstatOK)
 	}
 
 	return &response, nil
+}
+
+// decimal places of the photo props; six for a coordinate resolve about 10 cm
+const (
+	lensPrecision       = 2
+	exposurePrecision   = 0
+	coordinatePrecision = 6
+	altitudePrecision   = 1
+)
+
+func appendPhotoProps(props []prop.PropertyXML, photo *searchmsg.Photo) []prop.PropertyXML {
+	if photo == nil {
+		return props
+	}
+	if photo.GetTakenDateTime() != nil {
+		props = append(props, prop.Escaped("oc:photo-taken-date-time", photo.GetTakenDateTime().AsTime().Format(time.RFC3339)))
+	}
+	props = appendStringProp(props, "oc:photo-camera-make", photo.CameraMake)
+	props = appendStringProp(props, "oc:photo-camera-model", photo.CameraModel)
+	props = appendFloat32Prop(props, "oc:photo-fnumber", photo.FNumber, lensPrecision)
+	props = appendFloat32Prop(props, "oc:photo-focal-length", photo.FocalLength, lensPrecision)
+	props = appendInt32Prop(props, "oc:photo-iso", photo.Iso)
+	props = appendInt32Prop(props, "oc:photo-orientation", photo.Orientation)
+	props = appendFloat32Prop(props, "oc:photo-exposure-numerator", photo.ExposureNumerator, exposurePrecision)
+	props = appendFloat32Prop(props, "oc:photo-exposure-denominator", photo.ExposureDenominator, exposurePrecision)
+	return props
+}
+
+func appendLocationProps(props []prop.PropertyXML, location *searchmsg.GeoCoordinates) []prop.PropertyXML {
+	if location == nil {
+		return props
+	}
+	// no zero check here: 0 is a valid coordinate (equator, prime meridian, sea level)
+	props = appendFloat64Prop(props, "oc:photo-location-latitude", location.Latitude, coordinatePrecision)
+	props = appendFloat64Prop(props, "oc:photo-location-longitude", location.Longitude, coordinatePrecision)
+	props = appendFloat64Prop(props, "oc:photo-location-altitude", location.Altitude, altitudePrecision)
+	return props
+}
+
+func appendStringProp(props []prop.PropertyXML, name string, value *string) []prop.PropertyXML {
+	if value == nil || *value == "" {
+		return props
+	}
+	return append(props, prop.Escaped(name, *value))
+}
+
+func appendFloat32Prop(props []prop.PropertyXML, name string, value *float32, precision int) []prop.PropertyXML {
+	if value == nil || *value == 0 {
+		return props
+	}
+	return append(props, prop.Escaped(name, strconv.FormatFloat(float64(*value), 'f', precision, 32)))
+}
+
+func appendInt32Prop(props []prop.PropertyXML, name string, value *int32) []prop.PropertyXML {
+	if value == nil || *value == 0 {
+		return props
+	}
+	return append(props, prop.Escaped(name, strconv.FormatInt(int64(*value), 10)))
+}
+
+func appendFloat64Prop(props []prop.PropertyXML, name string, value *float64, precision int) []prop.PropertyXML {
+	if value == nil {
+		return props
+	}
+	return append(props, prop.Escaped(name, strconv.FormatFloat(*value, 'f', precision, 64)))
 }
 
 type report struct {
