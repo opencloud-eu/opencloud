@@ -39,7 +39,7 @@ type Options struct {
 	// the gateway address
 	GatewayAddr string `mapstructure:"gateway_addr"`
 
-	// the metadata backend to use, currently supports `xattr` or `ini`
+	// the metadata backend to use, currently only supports 'messagepack' (default).
 	MetadataBackend string `mapstructure:"metadata_backend"`
 
 	// the attribute key prefix of the metadata on disk, process wide, see prefixes.SetOcPrefix
