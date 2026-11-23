@@ -2,6 +2,7 @@ package search_test
 
 import (
 	"context"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -128,7 +129,7 @@ var _ = Describe("Searchprovider", func() {
 			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
 			indexClient.On("NewBatch", mock.Anything).Return(batch, nil)
 			batch.On("Upsert", mock.Anything, mock.Anything).Return(nil)
-			indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{}, nil)
+			indexClient.On("Get", mock.Anything, mock.Anything).Return(nil, search.ErrResourceNotFound)
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
 				Status: status.NewOK(context.Background()),
 				Info:   ri,
@@ -136,6 +137,71 @@ var _ = Describe("Searchprovider", func() {
 
 			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
 			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("descends into an unchanged folder and indexes only what is missing or outdated below it", func() {
+			indexedAt := time.Unix(4000, 0)
+			info := func(id string, t sprovider.ResourceType, seconds uint64) *sprovider.ResourceInfo {
+				return &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: id},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "spaceid"},
+					Type:     t,
+					Path:     id,
+					Mtime:    &typesv1beta1.Timestamp{Seconds: seconds},
+				}
+			}
+			root := info("spaceid", sprovider.ResourceType_RESOURCE_TYPE_CONTAINER, 4000)
+			root.Path = "."
+			children := []*sprovider.ResourceInfo{
+				info("current", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("outdated", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
+				info("missing", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("trashed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+			}
+			indexed := map[string]*search.Resource{
+				"storageid$spaceid!spaceid":  {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!current":  {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!outdated": {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!trashed":  {Document: content.Document{Mtime: &indexedAt}, Deleted: true},
+			}
+
+			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
+				Status: status.NewOK(context.Background()),
+				User:   user,
+			}, nil)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(
+				func(_ context.Context, req *sprovider.StatRequest, _ ...grpc.CallOption) (*sprovider.StatResponse, error) {
+					for _, child := range children {
+						if req.GetRef().GetPath() == "./"+child.GetPath() {
+							return &sprovider.StatResponse{Status: status.NewOK(context.Background()), Info: child}, nil
+						}
+					}
+					return &sprovider.StatResponse{Status: status.NewOK(context.Background()), Info: root}, nil
+				})
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&sprovider.ListContainerResponse{
+				Status: status.NewOK(context.Background()),
+				Infos:  children,
+			}, nil)
+			indexClient.On("Get", mock.Anything, mock.Anything).Return(
+				func(_ context.Context, id string) (*search.Resource, error) {
+					if r, ok := indexed[id]; ok {
+						return r, nil
+					}
+					return nil, search.ErrResourceNotFound
+				})
+			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+			var upserted []string
+			batch := &engineMocks.BatchOperator{}
+			batch.EXPECT().Push().Return(nil)
+			batch.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				upserted = append(upserted, args.String(0))
+			}).Return(nil)
+			indexClient.On("NewBatch", mock.Anything).Return(batch, nil)
+
+			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed"))
 		})
 	})
 

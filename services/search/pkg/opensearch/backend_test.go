@@ -3,6 +3,7 @@ package opensearch_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +13,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 func TestOpenSearchBackend(t *testing.T) {
@@ -80,4 +82,49 @@ var _ = Describe("Backend", func() {
 		})
 	})
 
+	Describe("Get", func() {
+		const indexName = "opencloud-test-engine-lookup"
+
+		var backend *opensearch.Backend
+
+		BeforeEach(func() {
+			physical := opensearch.VersionedIndexName(indexName)
+
+			tc := opensearchtest.NewDefaultTestClient(GinkgoTB(), defaultConfig.Engine.OpenSearch.Client)
+			tc.Require.IndicesReset([]string{physical})
+			deleteIndexOnCleanup(tc, physical)
+
+			var err error
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns the indexed resource with its exact mtime", func() {
+			mtime := time.Unix(1700000000, 123456789).UTC()
+			document := opensearchtest.Testdata.Resources.File
+			document.Mtime = &mtime
+			Expect(backend.Upsert(document.ID, document)).To(Succeed())
+
+			r, err := backend.Get(context.Background(), document.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.ID).To(Equal(document.ID))
+			Expect(r.Mtime).ToNot(BeNil())
+			Expect(r.Mtime.Equal(mtime)).To(BeTrue(), "got %s", r.Mtime)
+		})
+
+		It("returns a trashed resource", func() {
+			document := opensearchtest.Testdata.Resources.File
+			document.Deleted = true
+			Expect(backend.Upsert(document.ID, document)).To(Succeed())
+
+			r, err := backend.Get(context.Background(), document.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Deleted).To(BeTrue())
+		})
+
+		It("fails with ErrResourceNotFound for an unknown id", func() {
+			_, err := backend.Get(context.Background(), "1$2!unknown")
+			Expect(err).To(MatchError(search.ErrResourceNotFound))
+		})
+	})
 })
