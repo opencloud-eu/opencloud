@@ -175,6 +175,7 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		versionNode    *node.BaseNode
 		oldAttrs       node.Attributes
 		oldMtime       time.Time
+		obsoleteBlobID string
 	)
 
 	defer func() {
@@ -289,6 +290,13 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 			}
 		}
 
+		// Without a revision the old blob has no reference left once the node points to
+		// the new one. A revision kept only for a rollback holds it until its removal.
+		// On posix the blob is the file itself, which the new content replaces.
+		if fs.o.DisableVersioning && fs.separateBlobs && overwrite && !versionCreated && old.BlobID != sessionID {
+			obsoleteBlobID = old.BlobID
+		}
+
 		sizeDiff = info.Size - old.Blobsize
 	} else {
 		// InitNewNode has cached a node it created
@@ -351,9 +359,13 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		// and their blobs are deleted with them.
 		n.BlobID = sessionID
 		fs.removeRevisions(ctx, n)
+		fs.deleteObsoleteBlob(ctx, n, obsoleteBlobID)
 	}
 
 	result := &storage.PrepareUploadResult{VersionCreated: versionCreated, SizeDiff: sizeDiff, Committed: inline}
+	if !inline {
+		result.ObsoleteBlobID = obsoleteBlobID
+	}
 	if !info.NodeExisted {
 		// read off the disk, not through ListGrants: an uploader who cannot see the
 		// space root still needs the manager of a project space reported

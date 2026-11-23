@@ -1360,7 +1360,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v3 v3.0.2-0.20261119154313-aa77b15bccec
+# github.com/opencloud-eu/reva/v3 v3.0.2-0.20261120162312-20c6e78244d3
 ## explicit; go 1.26.0
 github.com/opencloud-eu/reva/v3/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v3/cmd/revad/runtime

@@ -140,6 +140,10 @@ func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Referenc
 		}
 		if revision == nil {
 			appctx.GetLogger(ctx).Info().Str("nodeid", n.ID).Str("sessionid", sessionID).Msg("upload was superseded and has no revision, discarding its bytes")
+			// a newer upload took over the node, nothing references the old blob anymore
+			if source.ObsoleteBlobID != sessionID {
+				fs.deleteObsoleteBlob(ctx, n, source.ObsoleteBlobID)
+			}
 			return nil
 		}
 		defer func() {
@@ -158,6 +162,12 @@ func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Referenc
 			appctx.GetLogger(ctx).Error().Err(derr).Str("nodeid", n.ID).Str("blobid", sessionID).Msg("could not clean up orphaned blob after failed write")
 		}
 		return errors.Wrap(err, "Decomposedfs: failed to write blob")
+	}
+
+	// the node points to the new content now: the blob it pointed to before has no
+	// reference left
+	if source.ObsoleteBlobID != sessionID {
+		fs.deleteObsoleteBlob(ctx, n, source.ObsoleteBlobID)
 	}
 
 	// on the node that holds the content, not the session: the session is deleted when the
@@ -192,6 +202,19 @@ func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Referenc
 	}
 
 	return nil
+}
+
+// deleteObsoleteBlob deletes the blob an upload replaced, while the caller holds the node
+// lock. It is kept if it is the one the node points to. A failure is only logged: the upload
+// is done, and a leaked blob is better than a failed upload.
+func (fs *Decomposedfs) deleteObsoleteBlob(ctx context.Context, n *node.Node, blobID string) {
+	if blobID == "" || blobID == n.BlobID {
+		return
+	}
+	blobNode := node.New(n.SpaceID, n.ID, "", "", 0, blobID, provider.ResourceType_RESOURCE_TYPE_FILE, nil, fs.lu)
+	if err := fs.tp.DeleteBlob(blobNode); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Str("blobid", blobID).Msg("could not delete the obsolete blob")
+	}
 }
 
 // removeRevisions deletes the revisions of n that were kept only for a rollback, with their

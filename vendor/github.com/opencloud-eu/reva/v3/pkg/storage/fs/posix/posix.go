@@ -159,11 +159,6 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 
 	var lu *lookup.Lookup
 	switch o.MetadataBackend {
-	case "xattrs":
-		lu, err = lookup.New(metadata.NewXattrsBackend(o.FileMetadataCache), um, o, &timemanager.Manager{}, cache, historyCache, log)
-		if err != nil {
-			return nil, err
-		}
 	case "hybrid":
 		lu, err = lookup.New(metadata.NewHybridBackend(1024, // start offloading grants after 1KB
 			func(n metadata.MetadataNode) string {
@@ -179,7 +174,7 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unknown metadata backend %s, only 'xattrs' or 'hybrid' (default) supported", o.MetadataBackend)
+		return nil, fmt.Errorf("unknown metadata backend %s, only 'hybrid' (default) supported", o.MetadataBackend)
 	}
 
 	permissionsSelector, err := pool.PermissionsSelector(o.PermissionsSVC, pool.WithTLSMode(o.PermTLSMode))
