@@ -44,6 +44,11 @@ type Result struct {
 	Path string
 	// DryRun is set when nothing was deleted, only decided.
 	DryRun bool
+	// Strategy is the strategy the node was cleaned up with, and StrategySource the setting of
+	// the Policy it came from. Both are empty when the cleanup failed before the strategy was
+	// chosen, or when it didn't run because of the node, e.g. as it no longer exists.
+	Strategy       string
+	StrategySource StrategySource
 	// Skipped explains why the node was not cleaned up, e.g. because an upload to it is still
 	// being processed. Revisions is empty then.
 	Skipped string

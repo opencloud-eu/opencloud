@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"path"
+	"strings"
 	"sync"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -20,7 +21,7 @@ import (
 // Request describes an on-demand cleanup of revisions, e.g. by a command line tool, as opposed
 // to the cleanup that runs whenever a file gets a new revision.
 //
-// The strategy and the AsyncOptions default to the configuration of the storage driver, and
+// The strategies and the AsyncOptions default to the configuration of the storage driver, and
 // can be overridden for this run. Without AsyncOptions of its own, though, a run waits for
 // room in a full queue for as long as it takes (QueueFullBlock without a timeout), whatever
 // the queue full policy of the storage driver: a run queues the files as fast as it finds
@@ -38,9 +39,14 @@ type Request struct {
 	// resolves it to the space and the path within it.
 	FSPath string
 
-	// Strategy overrides the configured revisions cleanup strategy for this run, see
-	// revisions.NewRevisionCleanupStrategy.
+	// Strategy is forced on all spaces of this run, instead of the configured strategies, see
+	// PolicyConfig.Forced and revisions.NewRevisionCleanupStrategy.
 	Strategy string
+	// StrategyPersonal and StrategyProject replace the configured strategy of the personal
+	// and the project spaces for this run, see PolicyConfig.SpaceTypes. Empty keeps the
+	// configured one. They can't be combined with Strategy, which would override them.
+	StrategyPersonal string
+	StrategyProject  string
 	// Async overrides the configured AsyncOptions for this run. Without it, the configured
 	// ones are used, but with QueueFullBlock and no timeout.
 	Async *AsyncOptions
@@ -54,9 +60,12 @@ type Request struct {
 	Shuffle bool
 }
 
-// Validate checks the scope of the request.
+// Validate checks the scope of the request, and that it doesn't combine a forced strategy with
+// strategies per space type.
 func (r Request) Validate() error {
 	switch {
+	case strings.TrimSpace(r.Strategy) != "" && (strings.TrimSpace(r.StrategyPersonal) != "" || strings.TrimSpace(r.StrategyProject) != ""):
+		return errors.New("a strategy for all spaces can't be combined with strategies per space type")
 	case r.FSPath != "" && (r.All || len(r.SpaceIDs) > 0 || r.Path != ""):
 		return errors.New("a path on disk can't be combined with spaces or a path within a space")
 	case r.FSPath != "":
@@ -114,11 +123,11 @@ type RunOptions struct {
 }
 
 // Run cleans up the revisions of the given roots, files or folders (recursively, e.g. space roots),
-// with the given Cleaner and RunOptions, and hands the Result of every file to report, one at a
+// with the given strategies and RunOptions, and hands the Result of every file to report, one at a
 // time. It is the common implementation of OnDemand.CleanupRevisionsUnchecked for the storage
 // drivers.
 //
-// It uses a Service of its own, independent of the storage driver's, so that the Cleaner and
+// It uses a Service of its own, independent of the storage driver's, so that the Policy and
 // the AsyncOptions of the run apply: files are queued as they are found, while the workers
 // already clean up, and Run waits for all cleanups before it returns. Files dropped by a full
 // queue (queue full policy "drop") are reported as skipped. That Service leaves the metrics
@@ -131,8 +140,8 @@ type RunOptions struct {
 //
 // It checks no permissions: the Walker lists folders without them, and neither do the
 // cleanups.
-func Run(ctx context.Context, lu node.PathLookup, w Walker, roots []*node.Node, cleaner *Cleaner, o RunOptions, report func(Result), log *zerolog.Logger) error {
-	if !cleaner.Enabled() {
+func Run(ctx context.Context, lu node.PathLookup, w Walker, roots []*node.Node, strategies *Policy, o RunOptions, report func(Result), log *zerolog.Logger) error {
+	if !strategies.Enabled() {
 		return errors.New("no revisions cleanup strategy configured or given")
 	}
 	if report == nil {
@@ -168,7 +177,7 @@ func Run(ctx context.Context, lu node.PathLookup, w Walker, roots []*node.Node, 
 		paths[key] = &queuedPath{path: path, count: 1}
 	}
 
-	s, err := newService(cleaner, lu, w, o.Async, log, true, o.DryRun, serialized)
+	s, err := newService(strategies, lu, w, o.Async, log, true, o.DryRun, serialized)
 	if err != nil {
 		return err
 	}
