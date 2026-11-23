@@ -512,8 +512,13 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		parentRef.SetDriveType(res.GetSpace().GetSpaceType())
 		parentRef.SetDriveId(storagespace.FormatStorageID(res.GetParentId().GetStorageId(), res.GetParentId().GetSpaceId()))
 		parentRef.SetId(storagespace.FormatResourceID(res.GetParentId()))
-		parentRef.SetName(path.Base(path.Dir(res.GetPath())))
-		parentRef.SetPath(path.Dir(res.GetPath()))
+		if IsSpaceRoot(res.GetId()) {
+			parentRef.SetName("/")
+			parentRef.SetPath("/")
+		} else {
+			parentRef.SetName(path.Base(path.Dir(res.GetPath())))
+			parentRef.SetPath(path.Dir(res.GetPath()))
+		}
 		driveItem.ParentReference = parentRef
 	}
 	switch res.GetType() {
