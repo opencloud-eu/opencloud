@@ -4,24 +4,27 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @maki5, @pbleser-oc, @v-scharf
+@AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
 ### 🐛 Bug Fixes
 
+- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
+- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
 - fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
 - fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
 - fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
 
+### 📈 Enhancement
+
+- feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
+- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
+- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
 ### ✅ Tests
 
 - fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
-### 📈 Enhancement
-
-- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
-- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
 
 ### 📦️ Dependencies
 
