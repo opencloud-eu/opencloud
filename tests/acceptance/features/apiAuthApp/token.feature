@@ -129,3 +129,9 @@ Feature: create auth-app token
         }
       }
       """
+
+  @env-config
+  Scenario: admin tries to create auth-app token for a user that does not exist
+    Given the config "AUTH_APP_ENABLE_IMPERSONATION" has been set to "true"
+    When the administrator creates app token for user "nonexistent" with expiration time "72h" using the auth-app API
+    Then the HTTP status code should be "404"

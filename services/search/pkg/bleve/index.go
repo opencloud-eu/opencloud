@@ -256,7 +256,7 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 		return nil, err
 	}
 	if res.Hits.Len() == 0 {
-		return nil, errors.New("entity not found")
+		return nil, search.ErrResourceNotFound
 	}
 
 	return matchToResource(res.Hits[0]), nil

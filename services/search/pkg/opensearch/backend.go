@@ -169,6 +169,15 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 	}, nil
 }
 
+func (b *Backend) Get(ctx context.Context, id string) (*search.Resource, error) {
+	resource, err := searchResourceByID(ctx, b.client, b.index, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resource, nil
+}
+
 func (b *Backend) DocCount() (uint64, error) {
 	req, err := osu.BuildIndicesCountReq(
 		&opensearchgoAPI.IndicesCountReq{

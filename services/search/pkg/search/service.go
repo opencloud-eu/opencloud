@@ -577,15 +577,9 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		searchRes, err := s.engine.Search(session.Ctx(), &searchsvc.SearchIndexRequest{
-			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),
-		})
-
-		if err == nil && len(searchRes.Matches) >= 1 {
-			if info.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
-				s.logger.Debug().Str("path", ref.Path).Msg("subtree hasn't changed. Skipping.")
-				return filepath.SkipDir
-			}
+		// an unchanged folder is still descended into: its mtime only follows its direct
+		// children, so files below it that an interrupted run left unindexed would be skipped forever
+		if s.isIndexed(session.Ctx(), info) {
 			s.logger.Debug().Str("path", ref.Path).Msg("element hasn't changed. Skipping.")
 			return nil
 		}
@@ -899,6 +893,19 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	if err := s.engine.Move(storagespace.FormatResourceID(stat.GetInfo().GetId()), storagespace.FormatResourceID(stat.GetInfo().GetParentId()), path); err != nil {
 		s.logger.Error().Err(err).Msg("failed to move the changed resource in the index")
 	}
+}
+
+// isIndexed reports whether the index holds a live document for info that is at least as new
+func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bool {
+	r, err := s.engine.Get(ctx, storagespace.FormatResourceID(info.GetId()))
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+		return false
+	case err != nil:
+		s.logger.Error().Err(err).Interface("id", info.GetId()).Msg("failed to look up the indexed resource, indexing it again")
+		return false
+	}
+	return !r.Deleted && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
 }
 
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {

@@ -174,6 +174,10 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	}, nil
 }
 
+func (b *Backend) Get(_ context.Context, id string) (*search.Resource, error) {
+	return searchResourceByID(id, b.index)
+}
+
 func (b *Backend) DocCount() (uint64, error) {
 	return b.index.DocCount()
 }

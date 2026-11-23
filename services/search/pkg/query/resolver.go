@@ -85,6 +85,18 @@ func FieldIsCaseInsensitive(field string) bool {
 	return siblingFields()[field].Lowercase
 }
 
+// numericFields are the fields indexed as numbers, derived from the resource struct.
+var numericFields = sync.OnceValue(func() map[string]struct{} {
+	return mapping.NumericFields(reflect.TypeFor[search.Resource](), search.Resource{}.SearchFieldOverrides())
+})
+
+// FieldIsNumeric reports whether a field is indexed as a number, so a range
+// restriction can target it.
+func FieldIsNumeric(field string) bool {
+	_, ok := numericFields()[field]
+	return ok
+}
+
 // FieldIsPath reports whether a field is a hierarchical path field.
 func FieldIsPath(field string) bool {
 	_, ok := pathFields()[field]

@@ -213,7 +213,10 @@ func (s Service) processEvent(e raw.Event) error {
 	case events.FileUploaded:
 		debounce(getSpaceID(ev.Ref), false)
 	case events.UploadReady:
-		debounce(getSpaceID(ev.FileRef), false)
+		// a failed upload left nothing new to index
+		if !ev.Failed {
+			debounce(getSpaceID(ev.FileRef), false)
+		}
 	case events.SpaceRenamed:
 		debounce(ev.ID, false)
 	case events.SpaceEnabled:

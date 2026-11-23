@@ -3,7 +3,6 @@ package convert
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -219,7 +218,7 @@ func numberNodeQuery(node *ast.NumberNode) (osu.Builder, error) {
 		return nil, fmt.Errorf("number node without operator: %w", ErrUnsupportedNodeType)
 	}
 
-	if !slices.Contains([]string{"Size", "Type"}, node.Key) {
+	if !query.FieldIsNumeric(node.Key) {
 		return osu.NewMatchNoneQuery(), nil
 	}
 
