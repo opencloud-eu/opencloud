@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
 - fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
