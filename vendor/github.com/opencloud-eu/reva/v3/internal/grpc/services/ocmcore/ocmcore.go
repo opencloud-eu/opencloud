@@ -41,6 +41,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/utils/cfg"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -208,12 +209,15 @@ func (s *service) UpdateOCMCoreShare(ctx context.Context, req *ocmcore.UpdateOCM
 	fileMask := &fieldmaskpb.FieldMask{Paths: []string{"protocols"}}
 
 	user := &userpb.User{Id: ocmuser.DecodeRemoteUserFederatedID(&userpb.UserId{OpaqueId: grantee})}
-	_, err := s.repo.UpdateReceivedShare(ctx, user, &ocm.ReceivedShare{
-		Id: &ocm.ShareId{
-			OpaqueId: req.GetOcmShareId(),
-		},
-		Protocols: req.Protocols,
-	}, fileMask)
+	protocols, err := s.mergeWebDAVPermissions(ctx, user, req.GetOcmShareId(), req.Protocols)
+	if err == nil {
+		_, err = s.repo.UpdateReceivedShare(ctx, user, &ocm.ReceivedShare{
+			Id: &ocm.ShareId{
+				OpaqueId: req.GetOcmShareId(),
+			},
+			Protocols: protocols,
+		}, fileMask)
+	}
 	res := &ocmcore.UpdateOCMCoreShareResponse{}
 	if err == nil {
 		res.Status = status.NewOK(ctx)
@@ -226,6 +230,39 @@ func (s *service) UpdateOCMCoreShare(ctx context.Context, req *ocmcore.UpdateOCM
 		}
 	}
 	return res, nil
+}
+
+// mergeWebDAVPermissions takes only the webdav permissions from a permission change notification,
+// so a notification cannot replace the uri, the shared secret or other protocols of the stored share
+func (s *service) mergeWebDAVPermissions(ctx context.Context, user *userpb.User, shareID string, notified []*ocm.Protocol) ([]*ocm.Protocol, error) {
+	rs, err := s.repo.GetReceivedShare(ctx, user, &ocm.ShareReference{
+		Spec: &ocm.ShareReference_Id{
+			Id: &ocm.ShareId{
+				OpaqueId: shareID,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var permissions *ocm.SharePermissions
+	for _, p := range notified {
+		if wd := p.GetWebdavOptions(); wd != nil {
+			permissions = wd.GetPermissions()
+			break
+		}
+	}
+
+	protocols := make([]*ocm.Protocol, 0, len(rs.GetProtocols()))
+	for _, p := range rs.GetProtocols() {
+		if p.GetWebdavOptions() != nil && permissions != nil {
+			p = proto.Clone(p).(*ocm.Protocol)
+			p.GetWebdavOptions().Permissions = permissions
+		}
+		protocols = append(protocols, p)
+	}
+	return protocols, nil
 }
 
 func (s *service) DeleteOCMCoreShare(ctx context.Context, req *ocmcore.DeleteOCMCoreShareRequest) (*ocmcore.DeleteOCMCoreShareResponse, error) {
