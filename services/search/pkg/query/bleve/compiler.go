@@ -2,7 +2,6 @@ package bleve
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -202,11 +201,11 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			}
 		case *ast.NumberNode:
 			var q bleveQuery.Query
-			if field := n.Key; slices.Contains([]string{"Size", "Type"}, field) {
+			if field := n.Key; searchQuery.FieldIsNumeric(field) {
 				q = numberRange(field, n.Operator, n.Value)
 			} else {
-				// same answer as the OpenSearch backend: unknown numeric keys
-				// match nothing instead of querying an arbitrary field
+				// same answer as the OpenSearch backend: a range on a non-numeric key
+				// matches nothing instead of querying an arbitrary field
 				q = bleveQuery.NewMatchNoneQuery()
 			}
 			if q == nil {
