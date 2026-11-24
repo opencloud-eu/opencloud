@@ -65,8 +65,8 @@ var _ = DescribeTable("event",
 	Entry("ContainerCreated", []string{"IndexSpace"}, events.ContainerCreated{}, false),
 	Entry("FileTouched", []string{"IndexSpace"}, events.FileTouched{}, false),
 	Entry("FileVersionRestored", []string{"IndexSpace"}, events.FileVersionRestored{}, false),
-	Entry("TagsAdded", []string{"UpdateMetadata", "IndexSpace"}, events.TagsAdded{}, false),
-	Entry("TagsRemoved", []string{"UpdateMetadata", "IndexSpace"}, events.TagsRemoved{}, false),
+	Entry("TagsAdded", []string{"UpdateMetadata"}, events.TagsAdded{}, false),
+	Entry("TagsRemoved", []string{"UpdateMetadata"}, events.TagsRemoved{}, false),
 	Entry("FileUploaded", []string{"IndexSpace"}, events.FileUploaded{}, false),
 	Entry("UploadReady", []string{"IndexSpace"}, events.UploadReady{ExecutingUser: &userv1beta1.User{}}, true),
 )
@@ -111,3 +111,36 @@ var _ = It("does not index the space of a failed upload", func() {
 	Eventually(indexedSpaces, "2s").Should(ContainElement("storageid$succeeded"))
 	Consistently(indexedSpaces, "200ms").Should(Equal([]string{"storageid$succeeded"}))
 })
+
+var _ = DescribeTable("does not index the space on a tag change",
+	func(e any) {
+		var (
+			s       = &searchMocks.Searcher{}
+			updated atomic.Int32
+			indexed atomic.Int32
+		)
+
+		stream := rawMocks.NewStream(GinkgoT())
+		ch := make(chan raw.Event, 1)
+		stream.EXPECT().Consume(mock.Anything, mock.Anything).Return((<-chan raw.Event)(ch), nil)
+
+		svc, err := event.New(context.Background(), stream, log.NewLogger(), nil, nil, s, search.NewSkippedSpaces(nil), 50, 1, false)
+		Expect(err).NotTo(HaveOccurred())
+		go func() {
+			defer GinkgoRecover()
+			Expect(svc.Run()).To(Succeed())
+		}()
+		defer svc.Close()
+
+		s.On("UpdateMetadata", mock.Anything).Return().Run(func(mock.Arguments) { updated.Add(1) })
+		s.On("IndexSpace", mock.Anything, mock.Anything).Return(nil).Run(func(mock.Arguments) { indexed.Add(1) })
+
+		ch <- raw.Event{Event: events.Event{Event: e}}
+
+		Eventually(updated.Load, "2s").Should(Equal(int32(1)))
+		// the debounce window is 50ms, a reindex would have started by then
+		Consistently(indexed.Load, "200ms").Should(BeZero())
+	},
+	Entry("TagsAdded", events.TagsAdded{}),
+	Entry("TagsRemoved", events.TagsRemoved{}),
+)

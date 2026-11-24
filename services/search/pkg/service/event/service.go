@@ -206,10 +206,8 @@ func (s Service) processEvent(e raw.Event) error {
 		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsAdded:
 		s.index.UpdateMetadata(ev.Ref)
-		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsRemoved:
 		s.index.UpdateMetadata(ev.Ref)
-		debounce(getSpaceID(ev.Ref), false)
 	case events.FileUploaded:
 		debounce(getSpaceID(ev.Ref), false)
 	case events.UploadReady:
