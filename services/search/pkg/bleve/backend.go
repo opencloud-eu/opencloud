@@ -180,7 +180,8 @@ func (b *Backend) Get(_ context.Context, id string) (*search.Resource, error) {
 }
 
 // Update holds the batch lock from the read to the write, so a batch pushed in
-// between cannot be overwritten with the document as it was before
+// between is not overwritten; a batch built before the update and pushed after
+// it still writes the tags it read
 func (b *Backend) Update(_ context.Context, id string, u search.MetadataUpdate) error {
 	b.index.batchMu.Lock()
 	defer b.index.batchMu.Unlock()

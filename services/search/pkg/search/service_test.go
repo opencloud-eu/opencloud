@@ -208,7 +208,12 @@ var _ = Describe("Searchprovider", func() {
 		})
 	})
 
-	Describe("UpsertItem", func() {
+	Describe("indexing a resource in full", func() {
+		BeforeEach(func() {
+			// a resource the index does not hold yet takes the full path
+			indexClient.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(search.ErrResourceNotFound)
+		})
+
 		DescribeTable("marks a resource hidden when a dot starts one of its names",
 			func(path string, hidden bool) {
 				info := &sprovider.ResourceInfo{
@@ -233,7 +238,7 @@ var _ = Describe("Searchprovider", func() {
 					indexed = args.Get(1).(search.Resource)
 				}).Return(nil)
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(indexed.Hidden).To(Equal(hidden))
 			},
 			Entry("./documents/notes.txt", "./documents/notes.txt", false),
@@ -258,7 +263,7 @@ var _ = Describe("Searchprovider", func() {
 				indexed = args.Get(1).(search.Resource)
 			}).Return(nil)
 
-			s.UpsertItem(&sprovider.Reference{ResourceId: ri.GetId()})
+			s.UpdateMetadata(&sprovider.Reference{ResourceId: ri.GetId()})
 			Expect(indexed.Name).To(Equal("scan.png"))
 			Expect(indexed.ExtractionFailed).To(BeTrue())
 		})
@@ -312,7 +317,7 @@ var _ = Describe("Searchprovider", func() {
 					Photo: &libregraph.Photo{CameraMake: libregraph.PtrString("Nikon")},
 				}, nil)
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(Equal([]string{"set", "unset"}))
 				Expect(set).To(Equal(map[string]string{"libre.graph.photo.cameraMake": "Nikon"}))
 				Expect(unset).To(ConsistOf("libre.graph.photo.iso", "libre.graph.location.altitude"))
@@ -321,7 +326,7 @@ var _ = Describe("Searchprovider", func() {
 			It("removes all facets when the extraction produces none", func() {
 				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(Equal([]string{"unset"}))
 				Expect(unset).To(ConsistOf("libre.graph.photo.cameraMake", "libre.graph.photo.iso", "libre.graph.location.altitude"))
 			})
@@ -333,7 +338,7 @@ var _ = Describe("Searchprovider", func() {
 					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
 				}, nil)
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(Equal([]string{"unset"}))
 				Expect(unset).To(ConsistOf("libre.graph.retiredFacet.field"))
 			})
@@ -344,7 +349,7 @@ var _ = Describe("Searchprovider", func() {
 					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12), Latitude: libregraph.PtrFloat64(48.1)},
 				}, nil)
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(Equal([]string{"set"}))
 				Expect(set).To(Equal(map[string]string{
 					"libre.graph.photo.iso":         "200",
@@ -358,14 +363,14 @@ var _ = Describe("Searchprovider", func() {
 					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
 				}, nil)
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(BeEmpty())
 			})
 
 			It("keeps the stored facets when the extraction failed", func() {
 				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, errors.New("tika failed to parse"))
 
-				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(BeEmpty())
 			})
 		})
@@ -464,6 +469,7 @@ var _ = Describe("Searchprovider", func() {
 
 			s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 			Expect(indexed.ID).To(Equal("storageid$spaceid!tagged-opaqueid"))
+			gatewayClient.AssertNumberOfCalls(GinkgoT(), "Stat", 1)
 		})
 
 		It("does not extract the content when the update fails for another reason", func() {
