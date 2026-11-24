@@ -6,6 +6,18 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
+### 🐛 Bug Fixes
+
+- fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
+- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
+- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
+- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
+- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
+- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
+- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
+- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
+- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
 ### 📈 Enhancement
 
 - feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
@@ -18,17 +30,6 @@
 
 - test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
 - fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
-### 🐛 Bug Fixes
-
-- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
-- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
-- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
-- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
-- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
-- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
-- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
-- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
 
 ### 📦️ Dependencies
 
