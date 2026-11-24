@@ -6,6 +6,15 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
+### 📈 Enhancement
+
+- feat(audit): log the space name when a space is deleted [[#4112](https://github.com/opencloud-eu/opencloud/pull/4112)]
+- feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
+- fix(proxy): set Secure, HttpOnly and SameSite=Strict on the policy selector cookie [[#4101](https://github.com/opencloud-eu/opencloud/pull/4101)]
+- feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
+- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
+- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
 ### 🐛 Bug Fixes
 
 - fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
@@ -17,14 +26,6 @@
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
 - fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
-
-### 📈 Enhancement
-
-- feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
-- fix(proxy): set Secure, HttpOnly and SameSite=Strict on the policy selector cookie [[#4101](https://github.com/opencloud-eu/opencloud/pull/4101)]
-- feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
-- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
-- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
 
 ### ✅ Tests
 
