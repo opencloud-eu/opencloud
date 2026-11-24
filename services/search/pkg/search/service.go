@@ -730,10 +730,12 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 		return
 	}
 
+	// a failed extraction still yields the name, path and tags, the resource
+	// stays findable and the next space walk retries it
 	doc, err := s.extractor.Extract(ctx, stat.Info)
+	extractionFailed := err != nil
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to extract resource content")
-		return
+		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content")
 	}
 
 	r := Resource{
@@ -748,6 +750,7 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 		Document: doc,
 	}
 	r.Hidden = IsHidden(r.Path)
+	r.ExtractionFailed = extractionFailed
 
 	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
 		r.ParentID = storagespace.FormatResourceID(parentID)
@@ -762,6 +765,11 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
 	} else {
 		logDocCount(s.engine, s.logger)
+	}
+
+	// without an extraction the facets are unknown, not gone
+	if extractionFailed {
+		return
 	}
 
 	// determine if metadata needs to be stored in storage as well
@@ -943,7 +951,7 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 		s.logger.Error().Err(err).Interface("id", info.GetId()).Msg("failed to look up the indexed resource, indexing it again")
 		return false
 	}
-	return !r.Deleted && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
+	return !r.Deleted && !r.ExtractionFailed && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
 }
 
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {

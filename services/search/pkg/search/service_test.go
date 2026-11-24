@@ -158,12 +158,14 @@ var _ = Describe("Searchprovider", func() {
 				info("outdated", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
 				info("missing", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 				info("trashed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("failed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 			}
 			indexed := map[string]*search.Resource{
 				"storageid$spaceid!spaceid":  {Document: content.Document{Mtime: &indexedAt}},
 				"storageid$spaceid!current":  {Document: content.Document{Mtime: &indexedAt}},
 				"storageid$spaceid!outdated": {Document: content.Document{Mtime: &indexedAt}},
 				"storageid$spaceid!trashed":  {Document: content.Document{Mtime: &indexedAt}, Deleted: true},
+				"storageid$spaceid!failed":   {Document: content.Document{Mtime: &indexedAt}, ExtractionFailed: true},
 			}
 
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
@@ -202,7 +204,7 @@ var _ = Describe("Searchprovider", func() {
 
 			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed"))
+			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed", "storageid$spaceid!failed"))
 		})
 	})
 
@@ -243,6 +245,23 @@ var _ = Describe("Searchprovider", func() {
 			Entry("./", "./", false),
 			Entry("/", "/", false),
 		)
+
+		It("indexes a resource whose extraction failed by name and marks it", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+				Status: status.NewOK(context.Background()),
+				Info:   ri,
+			}, nil)
+			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, errors.New("tika failed to parse"))
+
+			var indexed search.Resource
+			indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				indexed = args.Get(1).(search.Resource)
+			}).Return(nil)
+
+			s.UpsertItem(&sprovider.Reference{ResourceId: ri.GetId()})
+			Expect(indexed.Name).To(Equal("scan.png"))
+			Expect(indexed.ExtractionFailed).To(BeTrue())
+		})
 
 		Context("with facets stored on the resource", func() {
 			var (
@@ -338,6 +357,13 @@ var _ = Describe("Searchprovider", func() {
 					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
 					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
 				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(BeEmpty())
+			})
+
+			It("keeps the stored facets when the extraction failed", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, errors.New("tika failed to parse"))
 
 				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(BeEmpty())

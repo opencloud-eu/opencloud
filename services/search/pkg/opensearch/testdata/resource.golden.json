@@ -9,6 +9,9 @@
       "Deleted": {
         "type": "boolean"
       },
+      "ExtractionFailed": {
+        "type": "boolean"
+      },
       "Favorites": {
         "type": "keyword"
       },

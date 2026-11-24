@@ -86,6 +86,17 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	if len(metas) == 0 {
 		return doc, fmt.Errorf("tika returned no metadata for %q", ri.GetName())
 	}
+	// tika answers a failed parse (ocr crash, broken pdf) with 200 and empty
+	// content, only this key tells it apart from a file without text
+	cause, err := getFirstValue(metas[0],
+		"tk:exception:container-exception",     // tika 4
+		"X-TIKA:EXCEPTION:container_exception", // tika 3 legacy
+	)
+	if err == nil {
+		// the value is a java stack trace, its first line names the cause
+		cause, _, _ = strings.Cut(cause, "\n")
+		return doc, fmt.Errorf("tika failed to parse %q: %s", ri.GetName(), cause)
+	}
 
 	for _, meta := range metas {
 		title, err := getFirstValue(meta, "dc:title")
