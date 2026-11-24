@@ -188,8 +188,9 @@ func (s *svc) openLocalResources(ctx context.Context, ri *storageprovider.Resour
 }
 
 func buildOpenInAppRequest(ctx context.Context, ri *storageprovider.ResourceInfo, vm gateway.OpenInAppRequest_ViewMode, tokenmgr token.Manager, accessToken string, opaque *typespb.Opaque) (*providerpb.OpenInAppRequest, error) {
-	// in case of a view only mode and a stat permission we need to create a view only token
-	if vm == gateway.OpenInAppRequest_VIEW_MODE_VIEW_ONLY && ri.GetPermissionSet().GetStat() {
+	// in view only mode, a user who may stat but not download the resource gets a view only token,
+	// users who may download it open it with their own access token
+	if vm == gateway.OpenInAppRequest_VIEW_MODE_VIEW_ONLY && ri.GetPermissionSet().GetStat() && !ri.GetPermissionSet().GetInitiateFileDownload() {
 		// Limit scope to the resource
 		scope, err := scope.AddResourceInfoScope(ri, providerv1beta1.Role_ROLE_VIEWER, nil)
 		if err != nil {
