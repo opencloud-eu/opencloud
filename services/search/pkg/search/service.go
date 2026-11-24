@@ -63,7 +63,7 @@ type Searcher interface {
 
 	TrashItem(resourceID *provider.ResourceId)
 	PurgeItem(ref *provider.Reference)
-	UpsertItem(ref *provider.Reference)
+	UpdateMetadata(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
 }
@@ -75,6 +75,7 @@ type Service struct {
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	engine          Engine
 	extractor       content.Extractor
+	basic           *content.Basic
 	metrics         *metrics.Metrics
 
 	serviceAccountID     string
@@ -87,13 +88,22 @@ type Service struct {
 
 var errSkipSpace error
 
+// a parse failure is retried after these delays, then given up until the file
+// changes; ocr and image tools also fail under load, so the spacing outlasts a
+// burst of uploads instead of spending every attempt inside it
+var extractionRetryDelays = []time.Duration{time.Hour, 24 * time.Hour}
+
 // NewService creates a new Provider instance.
 func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
+	// NewBasicExtractor has no failure path
+	basic, _ := content.NewBasicExtractor(logger)
+
 	var s = &Service{
 		gatewaySelector: gatewaySelector,
 		engine:          eng,
 		logger:          logger,
 		extractor:       extractor,
+		basic:           basic,
 		metrics:         metrics,
 
 		serviceAccountID:     cfg.ServiceAccount.ServiceAccountID,
@@ -670,14 +680,36 @@ func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
 	return nil
 }
 
-// UpsertItem indexes or stores Resource data fields.
-func (s *Service) UpsertItem(ref *provider.Reference) {
+// UpdateMetadata rewrites the tags and favorites of an indexed resource without
+// extracting its content again, a resource not indexed yet is upserted in full.
+func (s *Service) UpdateMetadata(ref *provider.Reference) {
 	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to get auth context")
 		return
 	}
-	s.doUpsertItem(ctx, ref, nil)
+
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
+		return
+	}
+
+	doc, err := s.basic.Extract(ctx, stat.GetInfo())
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to read the resource metadata")
+		return
+	}
+
+	err = s.engine.Update(ctx, storagespace.FormatResourceID(stat.GetInfo().GetId()), MetadataUpdate{
+		Tags:      doc.Tags,
+		Favorites: doc.Favorites,
+	})
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+		s.upsertResource(ctx, ref, stat, path, nil)
+	case err != nil:
+		s.logger.Error().Err(err).Interface("id", stat.GetInfo().GetId()).Msg("failed to update the resource metadata in the index")
+	}
 }
 
 // doUpsertItem indexes or stores Resource data fields.
@@ -686,104 +718,7 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 	if stat == nil || path == "" {
 		return
 	}
-
-	if utils.IsProcessing(stat.Info) {
-		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
-		return
-	}
-
-	doc, err := s.extractor.Extract(ctx, stat.Info)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to extract resource content")
-		return
-	}
-
-	r := Resource{
-		ID: storagespace.FormatResourceID(stat.Info.Id),
-		RootID: storagespace.FormatResourceID(&provider.ResourceId{
-			StorageId: stat.Info.Id.StorageId,
-			OpaqueId:  stat.Info.Id.SpaceId,
-			SpaceId:   stat.Info.Id.SpaceId,
-		}),
-		Path:     utils.MakeRelativePath(path),
-		Type:     uint64(stat.Info.Type),
-		Document: doc,
-	}
-	r.Hidden = IsHidden(r.Path)
-
-	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
-		r.ParentID = storagespace.FormatResourceID(parentID)
-	}
-
-	if batch != nil {
-		err = batch.Upsert(r.ID, r)
-	} else {
-		err = s.engine.Upsert(r.ID, r)
-	}
-	if err != nil {
-		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
-	} else {
-		logDocCount(s.engine, s.logger)
-	}
-
-	// determine if metadata needs to be stored in storage as well
-	metadata := map[string]string{}
-	facetToMetadata(metadata, doc.Audio, facetKeyPrefix+"audio.")
-	facetToMetadata(metadata, doc.Image, facetKeyPrefix+"image.")
-	facetToMetadata(metadata, doc.Location, facetKeyPrefix+"location.")
-	facetToMetadata(metadata, doc.Photo, facetKeyPrefix+"photo.")
-	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
-	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
-	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
-
-	// the facet keys are ours, so the ones this extraction did not produce
-	// describe content the resource no longer has
-	var stale []string
-	for k, stored := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
-		value, ok := metadata[k]
-		switch {
-		case ok && value == stored:
-			delete(metadata, k)
-		case !ok && strings.HasPrefix(k, facetKeyPrefix):
-			stale = append(stale, k)
-		}
-	}
-	if len(metadata) == 0 && len(stale) == 0 {
-		return
-	}
-
-	gatewayClient, err := s.gatewaySelector.Next()
-	if err != nil {
-		s.logger.Error().Err(err).Msg("could not retrieve client to store metadata")
-		return
-	}
-
-	if len(metadata) > 0 {
-		s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
-
-		resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
-			Ref: ref,
-			ArbitraryMetadata: &provider.ArbitraryMetadata{
-				Metadata: metadata,
-			},
-		})
-		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
-			return
-		}
-	}
-
-	if len(stale) > 0 {
-		s.logger.Trace().Str("name", doc.Name).Strs("keys", stale).Msg("Removing stale metadata")
-
-		resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
-			Ref:                   ref,
-			ArbitraryMetadataKeys: stale,
-		})
-		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
-		}
-	}
+	s.upsertResource(ctx, ref, stat, path, batch)
 }
 
 // SanitizeHighlights keeps the <mark> tags and escapes everything else.
@@ -895,6 +830,121 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	}
 }
 
+// upsertResource extracts and indexes the resource stat describes
+func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, stat *provider.StatResponse, path string, batch BatchOperator) {
+	if utils.IsProcessing(stat.GetInfo()) {
+		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
+		return
+	}
+
+	// a failed extraction still yields the name, path and tags, the resource
+	// stays findable and a later space walk retries it
+	doc, err := s.extractor.Extract(ctx, stat.GetInfo())
+	extractionFailed := err != nil
+	if err != nil {
+		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content")
+	}
+
+	r := Resource{
+		ID: storagespace.FormatResourceID(stat.GetInfo().GetId()),
+		RootID: storagespace.FormatResourceID(&provider.ResourceId{
+			StorageId: stat.GetInfo().GetId().GetStorageId(),
+			OpaqueId:  stat.GetInfo().GetId().GetSpaceId(),
+			SpaceId:   stat.GetInfo().GetId().GetSpaceId(),
+		}),
+		Path:     utils.MakeRelativePath(path),
+		Type:     uint64(stat.GetInfo().GetType()), //nolint:gosec // proto enum values are never negative
+		Document: doc,
+	}
+	r.Hidden = IsHidden(r.Path)
+	if extractionFailed {
+		var write bool
+		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, errors.Is(err, content.ErrUnparsable))
+		if !write {
+			return
+		}
+	}
+
+	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
+		r.ParentID = storagespace.FormatResourceID(parentID)
+	}
+
+	if batch != nil {
+		err = batch.Upsert(r.ID, r)
+	} else {
+		err = s.engine.Upsert(r.ID, r)
+	}
+	if err != nil {
+		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
+	} else {
+		logDocCount(s.engine, s.logger)
+	}
+
+	// without an extraction the facets are unknown, not gone
+	if extractionFailed {
+		return
+	}
+
+	// determine if metadata needs to be stored in storage as well
+	metadata := map[string]string{}
+	facetToMetadata(metadata, doc.Audio, facetKeyPrefix+"audio.")
+	facetToMetadata(metadata, doc.Image, facetKeyPrefix+"image.")
+	facetToMetadata(metadata, doc.Location, facetKeyPrefix+"location.")
+	facetToMetadata(metadata, doc.Photo, facetKeyPrefix+"photo.")
+	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
+	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
+	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
+
+	// the facet keys are ours, so the ones this extraction did not produce
+	// describe content the resource no longer has
+	var stale []string
+	for k, stored := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
+		value, ok := metadata[k]
+		switch {
+		case ok && value == stored:
+			delete(metadata, k)
+		case !ok && strings.HasPrefix(k, facetKeyPrefix):
+			stale = append(stale, k)
+		}
+	}
+	if len(metadata) == 0 && len(stale) == 0 {
+		return
+	}
+
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		s.logger.Error().Err(err).Msg("could not retrieve client to store metadata")
+		return
+	}
+
+	if len(metadata) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
+
+		resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
+			Ref: ref,
+			ArbitraryMetadata: &provider.ArbitraryMetadata{
+				Metadata: metadata,
+			},
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
+			return
+		}
+	}
+
+	if len(stale) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Strs("keys", stale).Msg("Removing stale metadata")
+
+		resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
+			Ref:                   ref,
+			ArbitraryMetadataKeys: stale,
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
+		}
+	}
+}
+
 // isIndexed reports whether the index holds a live document for info that is at least as new
 func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bool {
 	r, err := s.engine.Get(ctx, storagespace.FormatResourceID(info.GetId()))
@@ -905,7 +955,53 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 		s.logger.Error().Err(err).Interface("id", info.GetId()).Msg("failed to look up the indexed resource, indexing it again")
 		return false
 	}
-	return !r.Deleted && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
+	if r.Deleted || r.Mtime == nil || r.Mtime.Before(utils.TSToTime(info.GetMtime())) {
+		return false
+	}
+	f := r.ExtractionFailure
+	return f == nil || f.Count > len(extractionRetryDelays) || (f.RetryAt != nil && time.Now().Before(*f.RetryAt))
+}
+
+// nextExtractionFailure counts a parse failure on top of the ones the indexed
+// entry holds for the same version, a new version starts over. Any other failure
+// (tika or the file unreachable) says nothing about the file: it is not counted,
+// leaves a current entry alone and is retried by every walk. write is false
+// when the indexed entry has to stay as it is.
+func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, unparsable bool) (f *ExtractionFailure, write bool) {
+	var previous *Resource
+	r, err := s.engine.Get(ctx, id)
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+	case err != nil:
+		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures")
+		if !unparsable {
+			// without knowing the entry, a name-only document could replace extracted content
+			return nil, false
+		}
+	case r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime())):
+		previous = r
+	}
+
+	if !unparsable {
+		if previous != nil && !previous.Deleted {
+			return nil, false
+		}
+		return &ExtractionFailure{}, true
+	}
+
+	count := 1
+	if previous != nil && previous.ExtractionFailure != nil {
+		count = previous.ExtractionFailure.Count + 1
+	}
+
+	f = &ExtractionFailure{Count: count}
+	if count > len(extractionRetryDelays) {
+		s.logger.Warn().Str("path", path).Int("failures", count).Msg("giving up on extracting the resource content until it changes, opencloud search index --force-rescan tries again")
+		return f, true
+	}
+	retryAt := time.Now().Add(extractionRetryDelays[count-1])
+	f.RetryAt = &retryAt
+	return f, true
 }
 
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {

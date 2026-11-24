@@ -99,6 +99,36 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal(body))
 		})
 
+		It("fails when tika returns no metadata for a file with content", func() {
+			fullResponse = "[]"
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Name: "report.pdf",
+				Size: 1,
+			})
+			Expect(err).To(MatchError(content.ErrUnparsable))
+			Expect(err).To(MatchError(ContainSubstring("report.pdf")))
+		})
+
+		DescribeTable("fails when tika could not parse the file",
+			func(response string) {
+				fullResponse = response
+
+				doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+					Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+					Name: "scan.png",
+					Size: 1,
+				})
+				Expect(err).To(MatchError(content.ErrUnparsable))
+				Expect(err).To(MatchError(And(ContainSubstring("scan.png"), ContainSubstring("bad exit value 1"))))
+				Expect(err.Error()).ToNot(ContainSubstring("at org.apache"))
+				Expect(doc.Name).To(Equal("scan.png"))
+			},
+			Entry("tika 4", `[{"tk:content": "", "tk:exception:container-exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1\n\tat org.apache.tika.parser.ocr.TesseractOCRParser.doOCR"}]`),
+			Entry("tika 3", `[{"X-TIKA:content": "", "X-TIKA:EXCEPTION:container_exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1\n\tat org.apache.tika.parser.ocr.TesseractOCRParser.doOCR"}]`),
+		)
+
 		It("adds the title", func() {
 			fullResponse = `[{"dc:title": "quarterly report", "X-TIKA:content": "some data"}]`
 

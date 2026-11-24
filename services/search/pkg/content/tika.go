@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
+
+// ErrUnparsable marks a file tika answered for but could not parse, unlike an
+// unreachable tika it fails the same way on the next attempt more often than not
+var ErrUnparsable = errors.New("tika failed to parse")
 
 // Tika is used to extract content from a resource,
 // it uses apache tika to retrieve all the data.
@@ -82,8 +87,20 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	if err != nil {
 		return doc, err
 	}
+	// a file with content always yields metadata, none means tika failed on it
 	if len(metas) == 0 {
-		return doc, nil
+		return doc, fmt.Errorf("%w %q: no metadata", ErrUnparsable, ri.GetName())
+	}
+	// tika answers a failed parse (ocr crash, broken pdf) with 200 and empty
+	// content, only this key tells it apart from a file without text
+	cause, err := getFirstValue(metas[0],
+		"tk:exception:container-exception",     // tika 4
+		"X-TIKA:EXCEPTION:container_exception", // tika 3 legacy
+	)
+	if err == nil {
+		// the value is a java stack trace, its first line names the cause
+		cause, _, _ = strings.Cut(cause, "\n")
+		return doc, fmt.Errorf("%w %q: %s", ErrUnparsable, ri.GetName(), cause)
 	}
 
 	for _, meta := range metas {
