@@ -107,6 +107,7 @@ var _ = Describe("Tika", func() {
 				Name: "report.pdf",
 				Size: 1,
 			})
+			Expect(err).To(MatchError(content.ErrUnparsable))
 			Expect(err).To(MatchError(ContainSubstring("report.pdf")))
 		})
 
@@ -119,6 +120,7 @@ var _ = Describe("Tika", func() {
 					Name: "scan.png",
 					Size: 1,
 				})
+				Expect(err).To(MatchError(content.ErrUnparsable))
 				Expect(err).To(MatchError(And(ContainSubstring("scan.png"), ContainSubstring("bad exit value 1"))))
 				Expect(err.Error()).ToNot(ContainSubstring("at org.apache"))
 				Expect(doc.Name).To(Equal("scan.png"))

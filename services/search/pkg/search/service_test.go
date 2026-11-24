@@ -3,6 +3,7 @@ package search_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -158,14 +159,24 @@ var _ = Describe("Searchprovider", func() {
 				info("outdated", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
 				info("missing", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 				info("trashed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
-				info("failed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("failed-due", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("failed-waiting", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("failed-given-up", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("failed-given-up-changed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
 			}
 			indexed := map[string]*search.Resource{
 				"storageid$spaceid!spaceid":  {Document: content.Document{Mtime: &indexedAt}},
 				"storageid$spaceid!current":  {Document: content.Document{Mtime: &indexedAt}},
 				"storageid$spaceid!outdated": {Document: content.Document{Mtime: &indexedAt}},
 				"storageid$spaceid!trashed":  {Document: content.Document{Mtime: &indexedAt}, Deleted: true},
-				"storageid$spaceid!failed":   {Document: content.Document{Mtime: &indexedAt}, ExtractionFailed: true},
+				"storageid$spaceid!failed-due": {Document: content.Document{Mtime: &indexedAt},
+					ExtractionFailure: &search.ExtractionFailure{Count: 1, RetryAt: ptr(time.Now().Add(-time.Minute))}},
+				"storageid$spaceid!failed-waiting": {Document: content.Document{Mtime: &indexedAt},
+					ExtractionFailure: &search.ExtractionFailure{Count: 2, RetryAt: ptr(time.Now().Add(time.Hour))}},
+				"storageid$spaceid!failed-given-up": {Document: content.Document{Mtime: &indexedAt},
+					ExtractionFailure: &search.ExtractionFailure{Count: 3}},
+				"storageid$spaceid!failed-given-up-changed": {Document: content.Document{Mtime: &indexedAt},
+					ExtractionFailure: &search.ExtractionFailure{Count: 3}},
 			}
 
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
@@ -204,7 +215,13 @@ var _ = Describe("Searchprovider", func() {
 
 			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed", "storageid$spaceid!failed"))
+			Expect(upserted).To(ConsistOf(
+				"storageid$spaceid!outdated",
+				"storageid$spaceid!missing",
+				"storageid$spaceid!trashed",
+				"storageid$spaceid!failed-due",
+				"storageid$spaceid!failed-given-up-changed",
+			))
 		})
 	})
 
@@ -251,21 +268,56 @@ var _ = Describe("Searchprovider", func() {
 			Entry("/", "/", false),
 		)
 
-		It("indexes a resource whose extraction failed by name and marks it", func() {
+		DescribeTable("indexes an unparsable resource by name and counts the failures of its version",
+			func(previous *search.Resource, count int, retryIn time.Duration) {
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   ri,
+				}, nil)
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, fmt.Errorf("%w %q", content.ErrUnparsable, "scan.png"))
+				if previous == nil {
+					indexClient.On("Get", mock.Anything, mock.Anything).Return(nil, search.ErrResourceNotFound)
+				} else {
+					indexClient.On("Get", mock.Anything, mock.Anything).Return(previous, nil)
+				}
+
+				var indexed search.Resource
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					indexed = args.Get(1).(search.Resource)
+				}).Return(nil)
+
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: ri.GetId()})
+				Expect(indexed.Name).To(Equal("scan.png"))
+				Expect(indexed.ExtractionFailure).ToNot(BeNil())
+				Expect(indexed.ExtractionFailure.Count).To(Equal(count))
+				if retryIn == 0 {
+					Expect(indexed.ExtractionFailure.RetryAt).To(BeNil())
+				} else {
+					Expect(indexed.ExtractionFailure.RetryAt).NotTo(BeNil())
+					Expect(*indexed.ExtractionFailure.RetryAt).To(BeTemporally("~", time.Now().Add(retryIn), time.Minute))
+				}
+			},
+			Entry("first failure", nil, 1, time.Hour),
+			Entry("second failure of the same version",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(4000, 0))}, ExtractionFailure: &search.ExtractionFailure{Count: 1}},
+				2, 24*time.Hour),
+			Entry("third failure of the same version gives up",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(4000, 0))}, ExtractionFailure: &search.ExtractionFailure{Count: 2}},
+				3, time.Duration(0)),
+			Entry("a new version starts over",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(3000, 0))}, ExtractionFailure: &search.ExtractionFailure{Count: 3}},
+				1, time.Hour),
+		)
+
+		It("writes nothing when tika or the file is unreachable", func() {
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
 				Status: status.NewOK(context.Background()),
 				Info:   ri,
 			}, nil)
-			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, errors.New("tika failed to parse"))
-
-			var indexed search.Resource
-			indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-				indexed = args.Get(1).(search.Resource)
-			}).Return(nil)
+			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, errors.New("connection refused"))
 
 			s.UpdateMetadata(&sprovider.Reference{ResourceId: ri.GetId()})
-			Expect(indexed.Name).To(Equal("scan.png"))
-			Expect(indexed.ExtractionFailed).To(BeTrue())
+			indexClient.AssertNotCalled(GinkgoT(), "Upsert", mock.Anything, mock.Anything)
 		})
 
 		Context("with facets stored on the resource", func() {
@@ -368,7 +420,8 @@ var _ = Describe("Searchprovider", func() {
 			})
 
 			It("keeps the stored facets when the extraction failed", func() {
-				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, errors.New("tika failed to parse"))
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, content.ErrUnparsable)
+				indexClient.On("Get", mock.Anything, mock.Anything).Return(nil, search.ErrResourceNotFound)
 
 				s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 				Expect(calls).To(BeEmpty())
@@ -940,3 +993,7 @@ var _ = DescribeTable("Parse Scope",
 		`1234$5678!90`,
 	),
 )
+
+func ptr[T any](v T) *T {
+	return &v
+}

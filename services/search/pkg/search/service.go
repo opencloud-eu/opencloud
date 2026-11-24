@@ -88,6 +88,11 @@ type Service struct {
 
 var errSkipSpace error
 
+// a parse failure is retried after these delays, then given up until the file
+// changes; ocr and image tools also fail under load, so the spacing outlasts a
+// burst of uploads instead of spending every attempt inside it
+var extractionRetryDelays = []time.Duration{time.Hour, 24 * time.Hour}
+
 // NewService creates a new Provider instance.
 func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
 	// NewBasicExtractor has no failure path
@@ -832,12 +837,17 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 		return
 	}
 
-	// a failed extraction still yields the name, path and tags, the resource
-	// stays findable and the next space walk retries it
+	// an unparsable file still yields the name, path and tags and stays findable;
+	// any other failure (tika or the file unreachable) writes nothing, the next
+	// space walk finds the entry missing or outdated and tries again
 	doc, err := s.extractor.Extract(ctx, stat.GetInfo())
 	extractionFailed := err != nil
-	if err != nil {
+	switch {
+	case errors.Is(err, content.ErrUnparsable):
 		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content")
+	case err != nil:
+		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content, retrying on the next walk")
+		return
 	}
 
 	r := Resource{
@@ -852,7 +862,9 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 		Document: doc,
 	}
 	r.Hidden = IsHidden(r.Path)
-	r.ExtractionFailed = extractionFailed
+	if extractionFailed {
+		r.ExtractionFailure = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path)
+	}
 
 	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
 		r.ParentID = storagespace.FormatResourceID(parentID)
@@ -944,7 +956,34 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 		s.logger.Error().Err(err).Interface("id", info.GetId()).Msg("failed to look up the indexed resource, indexing it again")
 		return false
 	}
-	return !r.Deleted && !r.ExtractionFailed && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
+	if r.Deleted || r.Mtime == nil || r.Mtime.Before(utils.TSToTime(info.GetMtime())) {
+		return false
+	}
+	f := r.ExtractionFailure
+	return f == nil || f.Count > len(extractionRetryDelays) || (f.RetryAt != nil && time.Now().Before(*f.RetryAt))
+}
+
+// nextExtractionFailure counts a parse failure on top of the ones the indexed
+// entry holds for the same version, a new version starts over
+func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string) *ExtractionFailure {
+	count := 1
+	r, err := s.engine.Get(ctx, id)
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+	case err != nil:
+		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures, counting this one as the first")
+	case r.ExtractionFailure != nil && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime())):
+		count = r.ExtractionFailure.Count + 1
+	}
+
+	f := &ExtractionFailure{Count: count}
+	if count > len(extractionRetryDelays) {
+		s.logger.Warn().Str("path", path).Int("failures", count).Msg("giving up on extracting the resource content until it changes, opencloud search index --force-rescan tries again")
+		return f
+	}
+	retryAt := time.Now().Add(extractionRetryDelays[count-1])
+	f.RetryAt = &retryAt
+	return f
 }
 
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {

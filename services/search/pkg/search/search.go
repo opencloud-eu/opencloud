@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -85,9 +86,19 @@ type Resource struct {
 	Type     uint64 `json:"Type"`
 	Deleted  bool   `json:"Deleted"`
 	Hidden   bool   `json:"Hidden"`
-	// ExtractionFailed marks a document indexed without its content, the next
-	// reindex extracts it again; entries from before the field count as extracted
-	ExtractionFailed bool `json:"ExtractionFailed"`
+	// ExtractionFailure is set while the content of this version could not be
+	// parsed, nil means extracted; entries from before the field count as extracted
+	ExtractionFailure *ExtractionFailure `json:"ExtractionFailure,omitempty"`
+}
+
+// ExtractionFailure is the indexer's own bookkeeping, not derived from the
+// storage: losing it with the index costs retries, never data. Two walks failing
+// at once may count one failure, that buys one more attempt.
+type ExtractionFailure struct {
+	// Count is the number of parse failures of the indexed version
+	Count int `json:"Count"`
+	// RetryAt is the earliest next attempt, nil once the attempts are used up
+	RetryAt *time.Time `json:"RetryAt,omitempty"`
 }
 
 // resourceFieldOverrides is built once (it never changes) and reused on hot
