@@ -13,6 +13,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/middleware"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/stretchr/testify/require"
 	"go-micro.dev/v4/selector"
 	microstore "go-micro.dev/v4/store"
@@ -101,7 +102,7 @@ func TestUnauthenticatedRequestChallenges(t *testing.T) {
 				log.NopLogger(), cfg,
 				microstore.NewMemoryStore(), microstore.NewMemoryStore(),
 				noop.NewTracerProvider(), newTestMetrics(t),
-				nil, nil, nil, selector.NewSelector(),
+				nil, nil, audit.Discard{}, nil, selector.NewSelector(),
 			)
 			require.NoError(t, err)
 
