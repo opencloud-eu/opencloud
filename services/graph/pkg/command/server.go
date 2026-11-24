@@ -6,13 +6,13 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/opencloud-eu/opencloud/pkg/auditemitter"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	natspkg "github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
@@ -21,7 +21,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
 	evc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/events"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
-	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
@@ -126,27 +125,20 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			auditEmitter, err := audit.EmitterFromConfig(ctx, connName+"-audit", audit.EmitterConfig{
-				Enabled:        cfg.Audit.Enabled,
-				Mode:           cfg.Audit.Mode,
-				Service:        cfg.Service.Name,
-				ServiceVersion: version.GetString(),
-				Nats: raw.Config{
-					Endpoint:             cfg.Events.Endpoint,
-					Cluster:              cfg.Events.Cluster,
-					TLSInsecure:          cfg.Events.TLSInsecure,
-					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
-					EnableTLS:            cfg.Events.EnableTLS,
-					AuthUsername:         cfg.Events.AuthUsername,
-					AuthPassword:         cfg.Events.AuthPassword,
-				},
-			}, audit.Options{Logger: &logger.Logger})
+			auditEmitter, err := auditemitter.New(ctx, cfg.Service.Name, auditemitter.Settings(cfg.Audit), raw.Config{
+				Endpoint:             cfg.Events.Endpoint,
+				Cluster:              cfg.Events.Cluster,
+				TLSInsecure:          cfg.Events.TLSInsecure,
+				TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+				EnableTLS:            cfg.Events.EnableTLS,
+				AuthUsername:         cfg.Events.AuthUsername,
+				AuthPassword:         cfg.Events.AuthPassword,
+			}, logger)
 			if err != nil {
 				logger.Error().Err(err).Msg("Error initializing the audit emitter")
-				return fmt.Errorf("could not initialize audit emitter: %w", err)
+				return err
 			}
-			defer audit.CloseEmitter(auditEmitter)
+			defer auditemitter.Close(auditEmitter)
 
 			gr := runner.NewGroup()
 
