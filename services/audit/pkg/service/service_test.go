@@ -547,6 +547,7 @@ var testCases = []struct {
 			Event: events.SpaceDeleted{
 				Executant: userID("uid-123"),
 				ID:        &provider.StorageSpaceId{OpaqueId: "storage-1$space-123"},
+				SpaceName: "test-space",
 			},
 		},
 		CheckAuditEvent: func(t *testing.T, b []byte) {
@@ -554,8 +555,39 @@ var testCases = []struct {
 			require.NoError(t, json.Unmarshal(b, &ev))
 
 			// AuditEvent fields
-			checkBaseAuditEvent(t, ev.AuditEvent, "", "0001-01-01T00:00:00Z", "user 'uid-123' deleted the space 'space-123' (storage: 'storage-1')", "space_deleted")
+			checkBaseAuditEvent(t, ev.AuditEvent, "", "0001-01-01T00:00:00Z", "user 'uid-123' deleted the space 'space-123' with name 'test-space' (storage: 'storage-1')", "space_deleted")
 			// AuditEventSpaces fields
+			checkSpacesAuditEvent(t, ev.AuditEventSpaces, "storage-1$space-123")
+		},
+	}, {
+		Alias: "Space deleted - unicode name",
+		SystemEvent: events.Event{
+			Event: events.SpaceDeleted{
+				Executant: userID("uid-123"),
+				ID:        &provider.StorageSpaceId{OpaqueId: "storage-1$space-123"},
+				SpaceName: "Prüfung 📁 空间",
+			},
+		},
+		CheckAuditEvent: func(t *testing.T, b []byte) {
+			ev := types.AuditEventSpaceDeleted{}
+			require.NoError(t, json.Unmarshal(b, &ev))
+
+			checkBaseAuditEvent(t, ev.AuditEvent, "", "0001-01-01T00:00:00Z", "user 'uid-123' deleted the space 'space-123' with name 'Prüfung 📁 空间' (storage: 'storage-1')", "space_deleted")
+			checkSpacesAuditEvent(t, ev.AuditEventSpaces, "storage-1$space-123")
+		},
+	}, {
+		Alias: "Space deleted - empty name",
+		SystemEvent: events.Event{
+			Event: events.SpaceDeleted{
+				Executant: userID("uid-123"),
+				ID:        &provider.StorageSpaceId{OpaqueId: "storage-1$space-123"},
+			},
+		},
+		CheckAuditEvent: func(t *testing.T, b []byte) {
+			ev := types.AuditEventSpaceDeleted{}
+			require.NoError(t, json.Unmarshal(b, &ev))
+
+			checkBaseAuditEvent(t, ev.AuditEvent, "", "0001-01-01T00:00:00Z", "user 'uid-123' deleted the space 'space-123' with name '' (storage: 'storage-1')", "space_deleted")
 			checkSpacesAuditEvent(t, ev.AuditEventSpaces, "storage-1$space-123")
 		},
 	},
