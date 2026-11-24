@@ -151,7 +151,7 @@ One line of JSON per event:
 | `outcome`, `outcome.reason` | `success`, `failure` or `denied`, plus a machine readable reason |
 | `severity` | `info`, `notice`, `warning`, `alert` |
 | `tenant.id` | empty on single-tenant installations |
-| `actor.type`, `actor.id`, `actor.name`, `actor.impersonated_by` | type is `user`, `service`, `public_link`, `guest`, `anonymous`, `system` or `cli` |
+| `actor.type`, `actor.id`, `actor.name`, `actor.impersonated_by.id`, `actor.impersonated_by.name` | type is `user`, `service`, `public_link`, `guest`, `anonymous`, `system` or `cli`; who impersonates the actor is identified like the actor, not yet filled |
 | `auth.method`, `auth.client_id`, `session.id` | how the actor logged in |
 | `client.address`, `user_agent.original` | real client address behind trusted proxies |
 | `target.type`, `target.id`, `target.space.id`, `target.name`, `target.path` | `target.path` only at `detail` level |
@@ -269,7 +269,7 @@ The request context is cheap. A lot of it already travels with every gRPC call:
 `x-access-token` carries the whole CS3 user (ID, tenant, name, mail), and
 `x-user-agent`, `initiator-id` and `traceparent` are already there. New are
 client address, session ID, auth method, OIDC client ID and
-`actor.impersonated_by`, about 100 to 150 bytes per call. The access token alone
+the impersonating user, about 100 to 150 bytes per call. The access token alone
 has 1 to 2 KB. We put the new values into one header, `x-audit-context`, not
 five. HTTP/2 header compression makes repeated values within one request almost
 free. In the process it is one `context.WithValue` per request.

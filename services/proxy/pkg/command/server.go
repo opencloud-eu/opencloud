@@ -19,6 +19,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/signedurl"
 	"github.com/opencloud-eu/reva/v3/pkg/store"
 
+	"github.com/opencloud-eu/opencloud/pkg/auditemitter"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -28,7 +29,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	policiessvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/policies/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -195,27 +195,20 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			auditEmitter, err := audit.EmitterFromConfig(cfg.Context, connName+"-audit", audit.EmitterConfig{
-				Enabled:        cfg.Audit.Enabled,
-				Mode:           cfg.Audit.Mode,
-				Service:        cfg.Service.Name,
-				ServiceVersion: version.GetString(),
-				Nats: raw.Config{
-					Endpoint:             cfg.Events.Endpoint,
-					Cluster:              cfg.Events.Cluster,
-					TLSInsecure:          cfg.Events.TLSInsecure,
-					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
-					EnableTLS:            cfg.Events.EnableTLS,
-					AuthUsername:         cfg.Events.AuthUsername,
-					AuthPassword:         cfg.Events.AuthPassword,
-				},
-			}, audit.Options{Logger: &logger.Logger})
+			auditEmitter, err := auditemitter.New(cfg.Context, cfg.Service.Name, auditemitter.Settings(cfg.Audit), raw.Config{
+				Endpoint:             cfg.Events.Endpoint,
+				Cluster:              cfg.Events.Cluster,
+				TLSInsecure:          cfg.Events.TLSInsecure,
+				TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+				EnableTLS:            cfg.Events.EnableTLS,
+				AuthUsername:         cfg.Events.AuthUsername,
+				AuthPassword:         cfg.Events.AuthPassword,
+			}, logger)
 			if err != nil {
 				logger.Error().Err(err).Msg("Error initializing the audit emitter")
-				return fmt.Errorf("could not initialize audit emitter: %w", err)
+				return err
 			}
-			defer audit.CloseEmitter(auditEmitter)
+			defer auditemitter.Close(auditEmitter)
 
 			lh := staticroutes.StaticRouteHandler{
 				Prefix:          cfg.HTTP.Root,
