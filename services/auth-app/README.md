@@ -40,8 +40,13 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
 
   Example: `expiry=72h`
 
+  Optionally, a `label` key/value pair to name the token. It is shown when listing the tokens and
+  helps to tell them apart. Without it, the label is `Generated via API`.
+
+  Example: `label=WebDAV%20sync`
+
   ```bash
-  curl --request POST 'https://<your host:9200>/auth-app/tokens?expiry={value}' \
+  curl --request POST 'https://<your host:9200>/auth-app/tokens?expiry={value}&label={value}' \
        --header 'accept: application/json'
   ```
 
@@ -78,13 +83,13 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
       "token": "155f402e-1c5c-411c-92d4-92f3b612cd99"
       "expiration_date": "2024-08-08T13:44:31.025199075+02:00",
       "created_date": "2024-08-07T13:44:31+02:00",
-      "label": "Generated via Impersonation API"
+      "label": "Generated via API (Impersonation)"
     },
     {
       "token": "8c606bdb-e22e-4094-9304-732fd4702bc9"
       "expiration_date": "2024-08-08T13:46:41.936052281+02:00",
       "created_date": "2024-08-07T13:46:42+02:00",
-      "label": "Generated via Impersonation API"
+      "label": "WebDAV sync"
     }
   ]
   ```
@@ -133,6 +138,9 @@ A final create request would then look like:
 curl --request POST 'https://<your host:9200>/auth-app/tokens?expiry={value}&userName={value}' \
      --header 'accept: application/json'
 ```
+
+The label of a token created this way ends with ` (Impersonation)`, also when a custom `label`
+is given, e.g. `WebDAV sync (Impersonation)`.
 
 ### Via CLI (developer only)
 

@@ -70,6 +70,30 @@ class AuthAppContext implements Context {
 	 *
 	 * @param string $user
 	 * @param string $expiration
+	 * @param string $label
+	 *
+	 * @return void
+	 */
+	#[When('user :user creates app token with expiration time :expiration and label :label using the auth-app API')]
+	public function userCreatesAppTokenWithExpirationTimeAndLabelUsingTheAuthAppApi(
+		string $user,
+		string $expiration,
+		string $label,
+	): void {
+		$this->featureContext->setResponse(
+			AuthAppHelper::createAppAuthToken(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getActualUsername($user),
+				$this->featureContext->getPasswordForUser($user),
+				["expiry" => $expiration, "label" => $label],
+			)
+		);
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $expiration
 	 *
 	 * @return void
 	 */
@@ -150,6 +174,34 @@ class AuthAppContext implements Context {
 				[
 					"expiry" => $expiration,
 					"userName" => $this->featureContext->getActualUsername($impersonatedUser)
+				],
+			)
+		);
+	}
+
+	/**
+	 *
+	 * @param string $impersonatedUser
+	 * @param string $expiration
+	 * @param string $label
+	 *
+	 * @return void
+	 */
+	#[When('the administrator creates app token for user :impersonatedUser with expiration time :expiration and label :label using the auth-app API')]
+	public function theAdministratorCreatesAppTokenForUserWithExpirationTimeAndLabelViaAuthAppApi(
+		string $impersonatedUser,
+		string $expiration,
+		string $label,
+	): void {
+		$this->featureContext->setResponse(
+			AuthAppHelper::createAppAuthToken(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getAdminUsername(),
+				$this->featureContext->getAdminPassword(),
+				[
+					"expiry" => $expiration,
+					"userName" => $this->featureContext->getActualUsername($impersonatedUser),
+					"label" => $label,
 				],
 			)
 		);
