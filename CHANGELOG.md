@@ -1,12 +1,14 @@
 # Changelog
 
-## [7.2.7](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.7) - 2026-11-18
+## [7.2.7](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.7) - 2026-11-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@micbar
+@micbar, @rhafer
 
+### 🐛 Bug Fixes
 
+- [stable-7.2] fix(graph): hide private user attributes from other users [[#4060](https://github.com/opencloud-eu/opencloud/pull/4060)]
 
 ## [7.2.6](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.6) - 2026-11-17
 
