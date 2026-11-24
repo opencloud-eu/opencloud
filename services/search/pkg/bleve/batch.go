@@ -56,7 +56,7 @@ func (b *Batch) Move(id string, parentID string, targetPath string) error {
 		resources := []*search.Resource{rootResource}
 
 		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, b.index)
+			descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, rootResource.Deleted, b.index)
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,10 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 		add(rootResource)
 
 		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, b.index)
+			// a trashed folder keeps its path, so a live folder can take the same one:
+			// the descendants are the ones in the root's trash state (onlyDeleted takes
+			// the trashed ones only)
+			descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, rootResource.Deleted || onlyDeleted, b.index)
 			if err != nil {
 				return err
 			}
