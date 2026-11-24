@@ -153,7 +153,6 @@ var _ = Describe("Bleve", func() {
 		It("rewrites tags and favorites and keeps the extracted fields", func() {
 			childResource.Content = "quarterly report"
 			childResource.Tags = []string{"alpha"}
-			childResource.Extracted = true
 			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
 
 			Expect(eng.Update(context.Background(), childResource.ID, search.MetadataUpdate{
@@ -166,7 +165,6 @@ var _ = Describe("Bleve", func() {
 			Expect(r.Tags).To(Equal([]string{"Beta"}))
 			Expect(r.Favorites).To(Equal([]string{"user-1"}))
 			Expect(r.Content).To(Equal("quarterly report"))
-			Expect(r.Extracted).To(BeTrue())
 
 			Expect(tagHits("beta")).To(ConsistOf("4"), "the lowercase sibling follows the new tag")
 			Expect(tagHits("alpha")).To(BeEmpty())

@@ -158,14 +158,12 @@ var _ = Describe("Searchprovider", func() {
 				info("outdated", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
 				info("missing", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 				info("trashed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
-				info("unextracted", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 			}
 			indexed := map[string]*search.Resource{
-				"storageid$spaceid!spaceid":     {Document: content.Document{Mtime: &indexedAt}, Extracted: true},
-				"storageid$spaceid!current":     {Document: content.Document{Mtime: &indexedAt}, Extracted: true},
-				"storageid$spaceid!outdated":    {Document: content.Document{Mtime: &indexedAt}, Extracted: true},
-				"storageid$spaceid!trashed":     {Document: content.Document{Mtime: &indexedAt}, Extracted: true, Deleted: true},
-				"storageid$spaceid!unextracted": {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!spaceid":  {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!current":  {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!outdated": {Document: content.Document{Mtime: &indexedAt}},
+				"storageid$spaceid!trashed":  {Document: content.Document{Mtime: &indexedAt}, Deleted: true},
 			}
 
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
@@ -204,7 +202,7 @@ var _ = Describe("Searchprovider", func() {
 
 			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed", "storageid$spaceid!unextracted"))
+			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed"))
 		})
 	})
 
@@ -245,22 +243,6 @@ var _ = Describe("Searchprovider", func() {
 			Entry("./", "./", false),
 			Entry("/", "/", false),
 		)
-
-		It("marks the resource as extracted", func() {
-			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
-				Status: status.NewOK(context.Background()),
-				Info:   ri,
-			}, nil)
-			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
-
-			var indexed search.Resource
-			indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-				indexed = args.Get(1).(search.Resource)
-			}).Return(nil)
-
-			s.UpsertItem(&sprovider.Reference{ResourceId: ri.GetId()})
-			Expect(indexed.Extracted).To(BeTrue())
-		})
 
 		Context("with facets stored on the resource", func() {
 			var (
@@ -456,7 +438,6 @@ var _ = Describe("Searchprovider", func() {
 
 			s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
 			Expect(indexed.ID).To(Equal("storageid$spaceid!tagged-opaqueid"))
-			Expect(indexed.Extracted).To(BeTrue())
 		})
 
 		It("does not extract the content when the update fails for another reason", func() {

@@ -85,9 +85,6 @@ type Resource struct {
 	Type     uint64 `json:"Type"`
 	Deleted  bool   `json:"Deleted"`
 	Hidden   bool   `json:"Hidden"`
-	// Extracted is set once the content extraction succeeded, a document
-	// without it is extracted again on the next reindex
-	Extracted bool `json:"Extracted"`
 }
 
 // resourceFieldOverrides is built once (it never changes) and reused on hot

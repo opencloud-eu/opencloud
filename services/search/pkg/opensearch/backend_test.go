@@ -156,7 +156,6 @@ var _ = Describe("Backend", func() {
 			document := opensearchtest.Testdata.Resources.File
 			document.Content = "quarterly report"
 			document.Tags = []string{"alpha"}
-			document.Extracted = true
 			Expect(backend.Upsert(document.ID, document)).To(Succeed())
 
 			Expect(backend.Update(context.Background(), document.ID, search.MetadataUpdate{
@@ -169,7 +168,6 @@ var _ = Describe("Backend", func() {
 			Expect(r.Tags).To(Equal([]string{"Beta"}))
 			Expect(r.Favorites).To(Equal([]string{"user-1"}))
 			Expect(r.Content).To(Equal("quarterly report"))
-			Expect(r.Extracted).To(BeTrue())
 
 			Expect(tagHits("beta")).To(Equal(1), "the lowercase sibling follows the new tag")
 			Expect(tagHits("alpha")).To(BeZero())

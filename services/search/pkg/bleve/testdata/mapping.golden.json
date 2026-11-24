@@ -30,19 +30,6 @@
           }
         ]
       },
-      "Extracted": {
-        "enabled": true,
-        "dynamic": true,
-        "fields": [
-          {
-            "type": "boolean",
-            "store": true,
-            "index": true,
-            "include_in_all": true,
-            "docvalues": true
-          }
-        ]
-      },
       "Favorites": {
         "enabled": true,
         "dynamic": true,
