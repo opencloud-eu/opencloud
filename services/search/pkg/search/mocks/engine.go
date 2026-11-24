@@ -563,6 +563,69 @@ func (_c *Engine_Search_Call) RunAndReturn(run func(ctx context.Context, req *v0
 	return _c
 }
 
+// Update provides a mock function for the type Engine
+func (_mock *Engine) Update(ctx context.Context, id string, u search.MetadataUpdate) error {
+	ret := _mock.Called(ctx, id, u)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, search.MetadataUpdate) error); ok {
+		r0 = returnFunc(ctx, id, u)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type Engine_Update_Call struct {
+	*mock.Call
+}
+
+// Update is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - u search.MetadataUpdate
+func (_e *Engine_Expecter) Update(ctx any, id any, u any) *Engine_Update_Call {
+	return &Engine_Update_Call{Call: _e.mock.On("Update", ctx, id, u)}
+}
+
+func (_c *Engine_Update_Call) Run(run func(ctx context.Context, id string, u search.MetadataUpdate)) *Engine_Update_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 search.MetadataUpdate
+		if args[2] != nil {
+			arg2 = args[2].(search.MetadataUpdate)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_Update_Call) Return(err error) *Engine_Update_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_Update_Call) RunAndReturn(run func(ctx context.Context, id string, u search.MetadataUpdate) error) *Engine_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Upsert provides a mock function for the type Engine
 func (_mock *Engine) Upsert(id string, r search.Resource) error {
 	ret := _mock.Called(id, r)

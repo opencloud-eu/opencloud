@@ -111,6 +111,7 @@ func queryGroups() []queryGroup {
 		everythingGroup(),
 		rangeGroup(),
 		photoGroup(),
+		extractionGroup(),
 		scopeGroup(),
 		invalidGroup(),
 		quotingGroup(),

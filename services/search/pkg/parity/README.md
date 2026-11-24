@@ -461,6 +461,21 @@ Fixtures:
 | PHOTO-05 | `photo.iso<=100` | bright.jpg | bright.jpg | bright.jpg | ✅ |
 | PHOTO-06 | `photo.cameraMake>1` | no match | no match | no match | ✅ |
 
+### extraction
+
+Fixtures:
+
+- `given-up.pdf`
+- `waiting.png`
+- `extracted.txt`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| EXTRACTION-01 | `extractionfailure.count>=3` | given-up.pdf | given-up.pdf | given-up.pdf | ✅ |
+| EXTRACTION-02 | `ExtractionFailure.Count>=1` | given-up.pdf, waiting.png | given-up.pdf, waiting.png | given-up.pdf, waiting.png | ✅ |
+| EXTRACTION-03 | `extractionfailure.retryat>"2029-01-01T00:00:00Z"` | waiting.png | waiting.png | waiting.png | ✅ |
+| EXTRACTION-04 | `extractionfailure.retryat<"2029-01-01T00:00:00Z"` | no match | no match | no match | ✅ |
+
 ### scope
 
 Fixtures:
