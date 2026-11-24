@@ -16,8 +16,12 @@ import (
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/iancoleman/strcase"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
@@ -263,8 +267,13 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:favorite", "1"))
 	}
 
-	propstatOK.Prop = appendPhotoProps(propstatOK.Prop, match.GetEntity().GetPhoto())
-	propstatOK.Prop = appendLocationProps(propstatOK.Prop, match.GetEntity().GetLocation())
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "audio", match.Entity.Audio)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "location", match.Entity.Location)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "image", match.Entity.Image)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "photo", match.Entity.Photo)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "video", match.Entity.Video)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "motion-photo", match.Entity.MotionPhoto)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "live-photo", match.Entity.LivePhoto)
 
 	if len(propstatOK.Prop) > 0 {
 		response.Propstat = append(response.Propstat, propstatOK)
@@ -273,69 +282,43 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 	return &response, nil
 }
 
-// decimal places of the photo props; six for a coordinate resolve about 10 cm
-const (
-	lensPrecision       = 2
-	exposurePrecision   = 0
-	coordinatePrecision = 6
-	altitudePrecision   = 1
-)
-
-func appendPhotoProps(props []prop.PropertyXML, photo *searchmsg.Photo) []prop.PropertyXML {
-	if photo == nil {
+// appendFacet renders a facet in the xml shape PROPFIND uses for it.
+func appendFacet(props []prop.PropertyXML, name string, facet proto.Message) []prop.PropertyXML {
+	m := facet.ProtoReflect()
+	if !m.IsValid() {
 		return props
 	}
-	if photo.GetTakenDateTime() != nil {
-		props = append(props, prop.Escaped("oc:photo-taken-date-time", photo.GetTakenDateTime().AsTime().Format(time.RFC3339)))
+
+	content := strings.Builder{}
+	fields := m.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if !m.Has(fd) {
+			continue
+		}
+		key := "oc:" + strcase.ToKebab(string(fd.Name()))
+		content.WriteString("<" + key + ">")
+		content.WriteString(prop.Escape(facetValue(fd, m.Get(fd))))
+		content.WriteString("</" + key + ">")
 	}
-	props = appendStringProp(props, "oc:photo-camera-make", photo.CameraMake)
-	props = appendStringProp(props, "oc:photo-camera-model", photo.CameraModel)
-	props = appendFloat32Prop(props, "oc:photo-fnumber", photo.FNumber, lensPrecision)
-	props = appendFloat32Prop(props, "oc:photo-focal-length", photo.FocalLength, lensPrecision)
-	props = appendInt32Prop(props, "oc:photo-iso", photo.Iso)
-	props = appendInt32Prop(props, "oc:photo-orientation", photo.Orientation)
-	props = appendFloat32Prop(props, "oc:photo-exposure-numerator", photo.ExposureNumerator, exposurePrecision)
-	props = appendFloat32Prop(props, "oc:photo-exposure-denominator", photo.ExposureDenominator, exposurePrecision)
-	return props
+	if content.Len() == 0 {
+		return props
+	}
+	return append(props, prop.Raw("oc:"+name, content.String()))
 }
 
-func appendLocationProps(props []prop.PropertyXML, location *searchmsg.GeoCoordinates) []prop.PropertyXML {
-	if location == nil {
-		return props
+func facetValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) string {
+	switch fd.Kind() {
+	case protoreflect.FloatKind:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 32)
+	case protoreflect.DoubleKind:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case protoreflect.MessageKind:
+		if ts, ok := v.Message().Interface().(*timestamppb.Timestamp); ok {
+			return ts.AsTime().Format(time.RFC3339)
+		}
 	}
-	// no zero check here: 0 is a valid coordinate (equator, prime meridian, sea level)
-	props = appendFloat64Prop(props, "oc:photo-location-latitude", location.Latitude, coordinatePrecision)
-	props = appendFloat64Prop(props, "oc:photo-location-longitude", location.Longitude, coordinatePrecision)
-	props = appendFloat64Prop(props, "oc:photo-location-altitude", location.Altitude, altitudePrecision)
-	return props
-}
-
-func appendStringProp(props []prop.PropertyXML, name string, value *string) []prop.PropertyXML {
-	if value == nil || *value == "" {
-		return props
-	}
-	return append(props, prop.Escaped(name, *value))
-}
-
-func appendFloat32Prop(props []prop.PropertyXML, name string, value *float32, precision int) []prop.PropertyXML {
-	if value == nil || *value == 0 {
-		return props
-	}
-	return append(props, prop.Escaped(name, strconv.FormatFloat(float64(*value), 'f', precision, 32)))
-}
-
-func appendInt32Prop(props []prop.PropertyXML, name string, value *int32) []prop.PropertyXML {
-	if value == nil || *value == 0 {
-		return props
-	}
-	return append(props, prop.Escaped(name, strconv.FormatInt(int64(*value), 10)))
-}
-
-func appendFloat64Prop(props []prop.PropertyXML, name string, value *float64, precision int) []prop.PropertyXML {
-	if value == nil {
-		return props
-	}
-	return append(props, prop.Escaped(name, strconv.FormatFloat(*value, 'f', precision, 64)))
+	return v.String()
 }
 
 type report struct {
