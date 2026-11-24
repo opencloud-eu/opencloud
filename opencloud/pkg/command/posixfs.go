@@ -121,6 +121,9 @@ the command is aborted with an error before performing any scanning.`,
 				// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
 				drivers := revaconfig.StorageProviderDrivers(cfg)
 				drivers["posix"] = revaconfig.Posix(cfg, false, false)
+				// Clean up revisions without background workers: the command could exit before
+				// they are done, and stop the cleanup of a file midway.
+				drivers["posix"].(map[string]any)["revisions_cleanup_async"] = false
 
 				var fsStream events.Stream
 				var err error
