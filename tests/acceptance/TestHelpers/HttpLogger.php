@@ -61,6 +61,25 @@ class HttpLogger {
 	}
 
 	/**
+	 * Formats all headers of a request or response, one line per header, with all its values.
+	 * The values of headers that carry credentials are masked: the logs are public in the CI.
+	 *
+	 * @param array<string, string[]> $headers as returned by MessageInterface::getHeaders()
+	 *
+	 * @return string
+	 */
+	private static function formatHeaders(array $headers): string {
+		$formatted = "";
+		foreach ($headers as $name => $values) {
+			if (\in_array(\strtolower($name), ['authorization', 'cookie'], true)) {
+				$values = ['***'];
+			}
+			$formatted .= "\t\t$name: " . \implode(", ", $values) . "\n";
+		}
+		return $formatted;
+	}
+
+	/**
 	 * @param RequestInterface $request
 	 *
 	 * @return void
@@ -71,16 +90,11 @@ class HttpLogger {
 		$query = $request->getUri()->getQuery();
 		$body = $request->getBody();
 
-		$headers = "";
-		foreach ($request->getHeaders() as $key => $value) {
-			$headers = $key . ": " . $value[0] . "\n";
-		}
-
 		$logMessage = "\t\t_______________________________________________________________________\n\n";
 		$logMessage .= "\t\t==> REQUEST [" . self::getCurrentDateTime() . "]\n";
 		$logMessage .= "\t\t$method $path\n";
 		$logMessage .= $query ? "\t\tQUERY: $query\n" : "";
-		$logMessage .= "\t\t$headers";
+		$logMessage .= self::formatHeaders($request->getHeaders());
 
 		if ($body->getSize() > 0) {
 			$logMessage .= "\t\t==> REQ BODY\n";
@@ -99,15 +113,10 @@ class HttpLogger {
 		$statusCode = $response->getStatusCode();
 		$statusMessage = $response->getReasonPhrase();
 		$body = $response->getBody();
-		$headers = "";
-
-		foreach ($response->getHeaders() as $key => $value) {
-			$headers = $key . ": " . $value[0] . "\n";
-		}
 
 		$logMessage = "\t\t<== RESPONSE [" . self::getCurrentDateTime() . "]\n";
 		$logMessage .= "\t\t$statusCode $statusMessage\n";
-		$logMessage .= "\t\t$headers";
+		$logMessage .= self::formatHeaders($response->getHeaders());
 
 		if ($body->getSize() > 0) {
 			$logMessage .= "\t\t<== RES BODY\n";
