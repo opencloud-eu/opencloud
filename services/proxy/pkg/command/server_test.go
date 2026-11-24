@@ -26,9 +26,11 @@ var (
 	testMetricsErr  error
 )
 
-func newTestMetrics(t *testing.T, cfg *config.Config) metrics.Metrics {
+// newTestMetrics returns metrics for the routes of the default config.
+func newTestMetrics(t *testing.T) metrics.Metrics {
 	t.Helper()
 	testMetricsOnce.Do(func() {
+		cfg := defaults.FullDefaultConfig()
 		logger := log.NopLogger()
 		testMetrics, testMetricsErr = metrics.New(func(yield func(config.Route) bool) {
 			for _, pol := range cfg.Policies {
@@ -98,7 +100,7 @@ func TestUnauthenticatedRequestChallenges(t *testing.T) {
 			chain, err := loadMiddlewares(
 				log.NopLogger(), cfg,
 				microstore.NewMemoryStore(), microstore.NewMemoryStore(),
-				noop.NewTracerProvider(), newTestMetrics(t, cfg),
+				noop.NewTracerProvider(), newTestMetrics(t),
 				nil, nil, nil, selector.NewSelector(),
 			)
 			require.NoError(t, err)
