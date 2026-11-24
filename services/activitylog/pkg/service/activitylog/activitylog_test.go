@@ -10,8 +10,10 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/google/uuid"
 	nserver "github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/command"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
@@ -75,7 +77,7 @@ var _ = Describe("ActivitylogService", func() {
 		kv, err := command.ConnectNatsKV(config.Store{
 			Nodes:    []string{server.Addr().String()},
 			Database: db,
-		})
+		}, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 
 		alog, err = activitylog.New(
@@ -256,6 +258,95 @@ var _ = Describe("ActivitylogService", func() {
 				}).Should(Succeed())
 			})
 		})
+	})
+})
+
+var _ = Describe("ConnectNatsKV", func() {
+	var (
+		db  string
+		cfg config.Store
+		js  nats.JetStreamContext
+	)
+
+	maxAge := func() time.Duration {
+		info, err := js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		return info.Config.MaxAge
+	}
+
+	BeforeEach(func() {
+		db = "activitylog-ttl-test-" + uuid.New().String()
+		cfg = config.Store{
+			Nodes:    []string{server.Addr().String()},
+			Database: db,
+		}
+
+		conn, err := nats.Connect(server.Addr().String())
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(conn.Close)
+		js, err = conn.JetStream()
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("creates a new bucket without expiry by default", func() {
+		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxAge()).To(Equal(time.Duration(0)))
+	})
+
+	It("applies the TTL to a new bucket", func() {
+		cfg.TTL = time.Hour
+		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxAge()).To(Equal(time.Hour))
+	})
+
+	It("updates the TTL of an existing bucket", func() {
+		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxAge()).To(Equal(time.Duration(0)))
+
+		cfg.TTL = time.Hour
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxAge()).To(Equal(time.Hour))
+
+		cfg.TTL = time.Second
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxAge()).To(Equal(time.Second))
+
+		cfg.TTL = 0
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(maxAge()).To(Equal(time.Duration(0)))
+	})
+
+	It("falls back to no expiry for an invalid TTL on a new bucket", func() {
+		for _, ttl := range []time.Duration{-time.Hour, 50 * time.Millisecond} {
+			db = "activitylog-ttl-test-" + uuid.New().String()
+			cfg.Database = db
+			cfg.TTL = ttl
+			_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(maxAge()).To(Equal(time.Duration(0)))
+		}
+	})
+
+	It("falls back to no expiry for an invalid TTL on an existing bucket", func() {
+		for _, ttl := range []time.Duration{-time.Hour, 50 * time.Millisecond} {
+			db = "activitylog-ttl-test-" + uuid.New().String()
+			cfg.Database = db
+			cfg.TTL = time.Hour
+			_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(maxAge()).To(Equal(time.Hour))
+
+			cfg.TTL = ttl
+			_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(maxAge()).To(Equal(time.Duration(0)))
+		}
 	})
 })
 
