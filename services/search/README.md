@@ -163,7 +163,7 @@ Additionally, the following optional settings can be set:
 
 #### Files Tika Cannot Parse
 
-A file Tika cannot parse, such as a broken PDF or an image the OCR fails on, is still indexed by name, path and tags, so it stays findable. The content is tried again on later reindexes, the first retry one hour after the failure, the second one day after that. After the third failure the service logs a warning with the path and stops trying until the file changes. If Tika itself is unreachable, nothing is written and the next reindex tries again.
+A file Tika cannot parse, such as a broken PDF or an image the OCR fails on, is still indexed by name, path and tags, so it stays findable. The content is tried again on later reindexes, the first retry one hour after the failure, the second one day after that. After the third failure the service logs a warning with the path and stops trying until the file changes. If Tika or the file is unreachable, a new or changed file is indexed by name as well, this does not count as a failure and every later reindex tries again.
 
 To list the files the service gave up on, search for:
 

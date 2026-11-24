@@ -837,17 +837,12 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 		return
 	}
 
-	// an unparsable file still yields the name, path and tags and stays findable;
-	// any other failure (tika or the file unreachable) writes nothing, the next
-	// space walk finds the entry missing or outdated and tries again
+	// a failed extraction still yields the name, path and tags, the resource
+	// stays findable and a later space walk retries it
 	doc, err := s.extractor.Extract(ctx, stat.GetInfo())
 	extractionFailed := err != nil
-	switch {
-	case errors.Is(err, content.ErrUnparsable):
+	if err != nil {
 		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content")
-	case err != nil:
-		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content, retrying on the next walk")
-		return
 	}
 
 	r := Resource{
@@ -863,7 +858,11 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 	}
 	r.Hidden = IsHidden(r.Path)
 	if extractionFailed {
-		r.ExtractionFailure = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path)
+		var write bool
+		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, errors.Is(err, content.ErrUnparsable))
+		if !write {
+			return
+		}
 	}
 
 	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
@@ -964,26 +963,45 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 }
 
 // nextExtractionFailure counts a parse failure on top of the ones the indexed
-// entry holds for the same version, a new version starts over
-func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string) *ExtractionFailure {
-	count := 1
+// entry holds for the same version, a new version starts over. Any other failure
+// (tika or the file unreachable) says nothing about the file: it is not counted,
+// leaves a current entry alone and is retried by every walk. write is false
+// when the indexed entry has to stay as it is.
+func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, unparsable bool) (f *ExtractionFailure, write bool) {
+	var previous *Resource
 	r, err := s.engine.Get(ctx, id)
 	switch {
 	case errors.Is(err, ErrResourceNotFound):
 	case err != nil:
-		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures, counting this one as the first")
-	case r.ExtractionFailure != nil && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime())):
-		count = r.ExtractionFailure.Count + 1
+		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures")
+		if !unparsable {
+			// without knowing the entry, a name-only document could replace extracted content
+			return nil, false
+		}
+	case r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime())):
+		previous = r
 	}
 
-	f := &ExtractionFailure{Count: count}
+	if !unparsable {
+		if previous != nil && !previous.Deleted {
+			return nil, false
+		}
+		return &ExtractionFailure{}, true
+	}
+
+	count := 1
+	if previous != nil && previous.ExtractionFailure != nil {
+		count = previous.ExtractionFailure.Count + 1
+	}
+
+	f = &ExtractionFailure{Count: count}
 	if count > len(extractionRetryDelays) {
 		s.logger.Warn().Str("path", path).Int("failures", count).Msg("giving up on extracting the resource content until it changes, opencloud search index --force-rescan tries again")
-		return f
+		return f, true
 	}
 	retryAt := time.Now().Add(extractionRetryDelays[count-1])
 	f.RetryAt = &retryAt
-	return f
+	return f, true
 }
 
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {

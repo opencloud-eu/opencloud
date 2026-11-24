@@ -163,6 +163,7 @@ var _ = Describe("Searchprovider", func() {
 				info("failed-waiting", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 				info("failed-given-up", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 				info("failed-given-up-changed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
+				info("failed-unreachable", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 			}
 			indexed := map[string]*search.Resource{
 				"storageid$spaceid!spaceid":  {Document: content.Document{Mtime: &indexedAt}},
@@ -177,6 +178,8 @@ var _ = Describe("Searchprovider", func() {
 					ExtractionFailure: &search.ExtractionFailure{Count: 3}},
 				"storageid$spaceid!failed-given-up-changed": {Document: content.Document{Mtime: &indexedAt},
 					ExtractionFailure: &search.ExtractionFailure{Count: 3}},
+				"storageid$spaceid!failed-unreachable": {Document: content.Document{Mtime: &indexedAt},
+					ExtractionFailure: &search.ExtractionFailure{}},
 			}
 
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
@@ -221,6 +224,7 @@ var _ = Describe("Searchprovider", func() {
 				"storageid$spaceid!trashed",
 				"storageid$spaceid!failed-due",
 				"storageid$spaceid!failed-given-up-changed",
+				"storageid$spaceid!failed-unreachable",
 			))
 		})
 	})
@@ -309,16 +313,44 @@ var _ = Describe("Searchprovider", func() {
 				1, time.Hour),
 		)
 
-		It("writes nothing when tika or the file is unreachable", func() {
-			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
-				Status: status.NewOK(context.Background()),
-				Info:   ri,
-			}, nil)
-			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, errors.New("connection refused"))
+		DescribeTable("indexes a resource by name without counting when tika or the file is unreachable",
+			func(previous *search.Resource, getErr error, written bool) {
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   ri,
+				}, nil)
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, errors.New("connection refused"))
+				indexClient.On("Get", mock.Anything, mock.Anything).Return(previous, getErr)
 
-			s.UpdateMetadata(&sprovider.Reference{ResourceId: ri.GetId()})
-			indexClient.AssertNotCalled(GinkgoT(), "Upsert", mock.Anything, mock.Anything)
-		})
+				var indexed []search.Resource
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					indexed = append(indexed, args.Get(1).(search.Resource))
+				}).Return(nil)
+
+				s.UpdateMetadata(&sprovider.Reference{ResourceId: ri.GetId()})
+				if !written {
+					Expect(indexed).To(BeEmpty())
+					return
+				}
+				Expect(indexed).To(HaveLen(1))
+				Expect(indexed[0].Name).To(Equal("scan.png"))
+				Expect(indexed[0].ExtractionFailure).To(Equal(&search.ExtractionFailure{}))
+			},
+			Entry("a new resource", nil, search.ErrResourceNotFound, true),
+			Entry("an outdated entry",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(3000, 0)), Content: "old"}},
+				nil, true),
+			Entry("an outdated entry with parse failures starts over",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(3000, 0))}, ExtractionFailure: &search.ExtractionFailure{Count: 2}},
+				nil, true),
+			Entry("a current entry keeps its content",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(4000, 0)), Content: "extracted"}},
+				nil, false),
+			Entry("a current entry keeps its parse failures",
+				&search.Resource{Document: content.Document{Mtime: ptr(time.Unix(4000, 0))}, ExtractionFailure: &search.ExtractionFailure{Count: 3}},
+				nil, false),
+			Entry("an unknown entry is left alone", nil, errors.New("index unavailable"), false),
+		)
 
 		Context("with facets stored on the resource", func() {
 			var (

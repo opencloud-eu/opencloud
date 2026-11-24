@@ -95,9 +95,11 @@ type Resource struct {
 // storage: losing it with the index costs retries, never data. Two walks failing
 // at once may count one failure, that buys one more attempt.
 type ExtractionFailure struct {
-	// Count is the number of parse failures of the indexed version
+	// Count is the number of parse failures of the indexed version, 0 when only
+	// tika or the file was unreachable and every walk retries it
 	Count int `json:"Count"`
-	// RetryAt is the earliest next attempt, nil once the attempts are used up
+	// RetryAt is the earliest next attempt, nil for an immediate retry or once
+	// the attempts are used up
 	RetryAt *time.Time `json:"RetryAt,omitempty"`
 }
 
