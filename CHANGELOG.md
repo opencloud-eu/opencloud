@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-23
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
 - fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
 - fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
 - fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
