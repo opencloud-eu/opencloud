@@ -77,6 +77,62 @@ func newHttpRequest(ctx context.Context, wopiContext middleware.WopiContext, met
 	return httpReq, nil
 }
 
+// downloadRetryDelays are the waiting times between the attempts to download
+// a file that is still in postprocessing (1.26s in total).
+var downloadRetryDelays = []time.Duration{
+	20 * time.Millisecond,
+	40 * time.Millisecond,
+	80 * time.Millisecond,
+	160 * time.Millisecond,
+	320 * time.Millisecond,
+	640 * time.Millisecond,
+}
+
+// download sends the GET request to the download endpoint and returns the
+// response, whose body the caller must close.
+//
+// A new file version is in postprocessing for a short while after an upload,
+// e.g. right after a PutFile, and the data gateway answers "425 Too Early"
+// until it is done. Such downloads are retried a few times with a bounded
+// backoff before the 425 response is returned to the caller.
+// See https://github.com/opencloud-eu/opencloud/issues/4106
+func download(ctx context.Context, logger zerolog.Logger, httpClient *http.Client, wopiContext middleware.WopiContext, downloadEndpoint, downloadToken string) (*http.Response, error) {
+	for retries := 0; ; retries++ {
+		// Prepare the request to download the file
+		// public link downloads have the token in the download endpoint
+		httpReq, err := newHttpRequest(ctx, wopiContext, http.MethodGet, downloadEndpoint, downloadToken, bytes.NewReader([]byte("")))
+		if err != nil {
+			logger.Error().Err(err).Msg("GetFile: Could not create the request to the endpoint")
+			return nil, err
+		}
+
+		httpResp, err := httpClient.Do(httpReq)
+		if err != nil {
+			logger.Error().Err(err).Msg("GetFile: Get request to the download endpoint failed")
+			return nil, err
+		}
+
+		if httpResp.StatusCode != http.StatusTooEarly || retries >= len(downloadRetryDelays) {
+			return httpResp, nil
+		}
+		httpResp.Body.Close()
+
+		waitingTime := downloadRetryDelays[retries]
+		logger.Debug().
+			Dur("WaitingTime", waitingTime).
+			Int("Retries", retries).
+			Msg("GetFile: file is still in postprocessing, retrying")
+
+		timer := time.NewTimer(waitingTime)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
 // GetFile downloads the file from the storage
 // https://docs.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/files/getfile
 //
@@ -154,17 +210,8 @@ func (c *ContentConnector) GetFile(ctx context.Context, w http.ResponseWriter) e
 		},
 	}
 
-	// Prepare the request to download the file
-	// public link downloads have the token in the download endpoint
-	httpReq, err := newHttpRequest(ctx, wopiContext, http.MethodGet, downloadEndpoint, downloadToken, bytes.NewReader([]byte("")))
+	httpResp, err := download(ctx, logger, &httpClient, wopiContext, downloadEndpoint, downloadToken)
 	if err != nil {
-		logger.Error().Err(err).Msg("GetFile: Could not create the request to the endpoint")
-		return err
-	}
-
-	httpResp, err := httpClient.Do(httpReq)
-	if err != nil {
-		logger.Error().Err(err).Msg("GetFile: Get request to the download endpoint failed")
 		return err
 	}
 

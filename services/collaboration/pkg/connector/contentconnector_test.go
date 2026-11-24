@@ -36,6 +36,7 @@ var _ = Describe("ContentConnector", func() {
 
 		srv           *httptest.Server
 		srvReqHeader  http.Header
+		srvRequests   map[string]int
 		randomContent string
 	)
 
@@ -62,11 +63,22 @@ var _ = Describe("ContentConnector", func() {
 		}
 
 		randomContent = "This is the content of the test.txt file"
+		srvRequests = map[string]int{}
 		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			srvReqHeader = req.Header // save the request header to check later
+			srvRequests[req.URL.Path]++
 			switch req.URL.Path {
 			case "/download/failed.png":
 				w.WriteHeader(404)
+			case "/download/postprocessing.txt":
+				// still in postprocessing for the first two requests
+				if srvRequests[req.URL.Path] <= 2 {
+					w.WriteHeader(http.StatusTooEarly)
+					return
+				}
+				w.Write([]byte(randomContent))
+			case "/download/stuck.txt":
+				w.WriteHeader(http.StatusTooEarly)
 			case "/download/test.txt":
 				w.Write([]byte(randomContent))
 			case "/upload/failed.png":
@@ -187,6 +199,73 @@ var _ = Describe("ContentConnector", func() {
 			Expect(srvReqHeader.Get("X-Reva-Transfer")).To(Equal("MyDownloadToken"))
 			Expect(err).To(Succeed())
 			Expect(sb.Body.String()).To(Equal(randomContent))
+		})
+
+		It("Download retried while the file is in postprocessing", func() {
+			sb := httptest.NewRecorder()
+			ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+
+			gatewayClient.On("InitiateFileDownload", mock.Anything, mock.Anything).Times(1).Return(&gateway.InitiateFileDownloadResponse{
+				Status: status.NewOK(ctx),
+				Protocols: []*gateway.FileDownloadProtocol{
+					{
+						Protocol:         "simple",
+						DownloadEndpoint: srv.URL + "/download/postprocessing.txt",
+						Token:            "MyDownloadToken",
+					},
+				},
+			}, nil)
+
+			err := cc.GetFile(ctx, sb)
+			Expect(err).To(Succeed())
+			Expect(srvRequests["/download/postprocessing.txt"]).To(Equal(3))
+			Expect(srvReqHeader.Get("X-Access-Token")).To(Equal(wopiCtx.AccessToken))
+			Expect(srvReqHeader.Get("X-Reva-Transfer")).To(Equal("MyDownloadToken"))
+			Expect(sb.Body.String()).To(Equal(randomContent))
+		})
+
+		It("Download still in postprocessing after the retries", func() {
+			sb := httptest.NewRecorder()
+			ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+
+			gatewayClient.On("InitiateFileDownload", mock.Anything, mock.Anything).Times(1).Return(&gateway.InitiateFileDownloadResponse{
+				Status: status.NewOK(ctx),
+				Protocols: []*gateway.FileDownloadProtocol{
+					{
+						Protocol:         "simple",
+						DownloadEndpoint: srv.URL + "/download/stuck.txt",
+						Token:            "MyDownloadToken",
+					},
+				},
+			}, nil)
+
+			err := cc.GetFile(ctx, sb)
+			Expect(err).To(HaveOccurred())
+			conErr := err.(*connector.ConnectorError)
+			Expect(conErr.HttpCodeOut).To(Equal(500))
+			// the first attempt and 6 retries
+			Expect(srvRequests["/download/stuck.txt"]).To(Equal(7))
+		})
+
+		It("Download retries stop when the request is canceled", func() {
+			sb := httptest.NewRecorder()
+			ctx, cancel := context.WithTimeout(middleware.WopiContextToCtx(context.Background(), wopiCtx), 50*time.Millisecond)
+			defer cancel()
+
+			gatewayClient.On("InitiateFileDownload", mock.Anything, mock.Anything).Times(1).Return(&gateway.InitiateFileDownloadResponse{
+				Status: status.NewOK(ctx),
+				Protocols: []*gateway.FileDownloadProtocol{
+					{
+						Protocol:         "simple",
+						DownloadEndpoint: srv.URL + "/download/stuck.txt",
+						Token:            "MyDownloadToken",
+					},
+				},
+			}, nil)
+
+			err := cc.GetFile(ctx, sb)
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(srvRequests["/download/stuck.txt"]).To(BeNumerically("<", 7))
 		})
 
 		It("ViewOnlyMode Download request success", func() {
