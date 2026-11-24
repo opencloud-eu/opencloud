@@ -24,6 +24,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
@@ -51,7 +52,7 @@ func TestOIDCAudienceAuthentication(t *testing.T) {
 				t.Run(tt.name, func(t *testing.T) {
 					cache := newAudienceTestCache()
 					cfg := audienceTestConfig(idp, tt.audiences, skipUserInfo)
-					auth, err := newOIDCAuthenticator(log.NopLogger(), cfg, cache, idp.server.Client())
+					auth, err := newOIDCAuthenticator(log.NopLogger(), cfg, cache, idp.server.Client(), audit.Discard{})
 					require.NoError(t, err)
 					token := idp.accessToken(t, jwt.MapClaims{"aud": tt.aud})
 					before := idp.userinfoRequests.Load()
@@ -84,7 +85,7 @@ func TestOIDCAudienceAuthentication(t *testing.T) {
 func TestOIDCAudienceUsesAccessTokenInsteadOfUserinfo(t *testing.T) {
 	idp := newAudienceTestIDP(t, "different-userinfo-audience")
 	cache := newAudienceTestCache()
-	auth, err := newOIDCAuthenticator(log.NopLogger(), audienceTestConfig(idp, []string{"opencloud"}, false), cache, idp.server.Client())
+	auth, err := newOIDCAuthenticator(log.NopLogger(), audienceTestConfig(idp, []string{"opencloud"}, false), cache, idp.server.Client(), audit.Discard{})
 	require.NoError(t, err)
 	token := idp.accessToken(t, jwt.MapClaims{"aud": "opencloud"})
 	require.Equal(t, http.StatusOK, audienceRequest(auth, token).status)
@@ -121,7 +122,7 @@ func TestOIDCAudienceValidatesTokensOnCacheMiss(t *testing.T) {
 				parts[2] = base64.RawURLEncoding.EncodeToString(sig)
 				token = strings.Join(parts, ".")
 			}
-			auth, err := newOIDCAuthenticator(log.NopLogger(), audienceTestConfig(idp, []string{"opencloud"}, false), cache, idp.server.Client())
+			auth, err := newOIDCAuthenticator(log.NopLogger(), audienceTestConfig(idp, []string{"opencloud"}, false), cache, idp.server.Client(), audit.Discard{})
 			require.NoError(t, err)
 			require.Equal(t, http.StatusUnauthorized, audienceRequest(auth, token).status)
 			require.Zero(t, idp.userinfoRequests.Load())
@@ -143,7 +144,7 @@ func TestOIDCAudienceRefreshesExpiredOrCorruptCachedClaims(t *testing.T) {
 					cached = []byte{0xc1} // Reserved/invalid MessagePack marker.
 				}
 				require.NoError(t, cache.Store.Write(&store.Record{Key: audienceTokenCacheKey(token), Value: cached, Expiry: time.Hour}))
-				auth, err := newOIDCAuthenticator(log.NopLogger(), audienceTestConfig(idp, []string{"opencloud"}, skipUserInfo), cache, idp.server.Client())
+				auth, err := newOIDCAuthenticator(log.NopLogger(), audienceTestConfig(idp, []string{"opencloud"}, skipUserInfo), cache, idp.server.Client(), audit.Discard{})
 				require.NoError(t, err)
 				response := audienceRequest(auth, token)
 				require.Equal(t, http.StatusOK, response.status)
@@ -162,7 +163,7 @@ func TestOIDCAudiencePreservesBackchannelLogout(t *testing.T) {
 			idp := newAudienceTestIDP(t, "opencloud")
 			cache := newAudienceTestCache()
 			cfg := audienceTestConfig(idp, []string{"opencloud"}, skipUserInfo)
-			auth, err := newOIDCAuthenticator(log.NopLogger(), cfg, cache, idp.server.Client())
+			auth, err := newOIDCAuthenticator(log.NopLogger(), cfg, cache, idp.server.Client(), audit.Discard{})
 			require.NoError(t, err)
 			token := idp.accessToken(t, nil)
 			require.Equal(t, http.StatusOK, audienceRequest(auth, token).status)
@@ -221,7 +222,7 @@ func TestOIDCAuthenticatorRejectsInvalidAudienceConfiguration(t *testing.T) {
 			cfg.OIDC.AccessTokenVerifyMethod = tt.method
 			cfg.OIDC.Audiences = tt.audiences
 			// Invalid configuration must fail during setup, before any HTTP request.
-			auth, err := newOIDCAuthenticator(log.NopLogger(), cfg, newAudienceTestCache(), nil)
+			auth, err := newOIDCAuthenticator(log.NopLogger(), cfg, newAudienceTestCache(), nil, audit.Discard{})
 			require.ErrorContains(t, err, tt.wantErr)
 			require.Nil(t, auth)
 		})
@@ -260,7 +261,7 @@ func TestOIDCAudienceStartupWarning(t *testing.T) {
 				cfg.OIDC.Issuer = ""
 			}
 			cache := newAudienceTestCache()
-			auth, err := newOIDCAuthenticator(logger, cfg, cache, idp.server.Client())
+			auth, err := newOIDCAuthenticator(logger, cfg, cache, idp.server.Client(), audit.Discard{})
 			require.NoError(t, err)
 			if !tt.inactive {
 				token := idp.accessToken(t, nil)
