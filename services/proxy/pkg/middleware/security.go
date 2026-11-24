@@ -147,6 +147,7 @@ func Security(cspConfig *config.CSP) func(h http.Handler) http.Handler {
 		FrameDeny:                    true,
 		ReferrerPolicy:               "strict-origin-when-cross-origin",
 		STSSeconds:                   315360000,
+		STSIncludeSubdomains:         true,
 		STSPreload:                   true,
 		PermittedCrossDomainPolicies: "none",
 		RobotTag:                     "none",
