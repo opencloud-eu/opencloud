@@ -378,7 +378,7 @@ func SpaceEnabled(ev events.SpaceEnabled) AuditEventSpaceEnabled {
 // SpaceDeleted converts a SpaceDeleted event to an AuditEventSpaceDeleted
 func SpaceDeleted(ev events.SpaceDeleted) AuditEventSpaceDeleted {
 	sid := ev.ID.GetOpaqueId()
-	base := BasicAuditEvent("", formatTime(utils.TimeToTS(ev.Timestamp)), MessageSpaceDeleted(ev.Executant.GetOpaqueId(), sid), ActionSpaceDeleted)
+	base := BasicAuditEvent("", formatTime(utils.TimeToTS(ev.Timestamp)), MessageSpaceDeleted(ev.Executant.GetOpaqueId(), sid, ev.SpaceName), ActionSpaceDeleted)
 	return AuditEventSpaceDeleted{
 		AuditEventSpaces: SpacesAuditEvent(base, sid),
 	}
