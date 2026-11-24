@@ -1,5 +1,15 @@
 # Changelog
 
+## [9.1.2](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.2) - 2026-11-24
+
+### ❤️ Thanks to all contributors! ❤️
+
+@micbar, @rhafer, @v-scharf
+
+### 🐛 Bug Fixes
+
+- [stable-9.1] fix(graph): hide private user attributes from other users [[#4059](https://github.com/opencloud-eu/opencloud/pull/4059)]
+
 ## [9.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.1) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
