@@ -1,12 +1,14 @@
 # Changelog
 
-## [4.0.11](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.11) - 2026-11-18
+## [4.0.11](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.11) - 2026-11-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@micbar
+@micbar, @rhafer
 
+### 🐛 Bug Fixes
 
+- [stable-4.0] fix(graph): hide private user attributes from other users [[#4061](https://github.com/opencloud-eu/opencloud/pull/4061)]
 
 ## [4.0.10](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.10) - 2026-11-17
 
