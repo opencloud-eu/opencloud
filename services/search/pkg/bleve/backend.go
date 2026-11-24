@@ -16,6 +16,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -28,7 +29,7 @@ const defaultBatchSize = 50
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
-	index        bleve.Index
+	index        *serialIndex
 	queryCreator searchQuery.Creator[query.Query]
 	log          log.Logger
 }
@@ -176,6 +177,31 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 
 func (b *Backend) Get(_ context.Context, id string) (*search.Resource, error) {
 	return searchResourceByID(id, b.index)
+}
+
+// Update holds the batch lock from the read to the write, so a batch pushed in
+// between cannot be overwritten with the document as it was before
+func (b *Backend) Update(_ context.Context, id string, u search.MetadataUpdate) error {
+	b.index.batchMu.Lock()
+	defer b.index.batchMu.Unlock()
+
+	r, err := searchResourceByID(id, b.index)
+	if err != nil {
+		return err
+	}
+	r.Tags = u.Tags
+	r.Favorites = u.Favorites
+
+	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	if err != nil {
+		return err
+	}
+	batch := b.index.NewBatch()
+	err = batch.Index(id, doc)
+	if err != nil {
+		return err
+	}
+	return b.index.bleveIndex.Batch(batch)
 }
 
 func (b *Backend) DocCount() (uint64, error) {

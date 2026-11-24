@@ -64,6 +64,7 @@ type Searcher interface {
 	TrashItem(resourceID *provider.ResourceId)
 	PurgeItem(ref *provider.Reference)
 	UpsertItem(ref *provider.Reference)
+	UpdateMetadata(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
 }
@@ -680,6 +681,43 @@ func (s *Service) UpsertItem(ref *provider.Reference) {
 	s.doUpsertItem(ctx, ref, nil)
 }
 
+// UpdateMetadata rewrites the tags and favorites of an indexed resource without
+// extracting its content again, a resource not indexed yet is upserted in full.
+func (s *Service) UpdateMetadata(ref *provider.Reference) {
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+
+	stat, _ := s.resInfo(ctx, ref)
+	if stat == nil {
+		return
+	}
+
+	basic, err := content.NewBasicExtractor(s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to create the basic extractor")
+		return
+	}
+	doc, err := basic.Extract(ctx, stat.GetInfo())
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to read the resource metadata")
+		return
+	}
+
+	err = s.engine.Update(ctx, storagespace.FormatResourceID(stat.GetInfo().GetId()), MetadataUpdate{
+		Tags:      doc.Tags,
+		Favorites: doc.Favorites,
+	})
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+		s.doUpsertItem(ctx, ref, nil)
+	case err != nil:
+		s.logger.Error().Err(err).Interface("id", stat.GetInfo().GetId()).Msg("failed to update the resource metadata in the index")
+	}
+}
+
 // doUpsertItem indexes or stores Resource data fields.
 func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator) {
 	stat, path := s.resInfo(ctx, ref)
@@ -710,6 +748,7 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 		Document: doc,
 	}
 	r.Hidden = IsHidden(r.Path)
+	r.Extracted = true
 
 	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
 		r.ParentID = storagespace.FormatResourceID(parentID)
@@ -895,7 +934,7 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	}
 }
 
-// isIndexed reports whether the index holds a live document for info that is at least as new
+// isIndexed reports whether the index holds a live, fully extracted document for info that is at least as new
 func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bool {
 	r, err := s.engine.Get(ctx, storagespace.FormatResourceID(info.GetId()))
 	switch {
@@ -905,7 +944,7 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 		s.logger.Error().Err(err).Interface("id", info.GetId()).Msg("failed to look up the indexed resource, indexing it again")
 		return false
 	}
-	return !r.Deleted && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
+	return !r.Deleted && r.Extracted && r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime()))
 }
 
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {

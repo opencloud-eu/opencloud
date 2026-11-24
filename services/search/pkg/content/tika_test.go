@@ -99,6 +99,17 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal(body))
 		})
 
+		It("fails when tika returns no metadata for a file with content", func() {
+			fullResponse = "[]"
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Name: "report.pdf",
+				Size: 1,
+			})
+			Expect(err).To(MatchError(ContainSubstring("report.pdf")))
+		})
+
 		It("adds the title", func() {
 			fullResponse = `[{"dc:title": "quarterly report", "X-TIKA:content": "some data"}]`
 

@@ -205,10 +205,10 @@ func (s Service) processEvent(e raw.Event) error {
 	case events.FileVersionRestored:
 		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsAdded:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsRemoved:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 		debounce(getSpaceID(ev.Ref), false)
 	case events.FileUploaded:
 		debounce(getSpaceID(ev.Ref), false)
@@ -240,9 +240,9 @@ func (s Service) processEvent(e raw.Event) error {
 			s.log.Error().Err(err).Interface("spaceID", ev.ID).Msg("failed to remove space from the skipped spaces bucket")
 		}
 	case events.LabelAdded:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 	case events.LabelRemoved:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 	default:
 		s.log.Error().Interface("event", e).Msg("unhandled event type, acknowledged without indexing")
 	}

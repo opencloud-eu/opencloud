@@ -2,6 +2,7 @@ package search_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -157,12 +158,14 @@ var _ = Describe("Searchprovider", func() {
 				info("outdated", sprovider.ResourceType_RESOURCE_TYPE_FILE, 5000),
 				info("missing", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 				info("trashed", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
+				info("unextracted", sprovider.ResourceType_RESOURCE_TYPE_FILE, 4000),
 			}
 			indexed := map[string]*search.Resource{
-				"storageid$spaceid!spaceid":  {Document: content.Document{Mtime: &indexedAt}},
-				"storageid$spaceid!current":  {Document: content.Document{Mtime: &indexedAt}},
-				"storageid$spaceid!outdated": {Document: content.Document{Mtime: &indexedAt}},
-				"storageid$spaceid!trashed":  {Document: content.Document{Mtime: &indexedAt}, Deleted: true},
+				"storageid$spaceid!spaceid":     {Document: content.Document{Mtime: &indexedAt}, Extracted: true},
+				"storageid$spaceid!current":     {Document: content.Document{Mtime: &indexedAt}, Extracted: true},
+				"storageid$spaceid!outdated":    {Document: content.Document{Mtime: &indexedAt}, Extracted: true},
+				"storageid$spaceid!trashed":     {Document: content.Document{Mtime: &indexedAt}, Extracted: true, Deleted: true},
+				"storageid$spaceid!unextracted": {Document: content.Document{Mtime: &indexedAt}},
 			}
 
 			gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
@@ -201,7 +204,7 @@ var _ = Describe("Searchprovider", func() {
 
 			err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed"))
+			Expect(upserted).To(ConsistOf("storageid$spaceid!outdated", "storageid$spaceid!missing", "storageid$spaceid!trashed", "storageid$spaceid!unextracted"))
 		})
 	})
 
@@ -242,6 +245,22 @@ var _ = Describe("Searchprovider", func() {
 			Entry("./", "./", false),
 			Entry("/", "/", false),
 		)
+
+		It("marks the resource as extracted", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+				Status: status.NewOK(context.Background()),
+				Info:   ri,
+			}, nil)
+			extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+			var indexed search.Resource
+			indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				indexed = args.Get(1).(search.Resource)
+			}).Return(nil)
+
+			s.UpsertItem(&sprovider.Reference{ResourceId: ri.GetId()})
+			Expect(indexed.Extracted).To(BeTrue())
+		})
 
 		Context("with facets stored on the resource", func() {
 			var (
@@ -383,6 +402,71 @@ var _ = Describe("Searchprovider", func() {
 		Entry("a traversal in the middle", "./documents/../notes.txt", false),
 		Entry("a traversal out of a dot folder", "./.git/../notes.txt", false),
 	)
+
+	Describe("UpdateMetadata", func() {
+		var info *sprovider.ResourceInfo
+
+		BeforeEach(func() {
+			info = &sprovider.ResourceInfo{
+				Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "tagged-opaqueid"},
+				ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+				Path:     "./report.pdf",
+				Size:     12345,
+				ArbitraryMetadata: &sprovider.ArbitraryMetadata{
+					Metadata: map[string]string{"tags": "alpha,beta"},
+				},
+				Opaque: &typesv1beta1.Opaque{
+					Map: map[string]*typesv1beta1.OpaqueEntry{
+						"favorites": {Decoder: "json", Value: []byte(`["user-1"]`)},
+					},
+				},
+			}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+				Status: status.NewOK(context.Background()),
+				Info:   info,
+			}, nil)
+			gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+				return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+			})).Return(&sprovider.GetPathResponse{
+				Status: status.NewOK(context.Background()),
+				Path:   info.GetPath(),
+			}, nil)
+		})
+
+		It("rewrites the tags and favorites without extracting the content", func() {
+			indexClient.On("Update", mock.Anything, "storageid$spaceid!tagged-opaqueid", search.MetadataUpdate{
+				Tags:      []string{"alpha", "beta"},
+				Favorites: []string{"user-1"},
+			}).Return(nil)
+
+			s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
+			indexClient.AssertNumberOfCalls(GinkgoT(), "Update", 1)
+			extractor.AssertNotCalled(GinkgoT(), "Extract", mock.Anything, mock.Anything)
+			indexClient.AssertNotCalled(GinkgoT(), "Upsert", mock.Anything, mock.Anything)
+		})
+
+		It("indexes the resource in full when the index does not hold it yet", func() {
+			indexClient.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(search.ErrResourceNotFound)
+			extractor.On("Extract", mock.Anything, mock.Anything).Return(content.Document{Tags: []string{"alpha", "beta"}}, nil)
+
+			var indexed search.Resource
+			indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				indexed = args.Get(1).(search.Resource)
+			}).Return(nil)
+
+			s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
+			Expect(indexed.ID).To(Equal("storageid$spaceid!tagged-opaqueid"))
+			Expect(indexed.Extracted).To(BeTrue())
+		})
+
+		It("does not extract the content when the update fails for another reason", func() {
+			indexClient.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("cluster unavailable"))
+
+			s.UpdateMetadata(&sprovider.Reference{ResourceId: info.GetId()})
+			extractor.AssertNotCalled(GinkgoT(), "Extract", mock.Anything, mock.Anything)
+			indexClient.AssertNotCalled(GinkgoT(), "Upsert", mock.Anything, mock.Anything)
+		})
+	})
 
 	Describe("Search", func() {
 		It("fails when an empty query is given", func() {

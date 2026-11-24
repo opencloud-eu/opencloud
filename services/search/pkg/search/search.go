@@ -50,8 +50,18 @@ type Engine interface {
 	Purge(id string, onlyDeleted bool) error
 	PurgeSpace(rootID string) error
 	Get(ctx context.Context, id string) (*Resource, error)
+	// Update rewrites the fields u carries on the indexed document and keeps the
+	// rest, ErrResourceNotFound if the index holds no document with that id
+	Update(ctx context.Context, id string, u MetadataUpdate) error
 
 	NewBatch(batchSize int) (BatchOperator, error)
+}
+
+// MetadataUpdate holds the fields a tag or label change rewrites. Both come from
+// the stat, so the extracted content stays and tika is not asked again.
+type MetadataUpdate struct {
+	Tags      []string
+	Favorites []string
 }
 
 type BatchOperator interface {
@@ -75,6 +85,9 @@ type Resource struct {
 	Type     uint64 `json:"Type"`
 	Deleted  bool   `json:"Deleted"`
 	Hidden   bool   `json:"Hidden"`
+	// Extracted is set once the content extraction succeeded, a document
+	// without it is extracted again on the next reindex
+	Extracted bool `json:"Extracted"`
 }
 
 // resourceFieldOverrides is built once (it never changes) and reused on hot

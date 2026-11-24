@@ -426,6 +426,46 @@ func (_c *Searcher_TrashItem_Call) RunAndReturn(run func(resourceID *providerv1b
 	return _c
 }
 
+// UpdateMetadata provides a mock function for the type Searcher
+func (_mock *Searcher) UpdateMetadata(ref *providerv1beta1.Reference) {
+	_mock.Called(ref)
+	return
+}
+
+// Searcher_UpdateMetadata_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateMetadata'
+type Searcher_UpdateMetadata_Call struct {
+	*mock.Call
+}
+
+// UpdateMetadata is a helper method to define mock.On call
+//   - ref *providerv1beta1.Reference
+func (_e *Searcher_Expecter) UpdateMetadata(ref any) *Searcher_UpdateMetadata_Call {
+	return &Searcher_UpdateMetadata_Call{Call: _e.mock.On("UpdateMetadata", ref)}
+}
+
+func (_c *Searcher_UpdateMetadata_Call) Run(run func(ref *providerv1beta1.Reference)) *Searcher_UpdateMetadata_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *providerv1beta1.Reference
+		if args[0] != nil {
+			arg0 = args[0].(*providerv1beta1.Reference)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Searcher_UpdateMetadata_Call) Return() *Searcher_UpdateMetadata_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Searcher_UpdateMetadata_Call) RunAndReturn(run func(ref *providerv1beta1.Reference)) *Searcher_UpdateMetadata_Call {
+	_c.Run(run)
+	return _c
+}
+
 // UpsertItem provides a mock function for the type Searcher
 func (_mock *Searcher) UpsertItem(ref *providerv1beta1.Reference) {
 	_mock.Called(ref)

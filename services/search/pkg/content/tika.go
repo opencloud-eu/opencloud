@@ -82,8 +82,9 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	if err != nil {
 		return doc, err
 	}
+	// a file with content always yields metadata, none means tika failed on it
 	if len(metas) == 0 {
-		return doc, nil
+		return doc, fmt.Errorf("tika returned no metadata for %q", ri.GetName())
 	}
 
 	for _, meta := range metas {
