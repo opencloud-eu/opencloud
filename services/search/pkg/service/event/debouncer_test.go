@@ -25,7 +25,7 @@ var _ = Describe("SpaceDebouncer", func() {
 
 	BeforeEach(func() {
 		callCount = atomic.Int32{}
-		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 10*time.Second, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 10*time.Second, func(id *sprovider.StorageSpaceId, _ bool) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
@@ -33,22 +33,22 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("debounces", func() {
-		debouncer.Debounce(spaceid, nil)
-		debouncer.Debounce(spaceid, nil)
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
+		debouncer.Debounce(spaceid, nil, false)
+		debouncer.Debounce(spaceid, nil, false)
 		Eventually(func() int {
 			return int(callCount.Load())
 		}, "200ms").Should(Equal(1))
 	})
 
 	It("works multiple times", func() {
-		debouncer.Debounce(spaceid, nil)
-		debouncer.Debounce(spaceid, nil)
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
+		debouncer.Debounce(spaceid, nil, false)
+		debouncer.Debounce(spaceid, nil, false)
 		time.Sleep(100 * time.Millisecond)
 
-		debouncer.Debounce(spaceid, nil)
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
+		debouncer.Debounce(spaceid, nil, false)
 
 		Eventually(func() int {
 			return int(callCount.Load())
@@ -56,16 +56,16 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("doesn't trigger twice simultaneously", func() {
-		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 5*time.Second, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 5*time.Second, func(id *sprovider.StorageSpaceId, _ bool) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
 			time.Sleep(300 * time.Millisecond)
 		}, log.NewLogger())
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
 		time.Sleep(100 * time.Millisecond) // Let it trigger once
 
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
 		time.Sleep(100 * time.Millisecond) // shouldn't trigger as the other run is still in progress
 		Expect(int(callCount.Load())).To(Equal(1))
 
@@ -75,7 +75,7 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("fires at the timeout even when continuously debounced", func() {
-		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId, _ bool) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
@@ -87,11 +87,11 @@ var _ = Describe("SpaceDebouncer", func() {
 		// a Debounce call arriving right after the timeout fires would find
 		// pending empty and schedule a second workItem, breaking the assertion
 		// below that the work function is invoked exactly once.
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
 		for i := 0; i < 4 && callCount.Load() == 0; i++ {
 			time.Sleep(50 * time.Millisecond)
 			if callCount.Load() == 0 {
-				debouncer.Debounce(spaceid, nil)
+				debouncer.Debounce(spaceid, nil, false)
 			}
 		}
 
@@ -108,14 +108,14 @@ var _ = Describe("SpaceDebouncer", func() {
 	})
 
 	It("doesn't run the timeout function if the work function has been called", func() {
-		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId) {
+		debouncer = event.NewSpaceDebouncer(100*time.Millisecond, 250*time.Millisecond, func(id *sprovider.StorageSpaceId, _ bool) {
 			if id.OpaqueId == "spaceid" {
 				callCount.Add(1)
 			}
 		}, log.NewLogger())
 
 		// Initial call to start the timers
-		debouncer.Debounce(spaceid, nil)
+		debouncer.Debounce(spaceid, nil, false)
 
 		// Wait for the debounce timer to fire
 		Eventually(func() int {
@@ -134,7 +134,7 @@ var _ = Describe("SpaceDebouncer", func() {
 			return nil
 		}
 
-		debouncer.Debounce(spaceid, ackFunc)
+		debouncer.Debounce(spaceid, ackFunc, false)
 
 		Eventually(func() int {
 			return int(callCount.Load())
@@ -158,12 +158,12 @@ var _ = Describe("SpaceDebouncer", func() {
 		}
 
 		// First call, sets up the trigger
-		debouncer.Debounce(spaceid, firstAckFunc)
+		debouncer.Debounce(spaceid, firstAckFunc, false)
 		Expect(firstAckCalled.Load()).To(BeFalse())
 		Expect(secondAckCalled.Load()).To(BeFalse())
 
 		// Second call, should call its ack immediately
-		debouncer.Debounce(spaceid, secondAckFunc)
+		debouncer.Debounce(spaceid, secondAckFunc, false)
 		Eventually(func() bool {
 			return secondAckCalled.Load()
 		}, "50ms").Should(BeTrue())
@@ -177,5 +177,53 @@ var _ = Describe("SpaceDebouncer", func() {
 		Eventually(func() bool {
 			return firstAckCalled.Load()
 		}, "200ms").Should(BeTrue())
+	})
+
+	Describe("force", func() {
+		var forced atomic.Bool
+
+		BeforeEach(func() {
+			forced = atomic.Bool{}
+			debouncer = event.NewSpaceDebouncer(50*time.Millisecond, 10*time.Second, func(id *sprovider.StorageSpaceId, force bool) {
+				if id.OpaqueId == "spaceid" {
+					forced.Store(force)
+					callCount.Add(1)
+				}
+			}, log.NewLogger())
+		})
+
+		It("is not forced by default", func() {
+			debouncer.Debounce(spaceid, nil, false)
+			Eventually(func() int {
+				return int(callCount.Load())
+			}, "200ms").Should(Equal(1))
+			Expect(forced.Load()).To(BeFalse())
+		})
+
+		It("passes the force flag", func() {
+			debouncer.Debounce(spaceid, nil, true)
+			Eventually(func() int {
+				return int(callCount.Load())
+			}, "200ms").Should(Equal(1))
+			Expect(forced.Load()).To(BeTrue())
+		})
+
+		It("keeps a pending run forced when debounced again without force", func() {
+			debouncer.Debounce(spaceid, nil, true)
+			debouncer.Debounce(spaceid, nil, false)
+			Eventually(func() int {
+				return int(callCount.Load())
+			}, "200ms").Should(Equal(1))
+			Expect(forced.Load()).To(BeTrue())
+		})
+
+		It("upgrades a pending run to forced", func() {
+			debouncer.Debounce(spaceid, nil, false)
+			debouncer.Debounce(spaceid, nil, true)
+			Eventually(func() int {
+				return int(callCount.Load())
+			}, "200ms").Should(Equal(1))
+			Expect(forced.Load()).To(BeTrue())
+		})
 	})
 })
