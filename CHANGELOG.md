@@ -6,17 +6,18 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
-### ✅ Tests
-
-- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
-- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
 ### 📈 Enhancement
 
+- feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
 - fix(proxy): set Secure, HttpOnly and SameSite=Strict on the policy selector cookie [[#4101](https://github.com/opencloud-eu/opencloud/pull/4101)]
 - feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
 - feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
 - feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
+### ✅ Tests
+
+- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
 
 ### 🐛 Bug Fixes
 
