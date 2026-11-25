@@ -201,6 +201,7 @@ default:
         - NotificationContext:
         - GuestLinkContext:
         - OcConfigContext:
+        - WebDavPropertiesContext:
 
     apiAntivirus:
       paths:
