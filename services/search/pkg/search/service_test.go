@@ -227,6 +227,152 @@ var _ = Describe("Searchprovider", func() {
 				"storageid$spaceid!failed-unreachable",
 			))
 		})
+
+		Context("when tika or the files are out of reach", func() {
+			var (
+				files     []string
+				extract   func(name string, attempt int) (content.Document, error)
+				attempts  map[string]int
+				upserted  map[string]search.Resource
+				unreached = errors.New("connection refused")
+			)
+
+			BeforeEach(func() {
+				DeferCleanup(search.SetUnreachableRetryDelay(time.Millisecond))
+				attempts = map[string]int{}
+				upserted = map[string]search.Resource{}
+
+				root := &sprovider.ResourceInfo{
+					Id:    &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "spaceid"},
+					Type:  sprovider.ResourceType_RESOURCE_TYPE_CONTAINER,
+					Path:  ".",
+					Mtime: &typesv1beta1.Timestamp{Seconds: 4000},
+				}
+				children := func() []*sprovider.ResourceInfo {
+					infos := make([]*sprovider.ResourceInfo, 0, len(files))
+					for _, name := range files {
+						infos = append(infos, &sprovider.ResourceInfo{
+							Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: name},
+							ParentId: root.GetId(),
+							Type:     sprovider.ResourceType_RESOURCE_TYPE_FILE,
+							Path:     name,
+							Mtime:    &typesv1beta1.Timestamp{Seconds: 4000},
+						})
+					}
+					return infos
+				}
+
+				gatewayClient.On("GetUserByClaim", mock.Anything, mock.Anything).Return(&userv1beta1.GetUserByClaimResponse{
+					Status: status.NewOK(context.Background()),
+					User:   user,
+				}, nil)
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(
+					func(_ context.Context, req *sprovider.StatRequest, _ ...grpc.CallOption) (*sprovider.StatResponse, error) {
+						for _, child := range children() {
+							if req.GetRef().GetPath() == "./"+child.GetPath() {
+								return &sprovider.StatResponse{Status: status.NewOK(context.Background()), Info: child}, nil
+							}
+						}
+						return &sprovider.StatResponse{Status: status.NewOK(context.Background()), Info: root}, nil
+					})
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(
+					func(context.Context, *sprovider.ListContainerRequest, ...grpc.CallOption) (*sprovider.ListContainerResponse, error) {
+						return &sprovider.ListContainerResponse{Status: status.NewOK(context.Background()), Infos: children()}, nil
+					})
+				indexClient.On("Get", mock.Anything, mock.Anything).Return(nil, search.ErrResourceNotFound)
+				extractor.On("Extract", mock.Anything, mock.Anything).Return(
+					func(_ context.Context, info *sprovider.ResourceInfo) (content.Document, error) {
+						if info.GetType() == sprovider.ResourceType_RESOURCE_TYPE_CONTAINER {
+							return content.Document{}, nil
+						}
+						attempts[info.GetPath()]++
+						return extract(info.GetPath(), attempts[info.GetPath()])
+					})
+
+				batch := &engineMocks.BatchOperator{}
+				batch.EXPECT().Push().Return(nil)
+				batch.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					upserted[args.String(0)] = args.Get(1).(search.Resource)
+				}).Return(nil)
+				indexClient.On("NewBatch", mock.Anything).Return(batch, nil)
+			})
+
+			It("retries the extraction and indexes the content once tika answers again", func() {
+				files = []string{"report.pdf"}
+				extract = func(_ string, attempt int) (content.Document, error) {
+					if attempt < 3 {
+						return content.Document{Name: "report.pdf"}, unreached
+					}
+					return content.Document{Name: "report.pdf", Content: "quarterly numbers"}, nil
+				}
+
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(Succeed())
+				Expect(attempts).To(Equal(map[string]int{"report.pdf": 3}))
+				r := upserted["storageid$spaceid!report.pdf"]
+				Expect(r.Content).To(Equal("quarterly numbers"))
+				Expect(r.ExtractionFailure).To(BeNil())
+			})
+
+			It("indexes a file still out of reach by name without failing the walk", func() {
+				files = []string{"gone.pdf", "report.pdf"}
+				extract = func(name string, _ int) (content.Document, error) {
+					if name == "gone.pdf" {
+						return content.Document{Name: name}, unreached
+					}
+					return content.Document{Name: name}, nil
+				}
+
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(Succeed())
+				Expect(attempts).To(Equal(map[string]int{"gone.pdf": 6, "report.pdf": 1}))
+				Expect(upserted["storageid$spaceid!gone.pdf"].ExtractionFailure).To(Equal(&search.ExtractionFailure{}))
+			})
+
+			It("does not retry a file tika cannot parse", func() {
+				files = []string{"scan.png"}
+				extract = func(name string, _ int) (content.Document, error) {
+					return content.Document{Name: name}, fmt.Errorf("%w %q", content.ErrUnparsable, name)
+				}
+
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(Succeed())
+				Expect(attempts).To(Equal(map[string]int{"scan.png": 1}))
+			})
+
+			It("stops retrying once tika stays down, indexes the remaining files by name and reports it", func() {
+				files = []string{"a.pdf", "b.pdf", "c.pdf", "d.pdf", "e.pdf", "f.pdf", "g.pdf"}
+				extract = func(name string, _ int) (content.Document, error) {
+					return content.Document{Name: name}, unreached
+				}
+
+				err := s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)
+				Expect(err).To(MatchError(unreached))
+				Expect(err).To(MatchError(ContainSubstring("7 files indexed by name only")))
+				Expect(attempts).To(Equal(map[string]int{
+					"a.pdf": 6, "b.pdf": 6, "c.pdf": 6, "d.pdf": 6, "e.pdf": 6,
+					"f.pdf": 1, "g.pdf": 1,
+				}))
+				for _, name := range files {
+					Expect(upserted).To(HaveKey("storageid$spaceid!" + name))
+				}
+			})
+
+			It("retries again once an extraction succeeds after tika was down", func() {
+				files = []string{"a.pdf", "b.pdf", "c.pdf", "d.pdf", "e.pdf", "back.pdf", "z.pdf"}
+				extract = func(name string, attempt int) (content.Document, error) {
+					switch {
+					case name == "back.pdf":
+						return content.Document{Name: name}, nil
+					case name == "z.pdf" && attempt > 1:
+						return content.Document{Name: name}, nil
+					}
+					return content.Document{Name: name}, unreached
+				}
+
+				// tika was down during the walk, which is still reported
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(MatchError(unreached))
+				Expect(attempts).To(HaveKeyWithValue("back.pdf", 1))
+				Expect(attempts).To(HaveKeyWithValue("z.pdf", 2))
+			})
+		})
 	})
 
 	Describe("indexing a resource in full", func() {
