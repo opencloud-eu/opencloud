@@ -8,6 +8,29 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+func TestBindSourcesToStructs_GRPCClientTLSInsecure(t *testing.T) {
+	// setup test env
+	yaml := `
+grpc_client_tls:
+  mode: insecure
+  insecure: true
+`
+	filePath := "etc/opencloud/foo.yaml"
+	fs := fstest.MapFS{
+		filePath: {Data: []byte(yaml)},
+	}
+	// perform test
+	c := Config{}
+	err := binder.BindSourcesToStructsFS(fs, filePath, "foo", &c)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Assert(t, c.GRPCClientTLS != nil)
+	assert.Equal(t, c.GRPCClientTLS.Mode, "insecure")
+	assert.Equal(t, c.GRPCClientTLS.Insecure, true)
+}
+
 func TestBindSourcesToStructs_NoEnvVar(t *testing.T) {
 	// setup test env
 	yaml := `

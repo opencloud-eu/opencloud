@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"os"
-	"strconv"
 
 	mgrpcc "github.com/go-micro/plugins/v4/client/grpc"
 	mtracer "github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry"
@@ -18,9 +17,10 @@ import (
 
 // ClientOptions represent options (e.g. tls settings) for the grpc clients
 type ClientOptions struct {
-	tlsMode string
-	caCert  string
-	tp      trace.TracerProvider
+	tlsMode     string
+	caCert      string
+	tlsInsecure bool
+	tp          trace.TracerProvider
 }
 
 // Option is used to pass client options
@@ -40,6 +40,14 @@ func WithTLSCACert(v string) ClientOption {
 	}
 }
 
+// WithTLSInsecure allows the TLS mode 'insecure' for grpc clients, which
+// skips the verification of the server certificate
+func WithTLSInsecure(v bool) ClientOption {
+	return func(o *ClientOptions) {
+		o.tlsInsecure = v
+	}
+}
+
 // WithTraceProvider allows to set the trace Provider for grpc clients
 func WithTraceProvider(tp trace.TracerProvider) ClientOption {
 	return func(o *ClientOptions) {
@@ -55,6 +63,7 @@ func GetClientOptions(t *shared.GRPCClientTLS) []ClientOption {
 	opts := []ClientOption{
 		WithTLSMode(t.Mode),
 		WithTLSCACert(t.CACert),
+		WithTLSInsecure(t.Insecure),
 	}
 	return opts
 }
@@ -77,7 +86,7 @@ func NewClient(opts ...ClientOption) (client.Client, error) {
 	case "insecure":
 		// Skipping the server certificate check is only meant for development
 		// setups, so it has to be allowed explicitly.
-		if insecure, _ := strconv.ParseBool(os.Getenv("OC_INSECURE")); !insecure {
+		if !options.tlsInsecure {
 			return nil, errors.New("grpc client TLS mode 'insecure' disables server certificate verification and requires OC_INSECURE=true; use OC_GRPC_CLIENT_TLS_MODE=on with a trusted certificate otherwise")
 		}
 		tlsConfig = &tls.Config{
