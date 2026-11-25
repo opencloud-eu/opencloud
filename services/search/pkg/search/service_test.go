@@ -383,6 +383,31 @@ var _ = Describe("Searchprovider", func() {
 				Expect(attempts).To(HaveKeyWithValue("back.pdf", 1))
 				Expect(attempts).To(HaveKeyWithValue("z.pdf", 2))
 			})
+
+			It("skips the extraction while tika does not answer its version", func() {
+				files = []string{"a.pdf", "b.pdf", "c.pdf", "d.pdf", "e.pdf", "f.pdf", "g.pdf"}
+				extract = func(name string, _ int) (content.Document, error) {
+					if name == "g.pdf" {
+						return content.Document{Name: name, Content: "back"}, nil
+					}
+					return content.Document{Name: name}, unreached
+				}
+				// tika hangs from the first file on and answers again once f.pdf is indexed
+				probing := probingExtractor{Extractor: extractor, probe: func() error {
+					if _, back := upserted["storageid$spaceid!f.pdf"]; attempts["a.pdf"] > 0 && !back {
+						return unreached
+					}
+					return nil
+				}}
+				s = search.NewService(gatewaySelector, indexClient, probing, nil, logger, &config.Config{})
+
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(MatchError(unreached))
+				Expect(attempts).To(Equal(map[string]int{"a.pdf": 1, "g.pdf": 1}))
+				for _, name := range files {
+					Expect(upserted).To(HaveKey("storageid$spaceid!" + name))
+				}
+				Expect(upserted["storageid$spaceid!g.pdf"].Content).To(Equal("back"))
+			})
 		})
 	})
 
@@ -1185,4 +1210,14 @@ var _ = DescribeTable("Parse Scope",
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+// probingExtractor adds the cheap reachability check of tika to the extractor mock
+type probingExtractor struct {
+	*contentMocks.Extractor
+	probe func() error
+}
+
+func (p probingExtractor) Probe(context.Context) error {
+	return p.probe()
 }

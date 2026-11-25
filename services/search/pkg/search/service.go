@@ -965,17 +965,17 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 // extract runs the content extraction and retries it while tika or the file is
 // out of reach, unless unreachable is nil or says tika is down
 func (s *Service) extract(ctx context.Context, info *provider.ResourceInfo, unreachable *unreachableExtractions) (content.Document, error) {
-	doc, err := s.extractor.Extract(ctx, info)
 	if unreachable == nil {
-		return doc, err
+		return s.extractor.Extract(ctx, info)
 	}
+	doc, err := s.extractOnce(ctx, info, unreachable.streak > 0)
 	for retry := 0; retry < unreachableRetries && !unreachable.down && isUnreachable(err); retry++ {
 		select {
 		case <-ctx.Done():
 			return doc, err
 		case <-time.After(unreachableRetryDelay):
 		}
-		doc, err = s.extractor.Extract(ctx, info)
+		doc, err = s.extractOnce(ctx, info, true)
 	}
 	if !isUnreachable(err) {
 		unreachable.streak, unreachable.down = 0, false
@@ -990,6 +990,25 @@ func (s *Service) extract(ctx context.Context, info *provider.ResourceInfo, unre
 		s.logger.Warn().Err(err).Int("files", unreachable.streak).Msg("tika or the files stay out of reach, the remaining files are indexed by name without retries until an extraction succeeds")
 	}
 	return doc, err
+}
+
+// extractOnce runs one extraction. With probe set, after tika could not be
+// reached, it first asks tika cheaply whether it answers again and skips the
+// extraction if not, a hanging tika would cost the full timeout per file.
+func (s *Service) extractOnce(ctx context.Context, info *provider.ResourceInfo, probe bool) (content.Document, error) {
+	prober, ok := s.extractor.(content.Prober)
+	if !probe || !ok {
+		return s.extractor.Extract(ctx, info)
+	}
+	probeErr := prober.Probe(ctx)
+	if probeErr == nil {
+		return s.extractor.Extract(ctx, info)
+	}
+	doc, err := s.basic.Extract(ctx, info)
+	if err != nil {
+		return doc, err
+	}
+	return doc, probeErr
 }
 
 // isIndexed reports whether the index holds a live document for info that is at least as new

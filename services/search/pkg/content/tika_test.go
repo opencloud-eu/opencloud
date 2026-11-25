@@ -32,6 +32,7 @@ var _ = Describe("Tika", func() {
 			version       string
 			rmetaStatus   int
 			rmetaHangs    bool
+			versionHangs  bool
 			srv           *httptest.Server
 			tika          *content.Tika
 		)
@@ -44,10 +45,15 @@ var _ = Describe("Tika", func() {
 			fullResponse = ""
 			rmetaStatus = 0
 			rmetaHangs = false
+			versionHangs = false
 			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				out := ""
 				switch req.URL.Path {
 				case "/version":
+					if versionHangs {
+						<-req.Context().Done()
+						return
+					}
 					out = version
 				case "/language":
 					if tika4Language {
@@ -171,6 +177,30 @@ var _ = Describe("Tika", func() {
 			})
 			Expect(err).To(MatchError(context.DeadlineExceeded))
 			Expect(errors.Is(err, content.ErrUnreachable)).To(BeFalse())
+		})
+
+		It("counts a tika that does not even answer its version as unreachable", func() {
+			DeferCleanup(content.SetProbeTimeout(10 * time.Millisecond))
+			rmetaHangs, versionHangs = true, true
+			tika.Timeout = 10 * time.Millisecond
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 1,
+			})
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(errors.Is(err, content.ErrUnreachable)).To(BeTrue())
+		})
+
+		It("probes a tika that answers its version", func() {
+			Expect(tika.Probe(context.TODO())).To(Succeed())
+		})
+
+		It("probes a tika that hangs as unreachable", func() {
+			DeferCleanup(content.SetProbeTimeout(10 * time.Millisecond))
+			versionHangs = true
+
+			Expect(tika.Probe(context.TODO())).To(MatchError(content.ErrUnreachable))
 		})
 
 		It("adds the title", func() {

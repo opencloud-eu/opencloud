@@ -21,6 +21,12 @@ type Extractor interface {
 	Extract(ctx context.Context, ri *provider.ResourceInfo) (Document, error)
 }
 
+// Prober is an Extractor that can tell cheaply whether its backend answers,
+// without the cost of a full extraction
+type Prober interface {
+	Probe(ctx context.Context) error
+}
+
 // unreachable wraps the error of a failed call in ErrUnreachable, unless the
 // other side answered that the request itself is wrong (not found, a 4xx)
 func unreachable(err error) error {

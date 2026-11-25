@@ -23,6 +23,9 @@ import (
 // unreachable tika it fails the same way on the next attempt more often than not
 var ErrUnparsable = errors.New("tika failed to parse")
 
+// tika answers its version without parsing anything, even while busy with a file
+var probeTimeout = 5 * time.Second
+
 // Tika is used to extract content from a resource,
 // it uses apache tika to retrieve all the data.
 type Tika struct {
@@ -153,12 +156,30 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	return doc, nil
 }
 
+// Probe asks tika for its version, which tells a tika that is down or hangs
+// from one busy with a hard file
+func (t Tika) Probe(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	_, err := t.tika.Version(ctx)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrUnreachable, err)
+	}
+	return nil
+}
+
 // attemptError turns an attempt that ran out of time into a failure of the file:
 // tika accepted the request, so a retry would most likely run as long again and
-// stack more work on a tika that may still be parsing
+// stack more work on a tika that may still be parsing. Unless tika does not even
+// answer its version, then it hangs and is unreachable.
 func (t Tika) attemptError(ctx, attemptCtx context.Context, ri *provider.ResourceInfo, err error) error {
-	if ctx.Err() == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
-		return fmt.Errorf("extracting %q took longer than %s: %w", ri.GetName(), t.Timeout, context.DeadlineExceeded)
+	if ctx.Err() != nil || !errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
+		return err
+	}
+	err = fmt.Errorf("extracting %q took longer than %s: %w", ri.GetName(), t.Timeout, context.DeadlineExceeded)
+	probeErr := t.Probe(ctx)
+	if probeErr != nil {
+		return fmt.Errorf("%w, %w", probeErr, err)
 	}
 	return err
 }
