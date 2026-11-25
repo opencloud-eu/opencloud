@@ -289,6 +289,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		cfg.Sharing.Events = _insecureEvents
 		cfg.StorageUsers.Events = _insecureEvents
 		cfg.Nats.Nats.TLSSkipVerifyClientCert = true
+		cfg.GRPCClientTLS = &GRPCClientTLS{Insecure: true}
 		cfg.Proxy = ProxyService{
 			InsecureBackends: true,
 			OIDC: InsecureProxyOIDC{
