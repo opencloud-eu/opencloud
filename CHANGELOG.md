@@ -6,15 +6,9 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
-### ✅ Tests
-
-- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
-- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
-- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
-- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
 ### 🐛 Bug Fixes
 
+- fix(search): answer text on numeric and date fields the same on both engines [[#4122](https://github.com/opencloud-eu/opencloud/pull/4122)]
 - fix(mise): run the pinned golangci-lint in the check:lint task [[#4015](https://github.com/opencloud-eu/opencloud/pull/4015)]
 - fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
 - test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
@@ -25,6 +19,13 @@
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
 - fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
+### ✅ Tests
+
+- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
+- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
+- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
 
 ### 📈 Enhancement
 
