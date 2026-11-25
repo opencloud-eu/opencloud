@@ -160,10 +160,11 @@ The following settings must be set:
 Additionally, the following optional settings can be set:
 
 *   `SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS=true` (default: `true`): ignore stop words like `I`, `you`, `the` during content extraction.
+*   `SEARCH_EXTRACTOR_TIKA_TIMEOUT=5m` (default: `5m`): the time one extraction may take, from downloading the file to the answer of Tika. A longer one counts as a failure of the file, see below. Raise it if OCR of large files takes longer, `0` disables the limit.
 
 #### Files Tika Cannot Parse
 
-A file Tika cannot parse, such as a broken PDF or an image the OCR fails on, is still indexed by name, path and tags, so it stays findable. The content is tried again on later reindexes, the first retry one hour after the failure, the second one day after that. After the third failure the service logs a warning with the path and stops trying until the file changes. If Tika or the file is unreachable, a new or changed file is indexed by name as well, this does not count as a failure and every later reindex tries again.
+A file Tika cannot parse, such as a broken PDF or an image the OCR fails on, is still indexed by name, path and tags, so it stays findable. The same goes for a file the storage refuses to hand out, for example one deleted meanwhile, and for a file whose extraction takes longer than `SEARCH_EXTRACTOR_TIKA_TIMEOUT` while Tika still answers a request for its version. The content is tried again on the first reindex of its space at least one hour after the failure, and on the first one at least one day after that. After the third failure the service logs a warning with the path and stops trying until the file changes. If Tika or the file is unreachable (a failed connection, a server error, too many requests or a Tika that does not answer its version within five seconds), a space reindex retries the extraction up to five times, one second apart, so a restarting Tika does not leave gaps. Once Tika was unreachable, the reindex asks Tika for its version before each extraction and skips the extraction while it gets no answer. A file still unreachable after that is indexed by name as well, this does not count as a failure and every later reindex tries again. After five such files in a row the reindex assumes Tika is down: it indexes the remaining files by name without retries until an extraction succeeds again, and reports an error naming the number of files indexed by name only once the space is done.
 
 To list the files the service gave up on, search for:
 
