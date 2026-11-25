@@ -4563,7 +4563,7 @@ type AddressBookRights struct {
 	MayWrite bool `json:"mayWrite"`
 
 	// The user may modify the “shareWith” property for this AddressBook.
-	MayAdmin bool `json:"mayAdmin"`
+	MayShare bool `json:"mayShare"`
 
 	// The user may delete the AddressBook itself.
 	MayDelete bool `json:"mayDelete"`
@@ -4622,7 +4622,7 @@ type AddressBook struct {
 	//
 	// This is null if the AddressBook is not shared with anyone.
 	//
-	// May be modified only if the user has the mayAdmin right.
+	// May be modified only if the user has the mayShare right.
 	//
 	// The account id for the principals may be found in the urn:ietf:params:jmap:principals:owner capability
 	// of the Account to which the AddressBook belongs.
@@ -5239,7 +5239,7 @@ type CalendarRights struct {
 	MayRSVP bool `json:"mayRSVP"`
 
 	// The user may modify the `shareWith` property for this calendar.
-	MayAdmin bool `json:"mayAdmin"`
+	MayShare bool `json:"mayShare"`
 
 	// The user may delete the calendar itself.
 	MayDelete bool `json:"mayDelete"`
@@ -5377,7 +5377,7 @@ type Calendar struct {
 	//
 	// This is null if the calendar is not shared with anyone.
 	//
-	// May be modified only if the user has the `mayAdmin` right.
+	// May be modified only if the user has the `mayShare` right.
 	//
 	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner`
 	// capability of the `Account` to which the calendar belongs.
@@ -5508,7 +5508,7 @@ type CalendarChange struct {
 	//
 	// This is null if the calendar is not shared with anyone.
 	//
-	// May be modified only if the user has the `mayAdmin` right.
+	// May be modified only if the user has the `mayShare` right.
 	//
 	// The account id for the principals may be found in the `urn:ietf:params:jmap:principals:owner`
 	// capability of the `Account` to which the calendar belongs.
@@ -6847,7 +6847,7 @@ type AddressBookChange struct {
 	//
 	// This is null if the AddressBook is not shared with anyone.
 	//
-	// May be modified only if the user has the mayAdmin right.
+	// May be modified only if the user has the mayShare right.
 	//
 	// The account id for the principals may be found in the urn:ietf:params:jmap:principals:owner capability
 	// of the Account to which the AddressBook belongs.

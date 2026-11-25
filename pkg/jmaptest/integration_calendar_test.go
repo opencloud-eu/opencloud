@@ -134,8 +134,10 @@ func TestEvents(t *testing.T) {
 			require.Contains(result.Payload, accountId)
 			results := result.Payload[accountId]
 			require.Equal(len(results.Results), int(page))
-			require.NotNil(results.Limit)
-			require.Equal(limit, *results.Limit)
+			// the limit is only returned when the server used a different one (RFC 8620 section 5.5)
+			if results.Limit != nil {
+				require.Equal(limit, *results.Limit)
+			}
 			require.NotNil(results.Position)
 			require.Equal(uint(position), *results.Position)
 			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
@@ -162,8 +164,9 @@ func TestEvents(t *testing.T) {
 			l := len(results.Results)
 			require.LessOrEqual(l, chunkSize)
 			require.NotZero(l)
-			require.NotNil(results.Limit)
-			require.Equal(uint(chunkSize), *results.Limit)
+			if results.Limit != nil {
+				require.Equal(uint(chunkSize), *results.Limit)
+			}
 			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)
@@ -295,7 +298,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 			},
 		}
 		if i%2 == 0 {
-			cal.SortOrder = uintPtr(gofakeit.Uint())
+			cal.SortOrder = uintPtr(uint(gofakeit.Uint16()))
 			boxes.sortOrdered = true
 		}
 		var sharing *CalendarRights = nil
@@ -307,7 +310,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 				MayReadFreeBusy:  true,
 				MayReadItems:     true,
 				MayRSVP:          true,
-				MayAdmin:         false,
+				MayShare:         false,
 				MayDelete:        false,
 				MayWriteAll:      false,
 				MayWriteOwn:      false,
@@ -319,7 +322,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 				MayReadFreeBusy:  true,
 				MayReadItems:     true,
 				MayRSVP:          true,
-				MayAdmin:         false,
+				MayShare:         false,
 				MayDelete:        false,
 				MayWriteAll:      false,
 				MayWriteOwn:      true,
@@ -331,7 +334,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 				MayReadFreeBusy:  true,
 				MayReadItems:     true,
 				MayRSVP:          true,
-				MayAdmin:         false,
+				MayShare:         false,
 				MayDelete:        true,
 				MayWriteAll:      true,
 				MayWriteOwn:      true,

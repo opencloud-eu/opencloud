@@ -553,7 +553,7 @@ docker compose up -d
 
 Stalwart >= 0.16 requires its configuration to be loaded into its data storage, which means that we also need to run an import of that configuration once.
 
-It initially starts up in "recovery mode", and waits for a lockfile `.initialize` to exist on its storage volume (`opencloud_full_stalwart-data`).
+It initially starts up in "recovery mode", and waits for a lockfile `.initialize` to exist on its storage volume (`opencloud_full_stalwart-data-v1`).
 
 To import the initial configuration and create that lockfile, run this from the same directory:
 
@@ -563,7 +563,9 @@ docker compose run --rm stalwart-import
 
 The `stalwart` container will detect the existence of the lockfile that is created after successfully importing the configuration, and will then restart its process in regular mode.
 
-This is only required the first time, or whenever one deleted the storage volume `opencloud_full_stalwart-data`.
+This is only required the first time, or whenever one deleted the storage volume `opencloud_full_stalwart-data-v1`.
+
+Stalwart 1.x can't start on the data of Stalwart 0.16, which is why it uses the storage volume `opencloud_full_stalwart-data-v1`. The old volume `opencloud_full_stalwart-data` is not used anymore and can be removed with `docker volume rm opencloud_full_stalwart-data`.
 
 ### Running in an IDE in Production Setup
 
@@ -1151,7 +1153,7 @@ To start with a Stalwart container from scratch, removing all the data (includin
 ```bash
 cd "$OCDIR/opencloud/devtools/deployments/opencloud_full"
 docker compose rm stalwart --stop
-docker volume rm opencloud_full_stalwart-data
+docker volume rm opencloud_full_stalwart-data-v1
 docker compose up -d stalwart
 ```
 
