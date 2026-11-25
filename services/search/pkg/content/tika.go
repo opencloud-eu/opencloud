@@ -70,16 +70,10 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, err
 	}
 
-	if ri.Size == 0 {
-		return doc, nil
-	}
-
-	if ri.Type != provider.ResourceType_RESOURCE_TYPE_FILE {
-		return doc, nil
-	}
-
-	if ri.Size > t.ContentExtractionSizeLimit {
-		t.logger.Info().Interface("ResourceID", ri.Id).Str("Name", ri.Name).Msg("file exceeds content extraction size limit. skipping.")
+	if !t.Remote(ri) {
+		if ri.GetType() == provider.ResourceType_RESOURCE_TYPE_FILE && ri.GetSize() > t.ContentExtractionSizeLimit {
+			t.logger.Info().Interface("ResourceID", ri.GetId()).Str("Name", ri.GetName()).Msg("file exceeds content extraction size limit. skipping.")
+		}
 		return doc, nil
 	}
 
@@ -154,6 +148,12 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 
 	return doc, nil
+}
+
+// Remote tells whether extracting ri goes to tika, only a file with content
+// within the size limit does
+func (t Tika) Remote(ri *provider.ResourceInfo) bool {
+	return ri.GetType() == provider.ResourceType_RESOURCE_TYPE_FILE && ri.GetSize() > 0 && ri.GetSize() <= t.ContentExtractionSizeLimit
 }
 
 // Probe asks tika for its version, which tells a tika that is down or hangs

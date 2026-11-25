@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -191,6 +192,16 @@ var _ = Describe("Tika", func() {
 			Expect(err).To(MatchError(context.DeadlineExceeded))
 			Expect(errors.Is(err, content.ErrUnreachable)).To(BeTrue())
 		})
+
+		DescribeTable("sends only files with content within the size limit to tika",
+			func(info *provider.ResourceInfo, remote bool) {
+				Expect(tika.Remote(info)).To(Equal(remote))
+			},
+			Entry("file", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: 1}, true),
+			Entry("empty file", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE}, false),
+			Entry("file over the limit", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: math.MaxInt64}, false),
+			Entry("folder", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_CONTAINER, Size: 1}, false),
+		)
 
 		It("probes a tika that answers its version", func() {
 			Expect(tika.Probe(context.TODO())).To(Succeed())

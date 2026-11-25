@@ -393,7 +393,7 @@ var _ = Describe("Searchprovider", func() {
 					return content.Document{Name: name}, unreached
 				}
 				// tika hangs from the first file on and answers again once f.pdf is indexed
-				probing := probingExtractor{Extractor: extractor, probe: func() error {
+				probing := probingExtractor{Extractor: extractor, remote: remoteFiles, probe: func() error {
 					if _, back := upserted["storageid$spaceid!f.pdf"]; attempts["a.pdf"] > 0 && !back {
 						return unreached
 					}
@@ -407,6 +407,28 @@ var _ = Describe("Searchprovider", func() {
 					Expect(upserted).To(HaveKey("storageid$spaceid!" + name))
 				}
 				Expect(upserted["storageid$spaceid!g.pdf"].Content).To(Equal("back"))
+			})
+
+			It("keeps tika down across a file the extractor does not send to tika", func() {
+				files = []string{"a.pdf", "b.pdf", "c.pdf", "d.pdf", "e.pdf", "huge.pdf", "f.pdf"}
+				extract = func(name string, _ int) (content.Document, error) {
+					if name == "huge.pdf" {
+						return content.Document{Name: name}, nil
+					}
+					return content.Document{Name: name}, unreached
+				}
+				probing := probingExtractor{
+					Extractor: extractor,
+					remote: func(info *sprovider.ResourceInfo) bool {
+						return remoteFiles(info) && info.GetPath() != "huge.pdf"
+					},
+					probe: func() error { return nil },
+				}
+				s = search.NewService(gatewaySelector, indexClient, probing, nil, logger, &config.Config{})
+
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(MatchError(unreached))
+				Expect(attempts).To(HaveKeyWithValue("huge.pdf", 1))
+				Expect(attempts).To(HaveKeyWithValue("f.pdf", 1))
 			})
 		})
 	})
@@ -1212,12 +1234,21 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-// probingExtractor adds the cheap reachability check of tika to the extractor mock
+// probingExtractor makes the extractor mock one that hands files to tika
 type probingExtractor struct {
 	*contentMocks.Extractor
-	probe func() error
+	probe  func() error
+	remote func(info *sprovider.ResourceInfo) bool
 }
 
 func (p probingExtractor) Probe(context.Context) error {
 	return p.probe()
+}
+
+func (p probingExtractor) Remote(info *sprovider.ResourceInfo) bool {
+	return p.remote(info)
+}
+
+func remoteFiles(info *sprovider.ResourceInfo) bool {
+	return info.GetType() == sprovider.ResourceType_RESOURCE_TYPE_FILE
 }

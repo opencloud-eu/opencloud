@@ -963,9 +963,11 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 }
 
 // extract runs the content extraction and retries it while tika or the file is
-// out of reach, unless unreachable is nil or says tika is down
+// out of reach, unless unreachable is nil or says tika is down. A resource the
+// extractor does not send to tika leaves the count alone, it says nothing about tika.
 func (s *Service) extract(ctx context.Context, info *provider.ResourceInfo, unreachable *unreachableExtractions) (content.Document, error) {
-	if unreachable == nil {
+	remote, ok := s.extractor.(content.RemoteExtractor)
+	if unreachable == nil || (ok && !remote.Remote(info)) {
 		return s.extractor.Extract(ctx, info)
 	}
 	doc, err := s.extractOnce(ctx, info, unreachable.streak > 0)
@@ -996,11 +998,11 @@ func (s *Service) extract(ctx context.Context, info *provider.ResourceInfo, unre
 // reached, it first asks tika cheaply whether it answers again and skips the
 // extraction if not, a hanging tika would cost the full timeout per file.
 func (s *Service) extractOnce(ctx context.Context, info *provider.ResourceInfo, probe bool) (content.Document, error) {
-	prober, ok := s.extractor.(content.Prober)
+	remote, ok := s.extractor.(content.RemoteExtractor)
 	if !probe || !ok {
 		return s.extractor.Extract(ctx, info)
 	}
-	probeErr := prober.Probe(ctx)
+	probeErr := remote.Probe(ctx)
 	if probeErr == nil {
 		return s.extractor.Extract(ctx, info)
 	}

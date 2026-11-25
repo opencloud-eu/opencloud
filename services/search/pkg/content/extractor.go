@@ -21,10 +21,13 @@ type Extractor interface {
 	Extract(ctx context.Context, ri *provider.ResourceInfo) (Document, error)
 }
 
-// Prober is an Extractor that can tell cheaply whether its backend answers,
-// without the cost of a full extraction
-type Prober interface {
+// RemoteExtractor is an Extractor that hands the content to a remote service
+type RemoteExtractor interface {
+	// Probe tells cheaply whether the remote answers, without a full extraction
 	Probe(ctx context.Context) error
+	// Remote tells whether extracting ri goes to the remote at all, a folder or
+	// a file over the size limit does not and says nothing about its state
+	Remote(ri *provider.ResourceInfo) bool
 }
 
 // unreachable wraps the error of a failed call in ErrUnreachable, unless the
