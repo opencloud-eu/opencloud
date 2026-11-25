@@ -4,16 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	revanode "github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/test-go/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestGatherDataRecheck(t *testing.T) {
-	scanStart := time.Now()
-
 	testcases := []struct {
 		Name        string
 		Listed      []string
@@ -229,11 +228,10 @@ func TestGatherDataRecheck(t *testing.T) {
 			},
 		},
 		{
-			Name: "symlink missing but node modified during scan",
+			Name: "symlink missing but exists now",
 			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
-				np := filepath.Join(dir, "node")
-				writeFile(t, np, "")
-				chtimes(t, np, scanStart.Add(time.Minute))
+				np := layoutNode(t, dir, "11223344-aaaa", "55667788-bbbb", "file.txt")
+				layoutLink(t, dir, "55667788-bbbb", "file.txt")
 				return []any{
 						nodeData(np, "", true),
 					},
@@ -241,17 +239,79 @@ func TestGatherDataRecheck(t *testing.T) {
 			},
 		},
 		{
-			Name: "symlink missing and node modified before scan",
+			Name: "symlink missing and still absent",
 			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
-				np := filepath.Join(dir, "node")
-				writeFile(t, np, "")
-				chtimes(t, np, scanStart.Add(-time.Hour))
+				np := layoutNode(t, dir, "11223344-aaaa", "55667788-bbbb", "file.txt")
 				return []any{
 						nodeData(np, "", true),
 					},
 					consistency(func(c *Consistency) {
 						inconsistentNode(c, np, InconsistencySymlinkMissing)
 					})
+			},
+		},
+		{
+			Name: "symlink missing and metadata without parent id",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := layoutNode(t, dir, "11223344-aaaa", "", "file.txt")
+				layoutLink(t, dir, "55667788-bbbb", "file.txt")
+				return []any{
+						nodeData(np, "", true),
+					},
+					consistency(func(c *Consistency) {
+						inconsistentNode(c, np, InconsistencySymlinkMissing)
+					})
+			},
+		},
+		{
+			Name: "symlink missing and metadata without name",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := layoutNode(t, dir, "11223344-aaaa", "55667788-bbbb", "")
+				layoutLink(t, dir, "55667788-bbbb", "file.txt")
+				return []any{
+						nodeData(np, "", true),
+					},
+					consistency(func(c *Consistency) {
+						inconsistentNode(c, np, InconsistencySymlinkMissing)
+					})
+			},
+		},
+		{
+			Name: "symlink missing and no metadata file",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := layoutNode(t, dir, "11223344-aaaa", "55667788-bbbb", "file.txt")
+				require.NoError(t, os.Remove(np+".mpk"))
+				layoutLink(t, dir, "55667788-bbbb", "file.txt")
+				return []any{
+						nodeData(np, "", true),
+					},
+					consistency(func(c *Consistency) {
+						inconsistentNode(c, np, InconsistencySymlinkMissing)
+					})
+			},
+		},
+		{
+			Name: "symlink missing and node trashed",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := layoutNode(t, dir, "11223344-aaaa.T.2026-05-23T08:25:20.006571811Z", "55667788-bbbb", "file.txt")
+				layoutLink(t, dir, "55667788-bbbb", "file.txt")
+				return []any{
+						nodeData(np, "", true),
+					},
+					consistency(func(c *Consistency) {
+						inconsistentNode(c, np, InconsistencySymlinkMissing)
+					})
+			},
+		},
+		{
+			Name: "symlink missing but child of space root exists now",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := layoutNode(t, dir, "11223344-aaaa", "aabbbbcc-dddd", "newfile.txt")
+				layoutLink(t, dir, "aabbbbcc-dddd", "newfile.txt")
+				return []any{
+						nodeData(np, "", true),
+					},
+					consistency(func(c *Consistency) {})
 			},
 		},
 		{
@@ -297,7 +357,7 @@ func TestGatherDataRecheck(t *testing.T) {
 
 			c := NewConsistency()
 			if !tc.SkipRecheck {
-				c.recheck = newRechecker(dir+tc.PathSuffix, lbs, scanStart)
+				c.recheck = newRechecker(dir+tc.PathSuffix, lbs)
 			}
 			c.GatherData(eventChannel(events))
 
@@ -342,9 +402,34 @@ func writeFile(t *testing.T, path, content string) {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 }
 
-func chtimes(t *testing.T, path string, mtime time.Time) {
+func layoutNode(t *testing.T, dir, nodeID, parentID, name string) string {
 	t.Helper()
-	require.NoError(t, os.Chtimes(path, mtime, mtime))
+	np := filepath.Join(nodesDir(dir), lookup.Pathify(nodeID, 4, 2))
+	require.NoError(t, os.MkdirAll(filepath.Dir(np), 0700))
+	writeFile(t, np, "")
+
+	attrs := map[string][]byte{}
+	if parentID != "" {
+		attrs[prefixes.ParentidAttr] = []byte(parentID)
+	}
+	if name != "" {
+		attrs[prefixes.NameAttr] = []byte(name)
+	}
+	b, err := msgpack.Marshal(attrs)
+	require.NoError(t, err)
+	writeFile(t, np+".mpk", string(b))
+	return np
+}
+
+func layoutLink(t *testing.T, dir, parentID, name string) {
+	t.Helper()
+	lp := filepath.Join(nodesDir(dir), lookup.Pathify(parentID, 4, 2), name)
+	require.NoError(t, os.MkdirAll(filepath.Dir(lp), 0700))
+	require.NoError(t, os.Symlink("target", lp))
+}
+
+func nodesDir(dir string) string {
+	return filepath.Join(dir, "spaces", "aa", "bbbb", "nodes")
 }
 
 func nodeData(nodePath, blobPath string, requiresSymlink bool, incs ...Inconsistency) NodeData {

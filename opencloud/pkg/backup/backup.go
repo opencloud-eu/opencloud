@@ -8,8 +8,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"time"
 
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -70,12 +71,11 @@ func NewConsistency() *Consistency {
 	}
 }
 
-func newRechecker(storagepath string, lbs ListBlobstore, scanStart time.Time) *rechecker {
+func newRechecker(storagepath string, lbs ListBlobstore) *rechecker {
 	sep := string(filepath.Separator)
 	return &rechecker{
 		localPrefix: strings.TrimSuffix(filepath.Clean(storagepath), sep) + sep,
 		lbs:         lbs,
-		scanStart:   scanStart,
 	}
 }
 
@@ -83,14 +83,13 @@ func newRechecker(storagepath string, lbs ListBlobstore, scanStart time.Time) *r
 func CheckProviderConsistency(storagepath string, lbs ListBlobstore, fail bool) error {
 	fsys := os.DirFS(storagepath)
 
-	scanStart := time.Now()
 	p := NewProvider(fsys, storagepath, lbs)
 	if err := p.ProduceData(); err != nil {
 		return err
 	}
 
 	c := NewConsistency()
-	c.recheck = newRechecker(storagepath, lbs, scanStart)
+	c.recheck = newRechecker(storagepath, lbs)
 	c.GatherData(p.Events)
 
 	return c.PrintResults(storagepath, fail)
@@ -217,7 +216,6 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 type rechecker struct {
 	localPrefix string
 	lbs         ListBlobstore
-	scanStart   time.Time
 
 	// the blobs are listed at most once and only if a blob outside of the storagepath needs a re-check
 	hasListed bool
@@ -268,7 +266,7 @@ func (r *rechecker) nodeInconsistencyResolved(nodePath string, inc Inconsistency
 	mpkPath := nodePath + ".mpk"
 	switch inc {
 	case InconsistencySymlinkMissing:
-		return r.modifiedDuringScan(nodePath) || r.modifiedDuringScan(mpkPath)
+		return r.symlinkExists(nodePath)
 	case InconsistencyFilesMissing:
 		_, nodeErr := os.Stat(nodePath)
 		_, mpkErr := os.Stat(mpkPath)
@@ -284,9 +282,38 @@ func (r *rechecker) nodeInconsistencyResolved(nodePath string, inc Inconsistency
 	}
 }
 
-func (r *rechecker) modifiedDuringScan(path string) bool {
-	fi, err := os.Stat(path)
-	return err == nil && !fi.ModTime().Before(r.scanStart)
+// symlinkExists checks if the symlink of a child node exists in its parent
+func (r *rechecker) symlinkExists(nodePath string) bool {
+	if _trashRegex.MatchString(nodePath) {
+		return false
+	}
+
+	b, err := os.ReadFile(nodePath + ".mpk")
+	if err != nil {
+		return false
+	}
+	m := map[string][]byte{}
+	if msgpack.Unmarshal(b, &m) != nil {
+		return false
+	}
+	parentID := string(m[prefixes.ParentidAttr])
+	name := string(m[prefixes.NameAttr])
+	if parentID == "" || name == "" {
+		return false
+	}
+
+	const (
+		nodesDir     = "/nodes/"
+		pathifyDepth = 4
+		pathifyWidth = 2
+	)
+	idx := strings.LastIndex(nodePath, nodesDir)
+	if idx < 0 {
+		return false
+	}
+
+	_, err = os.Lstat(filepath.Join(nodePath[:idx+len(nodesDir)], lookup.Pathify(parentID, pathifyDepth, pathifyWidth), name))
+	return err == nil
 }
 
 func deleteInconsistency(incs map[string][]Inconsistency, path string) {
