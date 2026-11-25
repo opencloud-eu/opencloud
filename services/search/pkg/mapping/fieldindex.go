@@ -35,34 +35,17 @@ func FieldNameIndex(t reflect.Type, overrides map[string]FieldOpts) map[string]s
 	return out
 }
 
-// NumericFields lists the fields of t (json names, nested as parent.child) that
-// both backends index as numbers, so a range restriction can target them. The
-// parts of a geopoint are not numbers of their own.
-func NumericFields(t reflect.Type, overrides map[string]FieldOpts) map[string]struct{} {
-	out := map[string]struct{}{}
-	var walk func(t reflect.Type, prefix string)
-	walk = func(t reflect.Type, prefix string) {
-		_ = walkFields(t, func(fi fieldInfo) error {
-			name := fi.Name
-			if prefix != "" {
-				name = prefix + "." + fi.Name
-			}
-
-			fieldType := overrides[name].Type
-			if fieldType == "" {
-				fieldType = inferType(fi.GoField.Type)
-			}
-			switch fieldType {
-			case TypeNumeric:
-				out[name] = struct{}{}
-			case TypeObject:
-				if sub := structType(fi.GoField.Type); sub != nil {
-					walk(sub, name)
-				}
-			}
-			return nil
-		})
+// FieldTypes maps every field of t (nested as "parent.child") to its effective
+// mapping type: the override when there is one, the type inferred from the Go
+// type otherwise.
+func FieldTypes(t reflect.Type, overrides map[string]FieldOpts) map[string]string {
+	out := map[string]string{}
+	for key, goType := range collectFields(t, "") {
+		fieldType := overrides[key].Type
+		if fieldType == "" {
+			fieldType = inferType(goType)
+		}
+		out[key] = fieldType
 	}
-	walk(t, "")
 	return out
 }
