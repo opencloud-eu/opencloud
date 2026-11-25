@@ -93,6 +93,17 @@ var errSkipSpace error
 // burst of uploads instead of spending every attempt inside it
 var extractionRetryDelays = []time.Duration{time.Hour, 24 * time.Hour}
 
+// a restarting tika answers again within seconds, so a space walk retries an
+// extraction that could not reach tika or the file before indexing it by name
+var (
+	unreachableRetries    = 5
+	unreachableRetryDelay = time.Second
+)
+
+// this many files in a row out of reach after their retries means tika is down,
+// not that one file is gone
+const unreachableStreakLimit = 5
+
 // NewService creates a new Provider instance.
 func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
 	// NewBasicExtractor has no failure path
@@ -549,6 +560,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 	}()
 
 	w := walker.NewWalker(s.gatewaySelector)
+	unreachable := &unreachableExtractions{}
 	batch, err := s.engine.NewBatch(s.batchSize)
 	if err != nil {
 		return err
@@ -583,7 +595,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
 
 		if forceRescan {
-			s.doUpsertItem(session.Ctx(), ref, batch)
+			s.doUpsertItem(session.Ctx(), ref, batch, unreachable)
 			return nil
 		}
 
@@ -594,11 +606,15 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		s.doUpsertItem(session.Ctx(), ref, batch)
+		s.doUpsertItem(session.Ctx(), ref, batch, unreachable)
 
 		return nil
 	})
 
+	if err != nil {
+		return err
+	}
+	err = unreachable.err()
 	if err != nil {
 		return err
 	}
@@ -706,19 +722,10 @@ func (s *Service) UpdateMetadata(ref *provider.Reference) {
 	})
 	switch {
 	case errors.Is(err, ErrResourceNotFound):
-		s.upsertResource(ctx, ref, stat, path, nil)
+		s.upsertResource(ctx, ref, stat, path, nil, nil)
 	case err != nil:
 		s.logger.Error().Err(err).Interface("id", stat.GetInfo().GetId()).Msg("failed to update the resource metadata in the index")
 	}
-}
-
-// doUpsertItem indexes or stores Resource data fields.
-func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator) {
-	stat, path := s.resInfo(ctx, ref)
-	if stat == nil || path == "" {
-		return
-	}
-	s.upsertResource(ctx, ref, stat, path, batch)
 }
 
 // SanitizeHighlights keeps the <mark> tags and escapes everything else.
@@ -830,8 +837,18 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	}
 }
 
-// upsertResource extracts and indexes the resource stat describes
-func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, stat *provider.StatResponse, path string, batch BatchOperator) {
+// doUpsertItem indexes or stores Resource data fields.
+func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator, unreachable *unreachableExtractions) {
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
+		return
+	}
+	s.upsertResource(ctx, ref, stat, path, batch, unreachable)
+}
+
+// upsertResource extracts and indexes the resource stat describes, a space walk
+// passes unreachable to retry extractions that could not reach tika or the file
+func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, stat *provider.StatResponse, path string, batch BatchOperator, unreachable *unreachableExtractions) {
 	if utils.IsProcessing(stat.GetInfo()) {
 		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
 		return
@@ -839,7 +856,7 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 
 	// a failed extraction still yields the name, path and tags, the resource
 	// stays findable and a later space walk retries it
-	doc, err := s.extractor.Extract(ctx, stat.GetInfo())
+	doc, err := s.extract(ctx, stat.GetInfo(), unreachable)
 	extractionFailed := err != nil
 	if err != nil {
 		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content")
@@ -859,7 +876,7 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 	r.Hidden = IsHidden(r.Path)
 	if extractionFailed {
 		var write bool
-		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, errors.Is(err, content.ErrUnparsable))
+		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, !isUnreachable(err))
 		if !write {
 			return
 		}
@@ -945,6 +962,57 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 	}
 }
 
+// extract runs the content extraction and retries it while tika or the file is
+// out of reach, unless unreachable is nil or says tika is down. A resource the
+// extractor does not send to tika leaves the count alone, it says nothing about tika.
+func (s *Service) extract(ctx context.Context, info *provider.ResourceInfo, unreachable *unreachableExtractions) (content.Document, error) {
+	remote, ok := s.extractor.(content.RemoteExtractor)
+	if unreachable == nil || (ok && !remote.Remote(info)) {
+		return s.extractor.Extract(ctx, info)
+	}
+	doc, err := s.extractOnce(ctx, info, unreachable.streak > 0)
+	for retry := 0; retry < unreachableRetries && !unreachable.down && isUnreachable(err); retry++ {
+		select {
+		case <-ctx.Done():
+			return doc, err
+		case <-time.After(unreachableRetryDelay):
+		}
+		doc, err = s.extractOnce(ctx, info, true)
+	}
+	if !isUnreachable(err) {
+		unreachable.streak, unreachable.down = 0, false
+		return doc, err
+	}
+
+	unreachable.streak++
+	unreachable.files++
+	unreachable.last = err
+	if unreachable.streak == unreachableStreakLimit {
+		unreachable.down, unreachable.tripped = true, true
+		s.logger.Warn().Err(err).Int("files", unreachable.streak).Msg("tika or the files stay out of reach, the remaining files are indexed by name without retries until an extraction succeeds")
+	}
+	return doc, err
+}
+
+// extractOnce runs one extraction. With probe set, after tika could not be
+// reached, it first asks tika cheaply whether it answers again and skips the
+// extraction if not, a hanging tika would cost the full timeout per file.
+func (s *Service) extractOnce(ctx context.Context, info *provider.ResourceInfo, probe bool) (content.Document, error) {
+	remote, ok := s.extractor.(content.RemoteExtractor)
+	if !probe || !ok {
+		return s.extractor.Extract(ctx, info)
+	}
+	probeErr := remote.Probe(ctx)
+	if probeErr == nil {
+		return s.extractor.Extract(ctx, info)
+	}
+	doc, err := s.basic.Extract(ctx, info)
+	if err != nil {
+		return doc, err
+	}
+	return doc, probeErr
+}
+
 // isIndexed reports whether the index holds a live document for info that is at least as new
 func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bool {
 	r, err := s.engine.Get(ctx, storagespace.FormatResourceID(info.GetId()))
@@ -962,19 +1030,19 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 	return f == nil || f.Count > len(extractionRetryDelays) || (f.RetryAt != nil && time.Now().Before(*f.RetryAt))
 }
 
-// nextExtractionFailure counts a parse failure on top of the ones the indexed
-// entry holds for the same version, a new version starts over. Any other failure
-// (tika or the file unreachable) says nothing about the file: it is not counted,
-// leaves a current entry alone and is retried by every walk. write is false
-// when the indexed entry has to stay as it is.
-func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, unparsable bool) (f *ExtractionFailure, write bool) {
+// nextExtractionFailure counts a failure on top of the ones the indexed entry
+// holds for the same version, a new version starts over. A failure to reach tika
+// or the file (not counted) says nothing about the file: it leaves a current
+// entry alone and is retried by every walk. write is false when the indexed
+// entry has to stay as it is.
+func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, counted bool) (f *ExtractionFailure, write bool) {
 	var previous *Resource
 	r, err := s.engine.Get(ctx, id)
 	switch {
 	case errors.Is(err, ErrResourceNotFound):
 	case err != nil:
 		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures")
-		if !unparsable {
+		if !counted {
 			// without knowing the entry, a name-only document could replace extracted content
 			return nil, false
 		}
@@ -982,7 +1050,7 @@ func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *pr
 		previous = r
 	}
 
-	if !unparsable {
+	if !counted {
 		if previous != nil && !previous.Deleted {
 			return nil, false
 		}
@@ -1057,4 +1125,28 @@ func tokenExpiry(ctx context.Context) (time.Time, error) {
 		return time.Time{}, errors.New("token has no expiry")
 	}
 	return claims.ExpiresAt.Time, nil
+}
+
+// unreachableExtractions follows the extractions of one space walk that could
+// not reach tika or the file. The walk does not stop when tika is down: the
+// files are indexed by name, and IndexSpace reports the outage at the end.
+type unreachableExtractions struct {
+	streak  int
+	down    bool
+	tripped bool
+	files   int
+	last    error
+}
+
+func (u *unreachableExtractions) err() error {
+	if !u.tripped {
+		return nil
+	}
+	return fmt.Errorf("tika or the files were out of reach, %d files indexed by name only: %w", u.files, u.last)
+}
+
+// isUnreachable tells a failure worth retrying from one the next attempt runs
+// into as well, a file tika cannot parse or a download the storage refuses
+func isUnreachable(err error) bool {
+	return errors.Is(err, content.ErrUnreachable)
 }
