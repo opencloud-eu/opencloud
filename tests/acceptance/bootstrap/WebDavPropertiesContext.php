@@ -344,7 +344,7 @@ class WebDavPropertiesContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
-	#[Given('/^user "([^"]*)" sets property "([^"]*)" of (?:file|folder|entry) "([^"]*)" to "([^"]*)"$/')]
+	#[When('/^user "([^"]*)" sets property "([^"]*)" of (?:file|folder|entry) "([^"]*)" to "([^"]*)"$/')]
 	public function userSetsPropertyOfEntryTo(
 		string $user,
 		string $propertyName,

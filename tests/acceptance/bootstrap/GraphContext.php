@@ -3203,16 +3203,13 @@ class GraphContext implements Context {
 	 * @return ResponseInterface
 	 */
 	public function markFavorite(string $user, string $itemId): ResponseInterface {
-		$response = GraphHelper::markFavorite(
+		return GraphHelper::markFavorite(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$itemId
 		);
-
-		$this->featureContext->setResponse($response);
-		return $response;
 	}
 
 	/**
@@ -3222,15 +3219,13 @@ class GraphContext implements Context {
 	 * @return ResponseInterface
 	 */
 	public function unmarkFavorite(string $user, string $itemId): ResponseInterface {
-		$response = GraphHelper::unmarkFavorite(
+		return GraphHelper::unmarkFavorite(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$itemId
 		);
-		$this->featureContext->setResponse($response);
-		return $response;
 	}
 
 	/**
@@ -3252,7 +3247,7 @@ class GraphContext implements Context {
 		$itemId = ($item === 'file')
 			? $this->spacesContext->getFileId($user, $spaceName, $itemName)
 			: $this->spacesContext->getResourceId($user, $spaceName, $itemName);
-		$this->markFavorite($user, $itemId);
+		$this->featureContext->setResponse($this->markFavorite($user, $itemId));
 	}
 
 	/**
@@ -3274,7 +3269,7 @@ class GraphContext implements Context {
 		$itemId = ($item === 'file')
 			? $this->spacesContext->getFileId($user, $spaceName, $itemName)
 			: $this->spacesContext->getResourceId($user, $spaceName, $itemName);
-		$this->unmarkFavorite($user, $itemId);
+		$this->featureContext->setResponse($this->unmarkFavorite($user, $itemId));
 	}
 
 	/**
@@ -3341,24 +3336,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * Send a Graph API request and capture the response on FeatureContext.
-	 *
-	 * @param string $user
-	 * @param string $method
-	 * @param string $relativeUrl
-	 *
-	 * @return void
-	 */
-	private function sendGraphRequestAndCaptureResponse(
-		string $user,
-		string $method,
-		string $relativeUrl
-	): void {
-		$response = $this->featureContext->sendingToWithDirectUrl($user, $method, $relativeUrl);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
 	 * Hits /graph/{version}/drives/{driveID}/root:/{path}, exercising the
 	 * colon-syntax path lookup middleware (root-anchored, no suffix).
 	 *
@@ -3379,7 +3356,7 @@ class GraphContext implements Context {
 		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
 		$encoded = $this->encodeColonPathSegment($path);
 		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded";
-		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+		$this->featureContext->setResponse($this->featureContext->sendingToWithDirectUrl($user, "GET", $url));
 	}
 
 	/**
@@ -3403,7 +3380,7 @@ class GraphContext implements Context {
 		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
 		$encoded = $this->encodeColonPathSegment($path);
 		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded:";
-		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+		$this->featureContext->setResponse($this->featureContext->sendingToWithDirectUrl($user, "GET", $url));
 	}
 
 	/**
@@ -3430,7 +3407,7 @@ class GraphContext implements Context {
 		$folderId = $this->spacesContext->getResourceId($user, $spaceName, $folderName);
 		$encoded = $this->encodeColonPathSegment($relPath);
 		$url = "/graph/$apiVersion/drives/$driveId/items/$folderId:/$encoded";
-		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+		$this->featureContext->setResponse($this->featureContext->sendingToWithDirectUrl($user, "GET", $url));
 	}
 
 	/**
@@ -3455,7 +3432,7 @@ class GraphContext implements Context {
 		$driveId = $this->spacesContext->getSpaceIdByName($user, $spaceName);
 		$encoded = $this->encodeColonPathSegment($path);
 		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded:/permissions";
-		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+		$this->featureContext->setResponse($this->featureContext->sendingToWithDirectUrl($user, "GET", $url));
 	}
 
 	/**
@@ -3482,7 +3459,7 @@ class GraphContext implements Context {
 		$driveId = $this->spacesContext->getSpaceIdByName($owner, "Personal");
 		$encoded = $this->encodeColonPathSegment($path);
 		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded";
-		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
+		$this->featureContext->setResponse($this->featureContext->sendingToWithDirectUrl($user, "GET", $url));
 	}
 
 	/**
