@@ -223,3 +223,72 @@ func TestHandleCreateImpersonationExistingUser(t *testing.T) {
 	assert.Equal(t, "app-password", token.Token)
 	assert.Equal(t, "Generated via API (Impersonation)", token.Label)
 }
+
+func TestHandleCreateLabel(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		impersonate bool
+		wantLabel   string
+	}{
+		{
+			name:      "no label",
+			query:     "expiry=72h",
+			wantLabel: "Generated via API",
+		},
+		{
+			name:      "empty label",
+			query:     "expiry=72h&label=",
+			wantLabel: "Generated via API",
+		},
+		{
+			name:      "custom label",
+			query:     "expiry=72h&label=WebDAV%20sync",
+			wantLabel: "WebDAV sync",
+		},
+		{
+			name:      "custom label with unicode",
+			query:     "expiry=72h&label=Kalender%20f%C3%BCr%20%F0%9F%93%85",
+			wantLabel: "Kalender für 📅",
+		},
+		{
+			name:        "impersonation without label",
+			query:       "expiry=72h&userName=alice",
+			impersonate: true,
+			wantLabel:   "Generated via API (Impersonation)",
+		},
+		{
+			name:        "impersonation keeps its marker on a custom label",
+			query:       "expiry=72h&userName=alice&label=WebDAV%20sync",
+			impersonate: true,
+			wantLabel:   "WebDAV sync (Impersonation)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gwc := cs3mocks.NewGatewayAPIClient(t)
+			if tt.impersonate {
+				gwc.EXPECT().Authenticate(mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{
+					Status: &rpc.Status{Code: rpc.Code_CODE_OK},
+					User:   &userpb.User{Id: &userpb.UserId{OpaqueId: "alice-id"}, Username: "alice"},
+					Token:  "alice-token",
+				}, nil).Once()
+			}
+			gwc.EXPECT().GenerateAppPassword(mock.Anything, mock.MatchedBy(func(req *applications.GenerateAppPasswordRequest) bool {
+				return req.GetLabel() == tt.wantLabel
+			})).Return(&applications.GenerateAppPasswordResponse{
+				Status:      &rpc.Status{Code: rpc.Code_CODE_OK},
+				AppPassword: &applications.AppPassword{Password: "app-password", Label: tt.wantLabel},
+			}, nil).Once()
+
+			rec := httptest.NewRecorder()
+			newTestService(t, gwc, true).ServeHTTP(rec, newCreateRequest(t, tt.query, adminRoleID))
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			var token AuthAppToken
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &token))
+			assert.Equal(t, tt.wantLabel, token.Label)
+		})
+	}
+}
