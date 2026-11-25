@@ -393,6 +393,11 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		logger.Fatal().Err(err).Msg("Failed to load CSP configuration.")
 	}
 
+	var baseURL string
+	if cfg.Commons != nil {
+		baseURL = cfg.Commons.OpenCloudURL
+	}
+
 	return alice.New(
 		pkgmiddleware.ClientIP(trustedProxies, cfg.ClientIP.Header),
 		chimiddleware.RequestID,
@@ -408,7 +413,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		pkgmiddleware.TraceContext,
 		middleware.AccessLog(logger),
 		middleware.ContextLogger(logger),
-		middleware.HTTPSRedirect, // redirect to https if enabled
+		middleware.HTTPSRedirect(logger, baseURL), // redirect to https if enabled
 
 		// 2. Rewrite datagateway url tokens to dataprovider endpoint and
 		// rewrite Location headers in TUS responses to signed datagateway urls
