@@ -371,7 +371,11 @@ func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool)
 	} else {
 		require.Empty(actual.BodyValues)
 	}
-	require.ElementsMatch(slices.Collect(maps.Keys(actual.Keywords)), expected.keywords)
+	// Stalwart >= 1.0 adds one of these keywords to every email by itself
+	actualKeywords := slices.DeleteFunc(slices.Collect(maps.Keys(actual.Keywords)), func(keyword string) bool {
+		return keyword == "$hasattachment" || keyword == "$hasnoattachment"
+	})
+	require.ElementsMatch(actualKeywords, expected.keywords)
 
 	{
 		list := make([]filledAttachment, len(actual.Attachments))

@@ -910,7 +910,7 @@ func (e Exemplar) AddressBook() AddressBook {
 		MyRights: AddressBookRights{
 			MayRead:   true,
 			MayWrite:  true,
-			MayAdmin:  true,
+			MayShare:  true,
 			MayDelete: true,
 		},
 	}
@@ -932,7 +932,7 @@ func (e Exemplar) OtherAddressBook() (AddressBook, string, string) {
 		MyRights: AddressBookRights{
 			MayRead:   true,
 			MayWrite:  true,
-			MayAdmin:  false,
+			MayShare:  false,
 			MayDelete: false,
 		},
 	}, "Another AddressBook", "other"
@@ -1087,7 +1087,7 @@ func (e Exemplar) Calendar() Calendar {
 			MayWriteOwn:      true,
 			MayUpdatePrivate: true,
 			MayRSVP:          true,
-			MayAdmin:         true,
+			MayShare:         true,
 			MayDelete:        true,
 		},
 	}

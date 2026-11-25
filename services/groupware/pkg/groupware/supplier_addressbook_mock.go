@@ -23,7 +23,7 @@ var MockAddressBookSupplierInstance *MockAddressBookSupplier = &MockAddressBookS
 		MyRights: jmap.AddressBookRights{
 			MayRead:   true,
 			MayWrite:  false,
-			MayAdmin:  false,
+			MayShare:  false,
 			MayDelete: false,
 		},
 	}},

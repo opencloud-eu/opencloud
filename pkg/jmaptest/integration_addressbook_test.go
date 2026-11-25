@@ -168,8 +168,10 @@ func TestContacts(t *testing.T) {
 			require.Contains(result.Payload, accountId)
 			results := result.Payload[accountId]
 			require.Equal(len(results.Results), int(page))
-			require.NotNil(results.Limit)
-			require.Equal(limit, *results.Limit)
+			// the limit is only returned when the server used a different one (RFC 8620 section 5.5)
+			if results.Limit != nil {
+				require.Equal(limit, *results.Limit)
+			}
 			require.NotNil(results.Position)
 			require.Equal(uint(position), *results.Position)
 			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
@@ -196,8 +198,9 @@ func TestContacts(t *testing.T) {
 			l := len(results.Results)
 			require.LessOrEqual(l, chunkSize)
 			require.NotZero(l)
-			require.NotNil(results.Limit)
-			require.Equal(uint(chunkSize), *results.Limit)
+			if results.Limit != nil {
+				require.Equal(uint(chunkSize), *results.Limit)
+			}
 			require.Equal(ChangeCalculation(true), results.CanCalculateChanges)
 			require.NotNil(results.Total)
 			require.Equal(count, *results.Total)
@@ -304,7 +307,7 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 			IsSubscribed: &subscribed,
 		}
 		if i%2 == 0 {
-			abook.SortOrder = uintPtr(gofakeit.Uint())
+			abook.SortOrder = uintPtr(uint(gofakeit.Uint16()))
 			boxes.sortOrdered = true
 		}
 		var sharing *AddressBookRights = nil
@@ -312,13 +315,13 @@ func (s *StalwartTest) fillAddressBook( //NOSONAR
 		default:
 			// no sharing
 		case 1:
-			sharing = &AddressBookRights{MayRead: true, MayWrite: true, MayAdmin: false, MayDelete: false}
+			sharing = &AddressBookRights{MayRead: true, MayWrite: true, MayShare: false, MayDelete: false}
 			boxes.sharedReadWrite = true
 		case 2:
-			sharing = &AddressBookRights{MayRead: true, MayWrite: false, MayAdmin: false, MayDelete: false}
+			sharing = &AddressBookRights{MayRead: true, MayWrite: false, MayShare: false, MayDelete: false}
 			boxes.sharedReadOnly = true
 		case 3:
-			sharing = &AddressBookRights{MayRead: true, MayWrite: true, MayAdmin: false, MayDelete: true}
+			sharing = &AddressBookRights{MayRead: true, MayWrite: true, MayShare: false, MayDelete: true}
 			boxes.sharedDelete = true
 		}
 		if sharing != nil {
