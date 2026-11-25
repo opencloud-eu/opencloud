@@ -34,6 +34,8 @@ var _ = Describe("Tika", func() {
 			rmetaStatus   int
 			rmetaHangs    bool
 			versionHangs  bool
+			rmetaPath     string
+			rmetaBytes    int
 			srv           *httptest.Server
 			tika          *content.Tika
 		)
@@ -65,13 +67,16 @@ var _ = Describe("Tika", func() {
 					}
 				case "/language/string":
 					out = language
-				case "/rmeta/text":
+				case "/rmeta/text", "/rmeta/ignore":
+					rmetaPath = req.URL.Path
 					if rmetaHangs {
 						// the server notices the client leaving only once the body is read
 						_, _ = io.Copy(io.Discard, req.Body)
 						<-req.Context().Done()
 						return
 					}
+					received, _ := io.ReadAll(req.Body)
+					rmetaBytes = len(received)
 					if rmetaStatus != 0 {
 						w.WriteHeader(rmetaStatus)
 						return
@@ -193,13 +198,59 @@ var _ = Describe("Tika", func() {
 			Expect(errors.Is(err, content.ErrUnreachable)).To(BeTrue())
 		})
 
-		DescribeTable("sends only files with content within the size limit to tika",
+		Context("with a file over the content extraction size limit", func() {
+			oversized := &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: 8_000_000}
+
+			BeforeEach(func() {
+				body = strings.Repeat("x", 100)
+				tika.ContentExtractionSizeLimit = 10
+				retriever := &contentMocks.Retriever{}
+				retriever.On("Retrieve", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader(body)), nil)
+				tika.Retriever = retriever
+			})
+
+			It("extracts the metadata from the head of the file, without the content", func() {
+				fullResponse = `[{"Content-Type": "image/jpeg", "tiff:Make": "Google", "tiff:ImageWidth": "4080", "tiff:ImageLength": "3072", "tk:content": "not asked for"}]`
+
+				doc, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(rmetaPath).To(Equal("/rmeta/ignore"))
+				Expect(rmetaBytes).To(Equal(10))
+				Expect(doc.Photo.CameraMake).To(Equal(libregraph.PtrString("Google")))
+				Expect(doc.Image.Width).To(Equal(libregraph.PtrInt32(4080)))
+				Expect(doc.Content).To(BeEmpty())
+			})
+
+			It("keeps the metadata when tika fails on the cut", func() {
+				fullResponse = `[{"Content-Type": "image/jpeg", "tiff:ImageWidth": "4080", "tk:exception:container-exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1 err msg: Premature end of JPEG file"}]`
+
+				doc, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(doc.Image.Width).To(Equal(libregraph.PtrInt32(4080)))
+			})
+
+			It("does not count a head tika rejects as a failure of the file", func() {
+				rmetaStatus = http.StatusUnprocessableEntity
+
+				_, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("still reports an unreachable tika", func() {
+				rmetaStatus = http.StatusServiceUnavailable
+
+				_, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).To(MatchError(content.ErrUnreachable))
+			})
+		})
+
+		DescribeTable("sends only files with content to tika",
 			func(info *provider.ResourceInfo, remote bool) {
 				Expect(tika.Remote(info)).To(Equal(remote))
 			},
 			Entry("file", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: 1}, true),
 			Entry("empty file", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE}, false),
-			Entry("file over the limit", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: math.MaxInt64}, false),
+			Entry("file over the limit", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: math.MaxInt64}, true),
 			Entry("folder", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_CONTAINER, Size: 1}, false),
 		)
 

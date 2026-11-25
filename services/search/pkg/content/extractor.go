@@ -26,7 +26,7 @@ type RemoteExtractor interface {
 	// Probe tells cheaply whether the remote answers, without a full extraction
 	Probe(ctx context.Context) error
 	// Remote tells whether extracting ri goes to the remote at all, a folder or
-	// a file over the size limit does not and says nothing about its state
+	// an empty file does not and says nothing about its state
 	Remote(ri *provider.ResourceInfo) bool
 }
 
