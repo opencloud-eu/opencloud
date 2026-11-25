@@ -1064,7 +1064,7 @@ class GuestLinkContext implements Context {
 	 * @param string $folderId
 	 * @param string $destinationFolderId
 	 *
-	 * @return void
+	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
 	private function copyOrMoveIntoFolder(
@@ -1073,20 +1073,18 @@ class GuestLinkContext implements Context {
 		string $path,
 		string $folderId,
 		string $destinationFolderId
-	): void {
-		$this->featureContext->setResponse(
-			WebDavHelper::makeDavRequest(
-				$this->featureContext->getBaseUrl(),
-				null,
-				null,
-				$method,
-				$path,
-				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->getDavUrl($destinationFolderId, \basename($path))]),
-				$folderId,
-				$this->featureContext->getStepLineRef(),
-				null,
-				WebDavHelper::DAV_VERSION_SPACES
-			)
+	): ResponseInterface {
+		return WebDavHelper::makeDavRequest(
+			$this->featureContext->getBaseUrl(),
+			null,
+			null,
+			$method,
+			$path,
+			\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->getDavUrl($destinationFolderId, \basename($path))]),
+			$folderId,
+			$this->featureContext->getStepLineRef(),
+			null,
+			WebDavHelper::DAV_VERSION_SPACES
 		);
 	}
 
@@ -1114,12 +1112,14 @@ class GuestLinkContext implements Context {
 		string $destinationSpace,
 		string $destinationOwner
 	): void {
-		$this->copyOrMoveIntoFolder(
-			$guest,
-			'COPY',
-			$path,
-			$this->spacesContext->getResourceId($owner, $space, $folder),
-			$this->spacesContext->getResourceId($destinationOwner, $destinationSpace, $destinationFolder)
+		$this->featureContext->setResponse(
+			$this->copyOrMoveIntoFolder(
+				$guest,
+				'COPY',
+				$path,
+				$this->spacesContext->getResourceId($owner, $space, $folder),
+				$this->spacesContext->getResourceId($destinationOwner, $destinationSpace, $destinationFolder)
+			)
 		);
 	}
 
@@ -1147,12 +1147,14 @@ class GuestLinkContext implements Context {
 		string $destinationSpace,
 		string $destinationOwner
 	): void {
-		$this->copyOrMoveIntoFolder(
-			$guest,
-			'MOVE',
-			$path,
-			$this->spacesContext->getResourceId($owner, $space, $folder),
-			$this->spacesContext->getResourceId($destinationOwner, $destinationSpace, $destinationFolder)
+		$this->featureContext->setResponse(
+			$this->copyOrMoveIntoFolder(
+				$guest,
+				'MOVE',
+				$path,
+				$this->spacesContext->getResourceId($owner, $space, $folder),
+				$this->spacesContext->getResourceId($destinationOwner, $destinationSpace, $destinationFolder)
+			)
 		);
 	}
 
@@ -1260,7 +1262,7 @@ class GuestLinkContext implements Context {
 		foreach ($resources->getHash() as $row) {
 			$ids[] = 'id=' . \rawurlencode($this->spacesContext->getResourceId($row['owner'], $row['space'], $row['resource']));
 		}
-		$this->downloadArchive($guest, $ids);
+		$this->featureContext->setResponse($this->downloadArchive($guest, $ids));
 	}
 
 	/**
@@ -1273,26 +1275,24 @@ class GuestLinkContext implements Context {
 	 */
 	#[When('guest :guest downloads the archive of space :space of user :owner using the archiver')]
 	public function guestDownloadsTheArchiveOfSpace(string $guest, string $space, string $owner): void {
-		$this->downloadArchive($guest, ['id=' . \rawurlencode($this->spacesContext->getSpaceIdByName($owner, $space))]);
+		$this->featureContext->setResponse($this->downloadArchive($guest, ['id=' . \rawurlencode($this->spacesContext->getSpaceIdByName($owner, $space))]));
 	}
 
 	/**
 	 * @param string $guest
 	 * @param string[] $query
 	 *
-	 * @return void
+	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
-	private function downloadArchive(string $guest, array $query): void {
-		$this->featureContext->setResponse(
-			HttpRequestHelper::sendRequest(
-				$this->featureContext->getBaseUrl() . '/archiver?' . \implode('&', $query),
-				$this->featureContext->getStepLineRef(),
-				'GET',
-				null,
-				null,
-				$this->getSessionHeaders($guest),
-			)
+	private function downloadArchive(string $guest, array $query): ResponseInterface {
+		return HttpRequestHelper::sendRequest(
+			$this->featureContext->getBaseUrl() . '/archiver?' . \implode('&', $query),
+			$this->featureContext->getStepLineRef(),
+			'GET',
+			null,
+			null,
+			$this->getSessionHeaders($guest),
 		);
 	}
 

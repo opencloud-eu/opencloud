@@ -4868,7 +4868,7 @@ class SpacesContext implements Context {
 	 * @param array $headers
 	 * @param string|null $body
 	 *
-	 * @return void
+	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
 	private function sendRequestToSpaceOfShareOwner(
@@ -4878,20 +4878,18 @@ class SpacesContext implements Context {
 		string $path,
 		array $headers = [],
 		?string $body = null
-	): void {
-		$this->featureContext->setResponse(
-			WebDavHelper::makeDavRequest(
-				$this->featureContext->getBaseUrl(),
-				$this->featureContext->getActualUsername($user),
-				$this->featureContext->getPasswordForUser($user),
-				$method,
-				$path,
-				$headers,
-				$this->getSharesRemoteItemParentDriveId($user, $share),
-				$this->featureContext->getStepLineRef(),
-				$body,
-				WebDavHelper::DAV_VERSION_SPACES
-			)
+	): ResponseInterface {
+		return WebDavHelper::makeDavRequest(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getActualUsername($user),
+			$this->featureContext->getPasswordForUser($user),
+			$method,
+			$path,
+			$headers,
+			$this->getSharesRemoteItemParentDriveId($user, $share),
+			$this->featureContext->getStepLineRef(),
+			$body,
+			WebDavHelper::DAV_VERSION_SPACES
 		);
 	}
 
@@ -4904,7 +4902,7 @@ class SpacesContext implements Context {
 	 */
 	#[When('user :user lists the content of the space of the owner of share :share using the WebDAV API')]
 	public function userListsTheContentOfTheSpaceOfTheOwnerOfShare(string $user, string $share): void {
-		$this->sendRequestToSpaceOfShareOwner($user, 'PROPFIND', $share, '', ['Depth' => '1']);
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'PROPFIND', $share, '', ['Depth' => '1']));
 	}
 
 	/**
@@ -4917,7 +4915,7 @@ class SpacesContext implements Context {
 	 */
 	#[When('user :user downloads file :file from the space of the owner of share :share using the WebDAV API')]
 	public function userDownloadsFileFromTheSpaceOfTheOwnerOfShare(string $user, string $file, string $share): void {
-		$this->sendRequestToSpaceOfShareOwner($user, 'GET', $share, $file);
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'GET', $share, $file));
 	}
 
 	/**
@@ -4936,7 +4934,7 @@ class SpacesContext implements Context {
 		string $file,
 		string $share
 	): void {
-		$this->sendRequestToSpaceOfShareOwner($user, 'PUT', $share, $file, [], $content);
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'PUT', $share, $file, [], $content));
 	}
 
 	/**
@@ -4949,7 +4947,7 @@ class SpacesContext implements Context {
 	 */
 	#[When('user :user creates folder :folder in the space of the owner of share :share using the WebDAV API')]
 	public function userCreatesFolderInTheSpaceOfTheOwnerOfShare(string $user, string $folder, string $share): void {
-		$this->sendRequestToSpaceOfShareOwner($user, 'MKCOL', $share, $folder);
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'MKCOL', $share, $folder));
 	}
 
 	/**
@@ -4962,7 +4960,7 @@ class SpacesContext implements Context {
 	 */
 	#[When('user :user deletes file :file from the space of the owner of share :share using the WebDAV API')]
 	public function userDeletesFileFromTheSpaceOfTheOwnerOfShare(string $user, string $file, string $share): void {
-		$this->sendRequestToSpaceOfShareOwner($user, 'DELETE', $share, $file);
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'DELETE', $share, $file));
 	}
 
 	/**
@@ -4972,7 +4970,7 @@ class SpacesContext implements Context {
 	 * @param string $share
 	 * @param string $destination
 	 *
-	 * @return void
+	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 */
 	private function copyOrMoveOutOfShareToSpaceOfShareOwner(
@@ -4981,23 +4979,21 @@ class SpacesContext implements Context {
 		string $file,
 		string $share,
 		string $destination
-	): void {
+	): ResponseInterface {
 		$driveId = $this->getSharesRemoteItemParentDriveId($user, $share);
 		$destinationUrl = $this->featureContext->getBaseUrl() . '/'
 			. WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $driveId) . '/' . $destination;
-		$this->featureContext->setResponse(
-			WebDavHelper::makeDavRequest(
-				$this->featureContext->getBaseUrl(),
-				$this->featureContext->getActualUsername($user),
-				$this->featureContext->getPasswordForUser($user),
-				$method,
-				$file,
-				['Destination' => $destinationUrl],
-				$this->getSharesRemoteItemId($user, $share),
-				$this->featureContext->getStepLineRef(),
-				null,
-				WebDavHelper::DAV_VERSION_SPACES
-			)
+		return WebDavHelper::makeDavRequest(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getActualUsername($user),
+			$this->featureContext->getPasswordForUser($user),
+			$method,
+			$file,
+			['Destination' => $destinationUrl],
+			$this->getSharesRemoteItemId($user, $share),
+			$this->featureContext->getStepLineRef(),
+			null,
+			WebDavHelper::DAV_VERSION_SPACES
 		);
 	}
 
@@ -5017,7 +5013,7 @@ class SpacesContext implements Context {
 		string $share,
 		string $destination
 	): void {
-		$this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'COPY', $file, $share, $destination);
+		$this->featureContext->setResponse($this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'COPY', $file, $share, $destination));
 	}
 
 	/**
@@ -5036,7 +5032,7 @@ class SpacesContext implements Context {
 		string $share,
 		string $destination
 	): void {
-		$this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'MOVE', $file, $share, $destination);
+		$this->featureContext->setResponse($this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'MOVE', $file, $share, $destination));
 	}
 
 	/**
