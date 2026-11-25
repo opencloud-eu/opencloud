@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Inconsistency describes the type of inconsistency
@@ -44,6 +49,11 @@ type Consistency struct {
 
 	nodeToLink map[string]string
 	blobToNode map[string]string
+
+	// recheck drops findings that are resolved by now, nil disables the re-check
+	recheck *rechecker
+	// resolved counts the findings that disappeared when re-checked
+	resolved int
 }
 
 // NewConsistency creates a new Consistency object
@@ -59,16 +69,26 @@ func NewConsistency() *Consistency {
 	}
 }
 
+func newRechecker(storagepath string, lbs ListBlobstore, scanStart time.Time) *rechecker {
+	return &rechecker{
+		storagepath: storagepath,
+		lbs:         lbs,
+		scanStart:   scanStart,
+	}
+}
+
 // CheckProviderConsistency checks the consistency of a space
 func CheckProviderConsistency(storagepath string, lbs ListBlobstore, fail bool) error {
 	fsys := os.DirFS(storagepath)
 
+	scanStart := time.Now()
 	p := NewProvider(fsys, storagepath, lbs)
 	if err := p.ProduceData(); err != nil {
 		return err
 	}
 
 	c := NewConsistency()
+	c.recheck = newRechecker(storagepath, lbs, scanStart)
 	c.GatherData(p.Events)
 
 	return c.PrintResults(storagepath, fail)
@@ -117,18 +137,38 @@ func (c *Consistency) GatherData(events <-chan any) {
 		}
 	}
 
-	for n := range c.Nodes {
-		if len(c.Nodes[n]) == 0 {
-			c.Nodes[n] = append(c.Nodes[n], InconsistencySymlinkMissing)
+	for n, incs := range c.Nodes {
+		if len(incs) == 0 {
+			incs = append(incs, InconsistencySymlinkMissing)
 		}
+		found := len(incs)
+		incs = slices.DeleteFunc(incs, func(inc Inconsistency) bool {
+			return c.recheck.nodeInconsistencyResolved(n, inc)
+		})
+		c.resolved += found - len(incs)
+		if len(incs) == 0 {
+			delete(c.Nodes, n)
+			continue
+		}
+		c.Nodes[n] = incs
 	}
 	for l := range c.LinkedNodes {
+		if c.recheck.nodeExists(l) {
+			delete(c.LinkedNodes, l)
+			c.resolved++
+			continue
+		}
 		c.LinkedNodes[l] = append(c.LinkedNodes[l], InconsistencyNodeMissing)
 	}
 	for b := range c.Blobs {
 		c.Blobs[b] = append(c.Blobs[b], InconsistencyBlobOrphaned)
 	}
 	for b := range c.BlobReferences {
+		if c.recheck.blobExists(b) {
+			delete(c.BlobReferences, b)
+			c.resolved++
+			continue
+		}
 		c.BlobReferences[b] = append(c.BlobReferences[b], InconsistencyBlobMissing)
 	}
 }
@@ -159,6 +199,9 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 	for b := range c.BlobReferences {
 		fmt.Printf("\t👉️ %v\tblob: %s\n\t\t\t\treferencing node:%s\n", c.BlobReferences[b], b, c.blobToNode[b])
 	}
+	if c.resolved > 0 {
+		fmt.Printf("\nℹ️  %d finding(s) resolved on re-check: the storage changed during the scan. For a reliable result run on a quiet system or on a filesystem snapshot.\n", c.resolved)
+	}
 	if len(c.Nodes) == 0 && len(c.LinkedNodes) == 0 && len(c.Blobs) == 0 && len(c.BlobReferences) == 0 {
 		fmt.Printf("💚 No inconsistency found. The backup in '%s' seems to be valid.\n", discpath)
 	} else if fail {
@@ -166,6 +209,82 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 	}
 	return nil
 
+}
+
+// rechecker checks if a finding is resolved by now. All methods are safe to call on a nil rechecker.
+type rechecker struct {
+	storagepath string
+	lbs         ListBlobstore
+	scanStart   time.Time
+
+	// the blobs are listed at most once and only if a blob outside of the storagepath needs a re-check
+	hasListed bool
+	blobs     map[string]struct{}
+}
+
+func (r *rechecker) blobExists(path string) bool {
+	if r == nil {
+		return false
+	}
+
+	if strings.HasPrefix(path, r.storagepath) {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+
+	if r.lbs == nil {
+		return false
+	}
+	if !r.hasListed {
+		r.hasListed = true
+		nodes, err := r.lbs.List()
+		if err == nil {
+			r.blobs = make(map[string]struct{}, len(nodes))
+			for _, n := range nodes {
+				r.blobs[r.lbs.Path(n)] = struct{}{}
+			}
+		}
+	}
+	_, ok := r.blobs[path]
+	return ok
+}
+
+func (r *rechecker) nodeExists(path string) bool {
+	if r == nil {
+		return false
+	}
+
+	_, err := os.Lstat(path)
+	return err == nil
+}
+
+func (r *rechecker) nodeInconsistencyResolved(nodePath string, inc Inconsistency) bool {
+	if r == nil {
+		return false
+	}
+
+	mpkPath := nodePath + ".mpk"
+	switch inc {
+	case InconsistencySymlinkMissing:
+		return r.modifiedDuringScan(nodePath) || r.modifiedDuringScan(mpkPath)
+	case InconsistencyFilesMissing:
+		_, nodeErr := os.Stat(nodePath)
+		_, mpkErr := os.Stat(mpkPath)
+		return nodeErr == nil && mpkErr == nil
+	case InconsistencyMalformedFile:
+		b, err := os.ReadFile(mpkPath)
+		if err != nil {
+			return false
+		}
+		return msgpack.Unmarshal(b, &map[string][]byte{}) == nil
+	default:
+		return false
+	}
+}
+
+func (r *rechecker) modifiedDuringScan(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && !fi.ModTime().Before(r.scanStart)
 }
 
 func deleteInconsistency(incs map[string][]Inconsistency, path string) {
