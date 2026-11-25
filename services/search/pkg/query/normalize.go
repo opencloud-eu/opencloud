@@ -69,6 +69,15 @@ func normalizeNodes(nodes []ast.Node, resolve func(string) string, defaultKey st
 		case *ast.NumberNode:
 			node.Key = resolveKey(node.Key)
 			out = append(out, node)
+		case *ast.GeoDistanceNode:
+			node.Key = resolveKey(node.Key)
+			out = append(out, node)
+		case *ast.GeoBoundingBoxNode:
+			node.Key = resolveKey(node.Key)
+			out = append(out, node)
+		case *ast.GeoPolygonNode:
+			node.Key = resolveKey(node.Key)
+			out = append(out, node)
 		case *ast.GroupNode:
 			groupKey := defaultKey
 			if node.Key != "" {

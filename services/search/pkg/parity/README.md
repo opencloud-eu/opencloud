@@ -517,6 +517,7 @@ Fixtures:
 | GEO-08 | `name:geo.distance(48.2082, 16.3738, 5km)` | bad request | bad request | bad request | ✅ |
 | GEO-09 | `location:geo.distance(48.2082, 1...(47.9, 16.1, 48.3, 16.5)` | vienna.txt | vienna.txt | vienna.txt | ✅ |
 | GEO-10 | `location:geo.distance(48.2082, 16.3738, 5km) AND name:bruck*` | no match | no match | no match | ✅ |
+| GEO-11 | `Location:geo.distance(48.2082, 16.3738, 5km)` | vienna.txt | vienna.txt | vienna.txt | ✅ |
 
 ### scope
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -132,23 +133,17 @@ func ParseNumber(value string) (float64, bool) {
 	return v, true
 }
 
-// geopointFields maps a lowercased KQL key to its indexed geopoint sibling field,
-// derived from the TypeGeopoint entries in the resource field overrides (e.g.
-// "location" -> "location_geopoint", "journey.start" -> "journey.start_geopoint").
-var geopointFields = sync.OnceValue(func() map[string]string {
-	out := map[string]string{}
-	for key, opts := range (search.Resource{}).SearchFieldOverrides() {
-		if opts.Type == mapping.TypeGeopoint {
-			out[strings.ToLower(key)] = key + mapping.GeopointSuffix
-		}
-	}
-	return out
-})
+// FieldIsGeopoint reports whether a field is indexed as a geopoint, so a geo
+// predicate can target its geopoint sibling.
+func FieldIsGeopoint(field string) bool {
+	return fieldTypes()[field] == mapping.TypeGeopoint
+}
 
-// ResolveGeoField maps a KQL key to its indexed geopoint field name. ok is false
-// when the key is not a geopoint field, so callers can reject geo predicates on
-// non-geo fields.
-func ResolveGeoField(name string) (string, bool) {
-	f, ok := geopointFields()[strings.ToLower(name)]
-	return f, ok
+// GeopointField names the indexed geopoint sibling of a field, erroring when
+// the field is not a geopoint.
+func GeopointField(field string) (string, error) {
+	if !FieldIsGeopoint(field) {
+		return "", &kql.GeoFieldError{Key: field}
+	}
+	return field + mapping.GeopointSuffix, nil
 }

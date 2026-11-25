@@ -68,16 +68,6 @@ func fieldQuery(field, value string) bleveQuery.Query {
 	return q
 }
 
-// geoQueryField resolves a KQL geo key to its indexed geopoint field, erroring
-// when the key is not a geopoint field.
-func geoQueryField(key string) (string, error) {
-	field, ok := searchQuery.ResolveGeoField(key)
-	if !ok {
-		return "", &kql.GeoFieldError{Key: key}
-	}
-	return field, nil
-}
-
 // Compiler represents a KQL query search string to the bleve query formatter.
 type Compiler struct{}
 
@@ -241,7 +231,7 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				next = q
 			}
 		case *ast.GeoDistanceNode:
-			field, err := geoQueryField(n.Key)
+			field, err := searchQuery.GeopointField(n.Key)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -253,7 +243,7 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				next = q
 			}
 		case *ast.GeoBoundingBoxNode:
-			field, err := geoQueryField(n.Key)
+			field, err := searchQuery.GeopointField(n.Key)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -266,7 +256,7 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				next = q
 			}
 		case *ast.GeoPolygonNode:
-			field, err := geoQueryField(n.Key)
+			field, err := searchQuery.GeopointField(n.Key)
 			if err != nil {
 				return nil, 0, err
 			}
