@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -31,6 +32,7 @@ type Tika struct {
 	tikaURL                    string
 	ContentExtractionSizeLimit uint64
 	CleanStopWords             bool
+	Timeout                    time.Duration
 }
 
 // NewTikaExtractor creates a new Tika instance.
@@ -54,6 +56,7 @@ func NewTikaExtractor(gatewaySelector pool.Selectable[gateway.GatewayAPIClient],
 		tikaURL:                    cfg.Extractor.Tika.TikaURL,
 		ContentExtractionSizeLimit: cfg.ContentExtractionSizeLimit,
 		CleanStopWords:             cfg.Extractor.Tika.CleanStopWords,
+		Timeout:                    cfg.Extractor.Tika.Timeout,
 	}, nil
 }
 
@@ -77,6 +80,13 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, nil
 	}
 
+	// a tika that hangs instead of refusing connections would block the walk
+	if t.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, t.Timeout)
+		defer cancel()
+	}
+
 	data, err := t.Retrieve(ctx, ri.Id)
 	if err != nil {
 		return doc, err
@@ -85,7 +95,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 
 	metas, err := t.tika.MetaRecursive(ctx, data)
 	if err != nil {
-		return doc, err
+		return doc, unreachable(err)
 	}
 	// a file with content always yields metadata, none means tika failed on it
 	if len(metas) == 0 {

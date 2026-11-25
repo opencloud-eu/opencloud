@@ -51,6 +51,8 @@ func DefaultConfig() *config.Config {
 			Tika: config.ExtractorTika{
 				TikaURL:        "http://127.0.0.1:9998",
 				CleanStopWords: false,
+				// the task timeout of tika server 3, tika 4 allows up to an hour per file
+				Timeout: 5 * time.Minute,
 			},
 		},
 		Events: config.Events{

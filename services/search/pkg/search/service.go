@@ -876,7 +876,7 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 	r.Hidden = IsHidden(r.Path)
 	if extractionFailed {
 		var write bool
-		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, errors.Is(err, content.ErrUnparsable))
+		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, !isUnreachable(err))
 		if !write {
 			return
 		}
@@ -1009,19 +1009,19 @@ func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bo
 	return f == nil || f.Count > len(extractionRetryDelays) || (f.RetryAt != nil && time.Now().Before(*f.RetryAt))
 }
 
-// nextExtractionFailure counts a parse failure on top of the ones the indexed
-// entry holds for the same version, a new version starts over. Any other failure
-// (tika or the file unreachable) says nothing about the file: it is not counted,
-// leaves a current entry alone and is retried by every walk. write is false
-// when the indexed entry has to stay as it is.
-func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, unparsable bool) (f *ExtractionFailure, write bool) {
+// nextExtractionFailure counts a failure on top of the ones the indexed entry
+// holds for the same version, a new version starts over. A failure to reach tika
+// or the file (not counted) says nothing about the file: it leaves a current
+// entry alone and is retried by every walk. write is false when the indexed
+// entry has to stay as it is.
+func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, counted bool) (f *ExtractionFailure, write bool) {
 	var previous *Resource
 	r, err := s.engine.Get(ctx, id)
 	switch {
 	case errors.Is(err, ErrResourceNotFound):
 	case err != nil:
 		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures")
-		if !unparsable {
+		if !counted {
 			// without knowing the entry, a name-only document could replace extracted content
 			return nil, false
 		}
@@ -1029,7 +1029,7 @@ func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *pr
 		previous = r
 	}
 
-	if !unparsable {
+	if !counted {
 		if previous != nil && !previous.Deleted {
 			return nil, false
 		}
@@ -1124,8 +1124,8 @@ func (u *unreachableExtractions) err() error {
 	return fmt.Errorf("tika or the files were out of reach, %d files indexed by name only: %w", u.files, u.last)
 }
 
-// isUnreachable tells a failure worth retrying from a file tika cannot parse,
-// which fails the same way on the next attempt
+// isUnreachable tells a failure worth retrying from one the next attempt runs
+// into as well, a file tika cannot parse or a download the storage refuses
 func isUnreachable(err error) bool {
-	return err != nil && !errors.Is(err, content.ErrUnparsable)
+	return errors.Is(err, content.ErrUnreachable)
 }

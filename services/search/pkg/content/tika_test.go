@@ -2,11 +2,13 @@ package content_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +30,8 @@ var _ = Describe("Tika", func() {
 			language      string
 			tika4Language bool
 			version       string
+			rmetaStatus   int
+			rmetaHangs    bool
 			srv           *httptest.Server
 			tika          *content.Tika
 		)
@@ -38,6 +42,8 @@ var _ = Describe("Tika", func() {
 			tika4Language = false
 			version = ""
 			fullResponse = ""
+			rmetaStatus = 0
+			rmetaHangs = false
 			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				out := ""
 				switch req.URL.Path {
@@ -53,6 +59,16 @@ var _ = Describe("Tika", func() {
 				case "/language/string":
 					out = language
 				case "/rmeta/text":
+					if rmetaHangs {
+						// the server notices the client leaving only once the body is read
+						_, _ = io.Copy(io.Discard, req.Body)
+						<-req.Context().Done()
+						return
+					}
+					if rmetaStatus != 0 {
+						w.WriteHeader(rmetaStatus)
+						return
+					}
 					if fullResponse != "" {
 						out = fullResponse
 					} else {
@@ -128,6 +144,33 @@ var _ = Describe("Tika", func() {
 			Entry("tika 4", `[{"tk:content": "", "tk:exception:container-exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1\n\tat org.apache.tika.parser.ocr.TesseractOCRParser.doOCR"}]`),
 			Entry("tika 3", `[{"X-TIKA:content": "", "X-TIKA:EXCEPTION:container_exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1\n\tat org.apache.tika.parser.ocr.TesseractOCRParser.doOCR"}]`),
 		)
+
+		DescribeTable("tells an unreachable tika from a request it rejects",
+			func(status int, unreachable bool) {
+				rmetaStatus = status
+
+				_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+					Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+					Size: 1,
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, content.ErrUnreachable)).To(Equal(unreachable))
+			},
+			Entry("server error", http.StatusServiceUnavailable, true),
+			Entry("unprocessable file", http.StatusUnprocessableEntity, false),
+		)
+
+		It("gives up on a tika that does not answer in time", func() {
+			rmetaHangs = true
+			tika.Timeout = 10 * time.Millisecond
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 1,
+			})
+			Expect(err).To(MatchError(content.ErrUnreachable))
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+		})
 
 		It("adds the title", func() {
 			fullResponse = `[{"dc:title": "quarterly report", "X-TIKA:content": "some data"}]`

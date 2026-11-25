@@ -234,7 +234,7 @@ var _ = Describe("Searchprovider", func() {
 				extract   func(name string, attempt int) (content.Document, error)
 				attempts  map[string]int
 				upserted  map[string]search.Resource
-				unreached = errors.New("connection refused")
+				unreached = fmt.Errorf("%w: connection refused", content.ErrUnreachable)
 			)
 
 			BeforeEach(func() {
@@ -335,6 +335,17 @@ var _ = Describe("Searchprovider", func() {
 
 				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(Succeed())
 				Expect(attempts).To(Equal(map[string]int{"scan.png": 1}))
+			})
+
+			It("does not retry a download the storage refuses and counts it as a failure", func() {
+				files = []string{"gone.pdf"}
+				extract = func(name string, _ int) (content.Document, error) {
+					return content.Document{Name: name}, errors.New("could not load resoure: not found")
+				}
+
+				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(Succeed())
+				Expect(attempts).To(Equal(map[string]int{"gone.pdf": 1}))
+				Expect(upserted["storageid$spaceid!gone.pdf"].ExtractionFailure.Count).To(Equal(1))
 			})
 
 			It("stops retrying once tika stays down, indexes the remaining files by name and reports it", func() {
@@ -465,7 +476,7 @@ var _ = Describe("Searchprovider", func() {
 					Status: status.NewOK(context.Background()),
 					Info:   ri,
 				}, nil)
-				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, errors.New("connection refused"))
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{Name: "scan.png"}, fmt.Errorf("%w: connection refused", content.ErrUnreachable))
 				indexClient.On("Get", mock.Anything, mock.Anything).Return(previous, getErr)
 
 				var indexed []search.Resource
