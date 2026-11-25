@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-24
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- fix(proxy): add includeSubDomains to the Strict-Transport-Security header [[#4116](https://github.com/opencloud-eu/opencloud/pull/4116)]
 - feat(search): keep tika out of tag updates and retry incomplete extractions [[#4113](https://github.com/opencloud-eu/opencloud/pull/4113)]
 - feat(audit): log the space name when a space is deleted [[#4112](https://github.com/opencloud-eu/opencloud/pull/4112)]
 - feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
