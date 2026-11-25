@@ -1,6 +1,7 @@
 package init
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +19,7 @@ func createConfig(t *testing.T, insecure bool) map[string]any {
 		t.Fatalf("creating the config: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(configPath, configFilename))
+	data, err := fs.ReadFile(os.DirFS(configPath), configFilename)
 	if err != nil {
 		t.Fatalf("reading the config: %v", err)
 	}
