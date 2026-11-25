@@ -4,6 +4,7 @@ package backup
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -70,8 +71,9 @@ func NewConsistency() *Consistency {
 }
 
 func newRechecker(storagepath string, lbs ListBlobstore, scanStart time.Time) *rechecker {
+	sep := string(filepath.Separator)
 	return &rechecker{
-		storagepath: storagepath,
+		localPrefix: strings.TrimSuffix(filepath.Clean(storagepath), sep) + sep,
 		lbs:         lbs,
 		scanStart:   scanStart,
 	}
@@ -213,7 +215,7 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 
 // rechecker checks if a finding is resolved by now. All methods are safe to call on a nil rechecker.
 type rechecker struct {
-	storagepath string
+	localPrefix string
 	lbs         ListBlobstore
 	scanStart   time.Time
 
@@ -227,7 +229,7 @@ func (r *rechecker) blobExists(path string) bool {
 		return false
 	}
 
-	if strings.HasPrefix(path, r.storagepath) {
+	if strings.HasPrefix(path, r.localPrefix) {
 		_, err := os.Stat(path)
 		return err == nil
 	}

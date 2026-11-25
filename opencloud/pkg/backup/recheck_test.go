@@ -19,6 +19,8 @@ func TestGatherDataRecheck(t *testing.T) {
 		Listed      []string
 		ExpectList  bool
 		SkipRecheck bool
+		PathSuffix  string
+		ListSibling bool
 		Setup       func(t *testing.T, dir string) (events []any, expected *Consistency)
 	}{
 		{
@@ -63,7 +65,7 @@ func TestGatherDataRecheck(t *testing.T) {
 		},
 		{
 			Name:       "remote blob missing but listed now",
-			Listed:     []string{"blob"},
+			Listed:     []string{"bucket/blob"},
 			ExpectList: true,
 			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
 				np := filepath.Join(dir, "node")
@@ -75,7 +77,7 @@ func TestGatherDataRecheck(t *testing.T) {
 		},
 		{
 			Name:       "remote blob missing and still absent",
-			Listed:     []string{"other"},
+			Listed:     []string{"bucket/other"},
 			ExpectList: true,
 			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
 				np := filepath.Join(dir, "node")
@@ -89,7 +91,7 @@ func TestGatherDataRecheck(t *testing.T) {
 		},
 		{
 			Name:   "no remote findings - no listing",
-			Listed: []string{"blob"},
+			Listed: []string{"bucket/blob"},
 			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
 				np := filepath.Join(dir, "node")
 				bp := filepath.Join(dir, "blob")
@@ -98,6 +100,57 @@ func TestGatherDataRecheck(t *testing.T) {
 					},
 					consistency(func(c *Consistency) {
 						blobReference(c, bp, InconsistencyBlobMissing)
+					})
+			},
+		},
+		{
+			Name:       "storage path with trailing slash",
+			PathSuffix: "/",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := filepath.Join(dir, "node")
+				bp := filepath.Join(dir, "blob")
+				writeFile(t, bp, "data")
+				return []any{
+						nodeData(np, bp, false),
+					},
+					consistency(func(c *Consistency) {})
+			},
+		},
+		{
+			Name:       "uncleaned storage path",
+			PathSuffix: "/./",
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := filepath.Join(dir, "node")
+				bp := filepath.Join(dir, "blob")
+				writeFile(t, bp, "data")
+				return []any{
+						nodeData(np, bp, false),
+					},
+					consistency(func(c *Consistency) {})
+			},
+		},
+		{
+			Name:        "sibling of storage path is not local - listed now",
+			ListSibling: true,
+			ExpectList:  true,
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := filepath.Join(dir, "node")
+				return []any{
+						nodeData(np, dir+"2/blob", false),
+					},
+					consistency(func(c *Consistency) {})
+			},
+		},
+		{
+			Name:       "sibling of storage path is not local - still absent",
+			ExpectList: true,
+			Setup: func(t *testing.T, dir string) ([]any, *Consistency) {
+				np := filepath.Join(dir, "node")
+				return []any{
+						nodeData(np, dir+"2/blob", false),
+					},
+					consistency(func(c *Consistency) {
+						blobReference(c, dir+"2/blob", InconsistencyBlobMissing)
 					})
 			},
 		},
@@ -236,11 +289,15 @@ func TestGatherDataRecheck(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			dir := t.TempDir()
 			events, expected := tc.Setup(t, dir)
-			lbs := &fakeBlobstore{listed: tc.Listed}
+			listed := tc.Listed
+			if tc.ListSibling {
+				listed = append(listed, dir+"2/blob")
+			}
+			lbs := &fakeBlobstore{listed: listed}
 
 			c := NewConsistency()
 			if !tc.SkipRecheck {
-				c.recheck = newRechecker(dir, lbs, scanStart)
+				c.recheck = newRechecker(dir+tc.PathSuffix, lbs, scanStart)
 			}
 			c.GatherData(eventChannel(events))
 
@@ -277,7 +334,7 @@ func (f *fakeBlobstore) List() ([]*revanode.Node, error) {
 }
 
 func (f *fakeBlobstore) Path(n *revanode.Node) string {
-	return "bucket/" + n.BlobID
+	return n.BlobID
 }
 
 func writeFile(t *testing.T, path, content string) {
