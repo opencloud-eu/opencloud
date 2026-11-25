@@ -11,6 +11,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -56,6 +57,8 @@ type Consistency struct {
 	recheck *rechecker
 	// resolved counts the findings that disappeared when re-checked
 	resolved int
+	// inFlight counts the nodes that still process an upload, their missing blobs are not reported
+	inFlight int
 }
 
 // NewConsistency creates a new Consistency object
@@ -170,6 +173,11 @@ func (c *Consistency) GatherData(events <-chan any) {
 			c.resolved++
 			continue
 		}
+		if c.recheck.nodeProcessing(c.blobToNode[b]) {
+			delete(c.BlobReferences, b)
+			c.inFlight++
+			continue
+		}
 		c.BlobReferences[b] = append(c.BlobReferences[b], InconsistencyBlobMissing)
 	}
 }
@@ -202,6 +210,9 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 	}
 	if c.resolved > 0 {
 		fmt.Printf("\nℹ️  %d finding(s) resolved on re-check: the storage changed during the scan. For a reliable result run on a quiet system or on a filesystem snapshot.\n", c.resolved)
+	}
+	if c.inFlight > 0 {
+		fmt.Printf("\nℹ️  %d node(s) still processing an upload, their blobs are skipped.\n", c.inFlight)
 	}
 	if len(c.Nodes) == 0 && len(c.LinkedNodes) == 0 && len(c.Blobs) == 0 && len(c.BlobReferences) == 0 {
 		fmt.Printf("💚 No inconsistency found. The backup in '%s' seems to be valid.\n", discpath)
@@ -313,6 +324,30 @@ func (r *rechecker) symlinkExists(nodePath string) bool {
 	}
 
 	_, err = os.Lstat(filepath.Join(nodePath[:idx+len(nodesDir)], lookup.Pathify(parentID, pathifyDepth, pathifyWidth), name))
+	return err == nil
+}
+
+// nodeProcessing checks if the node still processes an upload, meaning its blob may not be written yet.
+// A processing marker without an upload session is stale and does not count.
+func (r *rechecker) nodeProcessing(nodePath string) bool {
+	if r == nil {
+		return false
+	}
+
+	b, err := os.ReadFile(nodePath + ".mpk")
+	if err != nil {
+		return false
+	}
+	m := map[string][]byte{}
+	if msgpack.Unmarshal(b, &m) != nil {
+		return false
+	}
+	id, ok := strings.CutPrefix(string(m[prefixes.StatusPrefix]), node.ProcessingStatus)
+	if !ok || id == "" {
+		return false
+	}
+
+	_, err = os.Stat(filepath.Join(r.localPrefix, "uploads", id+".info"))
 	return err == nil
 }
 

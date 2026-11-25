@@ -475,3 +475,75 @@ func orphanedBlob(c *Consistency, path string, inc ...Inconsistency) {
 func blobReference(c *Consistency, path string, inc ...Inconsistency) {
 	c.BlobReferences[path] = inc
 }
+
+func TestGatherDataInFlight(t *testing.T) {
+	testcases := []struct {
+		Name      string
+		Attrs     map[string][]byte
+		SessionID string
+		InFlight  int
+	}{
+		{
+			Name:      "processing with upload session",
+			Attrs:     map[string][]byte{prefixes.StatusPrefix: []byte(revanode.ProcessingStatus + "upload")},
+			SessionID: "upload",
+			InFlight:  1,
+		},
+		{
+			Name:  "processing without upload session",
+			Attrs: map[string][]byte{prefixes.StatusPrefix: []byte(revanode.ProcessingStatus + "upload")},
+		},
+		{
+			Name:  "not processing",
+			Attrs: map[string][]byte{},
+		},
+		{
+			Name:      "processing with empty upload id",
+			Attrs:     map[string][]byte{prefixes.StatusPrefix: []byte(revanode.ProcessingStatus)},
+			SessionID: "upload",
+		},
+		{
+			Name:      "empty status",
+			Attrs:     map[string][]byte{prefixes.StatusPrefix: {}},
+			SessionID: "upload",
+		},
+		{
+			Name:      "no metadata file",
+			SessionID: "upload",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			dir := t.TempDir()
+			np := filepath.Join(dir, "node")
+			bp := filepath.Join(dir, "blob")
+			if tc.Attrs != nil {
+				b, err := msgpack.Marshal(tc.Attrs)
+				require.NoError(t, err)
+				writeFile(t, np+".mpk", string(b))
+			}
+			if tc.SessionID != "" {
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, "uploads"), 0700))
+				writeFile(t, filepath.Join(dir, "uploads", tc.SessionID+".info"), "{}")
+			}
+
+			expected := consistency(func(c *Consistency) {
+				if tc.InFlight == 0 {
+					blobReference(c, bp, InconsistencyBlobMissing)
+				}
+			})
+
+			c := NewConsistency()
+			c.recheck = newRechecker(dir, nil)
+			c.GatherData(eventChannel([]any{nodeData(np, bp, false)}))
+
+			require.Equal(t, expected.Nodes, c.Nodes)
+			require.Equal(t, expected.LinkedNodes, c.LinkedNodes)
+			require.Equal(t, expected.Blobs, c.Blobs)
+			require.Equal(t, expected.BlobReferences, c.BlobReferences)
+			require.Equal(t, tc.InFlight, c.inFlight)
+			require.Equal(t, 0, c.resolved)
+		})
+	}
+}
