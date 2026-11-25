@@ -88,8 +88,12 @@ set -e
 base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)
 gobin=$(go env GOBIN)
 [ -n "$gobin" ] || gobin="$(go env GOPATH)/bin"
-bin="$gobin/golangci-lint-$(awk '/golangci-lint v/ {print $3}' .bingo/golangci-lint.mod)"
-[ -x "$bin" ] || make -s golangci-lint >/dev/null
+# the version pinned by bingo, e.g. "require github.com/golangci/golangci-lint/v2 v2.13.2"
+version=$(awk '/^require .*golangci-lint/ {print $3}' .bingo/golangci-lint.mod)
+[ -n "$version" ] || { echo "no golangci-lint version in .bingo/golangci-lint.mod" >&2; exit 1; }
+bin="$gobin/golangci-lint-$version"
+# only build the pinned binary: the golangci-lint make target lints the whole tree
+[ -x "$bin" ] || make -s "$bin" >/dev/null
 exec "$bin" run --modules-download-mode vendor --timeout 15m0s --new-from-merge-base "$base"
 """
 
