@@ -37,8 +37,12 @@ func assertInsecureModeRejected(t *testing.T, c client.Client, err error) {
 	if c != nil {
 		t.Errorf("expected no client on error, got %v", c)
 	}
-	if !strings.Contains(err.Error(), "OC_INSECURE") {
-		t.Errorf("expected the error to name OC_INSECURE, got %q", err)
+	// the permission can be given through the environment or the config file,
+	// so the error has to name both
+	for _, setting := range []string{"OC_INSECURE", "grpc_client_tls.insecure"} {
+		if !strings.Contains(err.Error(), setting) {
+			t.Errorf("expected the error to name %s, got %q", setting, err)
+		}
 	}
 }
 

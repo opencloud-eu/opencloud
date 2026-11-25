@@ -87,7 +87,7 @@ func NewClient(opts ...ClientOption) (client.Client, error) {
 		// Skipping the server certificate check is only meant for development
 		// setups, so it has to be allowed explicitly.
 		if !options.tlsInsecure {
-			return nil, errors.New("grpc client TLS mode 'insecure' disables server certificate verification and requires OC_INSECURE=true; use OC_GRPC_CLIENT_TLS_MODE=on with a trusted certificate otherwise")
+			return nil, errors.New("grpc client TLS mode 'insecure' disables server certificate verification and requires OC_INSECURE=true or grpc_client_tls.insecure: true in the config file; use OC_GRPC_CLIENT_TLS_MODE=on with a trusted certificate otherwise")
 		}
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: true,
