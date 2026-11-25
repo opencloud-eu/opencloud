@@ -6,6 +6,19 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
+### 🐛 Bug Fixes
+
+- fix(mise): run the pinned golangci-lint in the check:lint task [[#4015](https://github.com/opencloud-eu/opencloud/pull/4015)]
+- fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
+- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
+- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
+- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
+- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
+- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
+- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
+- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
+- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
 ### ✅ Tests
 
 - test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
@@ -22,18 +35,6 @@
 - feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
 - feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
 - feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
-
-### 🐛 Bug Fixes
-
-- fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
-- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
-- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
-- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
-- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
-- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
-- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
-- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
-- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
 
 ### 📦️ Dependencies
 
