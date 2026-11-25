@@ -39,6 +39,7 @@ var driveItemFields = map[string]string{
 	"lastModifiedDateTime": "Mtime",
 	"mimeType":             "MimeType",
 	"@libre.graph.tags":    "Tags",
+	"location":             "location",
 }
 
 // indexField resolves a field spelled like the driveItem property, and only
@@ -94,6 +95,9 @@ func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*search
 		}
 		if md := a.LibreGraphMetricDefinition; md != nil {
 			agg.MetricDefinition = &searchsvc.MetricDefinition{Kind: metricKinds[md.Kind]}
+		}
+		if gd := a.LibreGraphGeohashDefinition; gd != nil {
+			agg.GeohashDefinition = &searchsvc.GeohashDefinition{Precision: gd.Precision}
 		}
 		out = append(out, agg)
 	}

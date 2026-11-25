@@ -923,3 +923,17 @@ Fixtures:
 | AGG-42 | `mediatype:audio` reads `the total counts every match` | 1 of 10050 matches | 1 of 10050 matches | 1 of 10050 matches | ✅ |
 | AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches` | 10001 of 10050 matches | 10001 of 10050 matches | bad request | ❌ known |
 | AGG-44 | `mediatype:audio` reads `more than 65535 buckets in one request are refused` | bad request | bad request | bad request | ✅ |
+
+### geohash
+
+Fixtures:
+
+- `skagen-a.jpg`, MimeType = image/jpeg
+- `skagen-b.jpg`, MimeType = image/jpeg
+- `berlin.jpg`, MimeType = image/jpeg
+- `nowhere.jpg`, MimeType = image/jpeg
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| AGG-50 | `mediatype:image` reads `geohash cells at precision 5` | location u33dc=1, location u4pru=2 | location u33dc=1, location u4pru=2 | location u33dc=1, location u4pru=2 | ✅ |
+| AGG-51 | `mediatype:image` reads `camera buckets nested in geohash cells at precision 3` | location u... Leica=1, location u... Leica=2, location u33=1, location u4p=2 | location u... Leica=1, location u... Leica=2, location u33=1, location u4p=2 | location u... Leica=1, location u... Leica=2, location u33=1, location u4p=2 | ✅ |

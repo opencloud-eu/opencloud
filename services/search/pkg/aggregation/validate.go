@@ -56,6 +56,13 @@ func validateOptions(opts []*searchsvc.AggregationOption, fieldType func(string)
 			if err := validateRangeField(field, t, parsed); err != nil {
 				return err
 			}
+		case KindGeohash:
+			if t != mapping.TypeGeopoint {
+				return fmt.Errorf("geohash aggregation needs a geopoint field, %q is none", field)
+			}
+			if p := opt.GetGeohashDefinition().GetPrecision(); p < 1 || p > MaxGeohashPrecision {
+				return fmt.Errorf("geohash precision %d on %q is out of range 1-%d", p, field, MaxGeohashPrecision)
+			}
 		case KindTerms:
 			if err := validateTermsField(field, t); err != nil {
 				return err

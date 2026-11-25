@@ -39,6 +39,7 @@ var _ = Describe("ValidateOptions", func() {
 		Entry("numeric ranges on a number", &searchsvc.AggregationOption{Field: "audio.year", BucketDefinition: numeric}),
 		Entry("date ranges on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", BucketDefinition: dates}),
 		Entry("a metric on a number", &searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: sum}),
+		Entry("geohash cells on a geopoint", &searchsvc.AggregationOption{Field: "location", GeohashDefinition: &searchsvc.GeohashDefinition{Precision: 5}}),
 		Entry("a tree of them", &searchsvc.AggregationOption{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{
 			{Field: "audio.year", BucketDefinition: numeric, SubAggregations: []*searchsvc.AggregationOption{
 				{Field: "audio.album"}, {Field: "audio.year", MetricDefinition: sum},
@@ -56,6 +57,9 @@ var _ = Describe("ValidateOptions", func() {
 		Entry("terms on a path", &searchsvc.AggregationOption{Field: "Path"}),
 		Entry("terms on a facet object", &searchsvc.AggregationOption{Field: "audio"}),
 		Entry("terms on a geopoint", &searchsvc.AggregationOption{Field: "location"}),
+		Entry("geohash cells on a keyword", &searchsvc.AggregationOption{Field: "audio.artist", GeohashDefinition: &searchsvc.GeohashDefinition{Precision: 5}}),
+		Entry("a geohash precision of 0", &searchsvc.AggregationOption{Field: "location", GeohashDefinition: &searchsvc.GeohashDefinition{}}),
+		Entry("a geohash precision beyond 12", &searchsvc.AggregationOption{Field: "location", GeohashDefinition: &searchsvc.GeohashDefinition{Precision: 13}}),
 		Entry("a metric on a keyword", &searchsvc.AggregationOption{Field: "audio.artist", MetricDefinition: sum}),
 		Entry("a metric on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", MetricDefinition: sum}),
 		Entry("a metric with sub-aggregations", &searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: sum,

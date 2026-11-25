@@ -448,10 +448,6 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Body.String()).To(ContainSubstring(property))
 		},
 		ginkgo.Entry("sortProperties", `"sortProperties": [{"name": "name"}]`, "sortProperties"),
-		ginkgo.Entry("a geohash aggregation",
-			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
-		ginkgo.Entry("a nested geohash aggregation",
-			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]}]`, "geohashDefinition"),
 	)
 
 	ginkgo.It("rejects more than 5 requests with 400", func() {
@@ -460,6 +456,16 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		rr := postSearchQuery(graphWithoutSearch(), body)
 		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
 		Expect(rr.Body.String()).To(ContainSubstring("at most 5 requests"))
+	})
+
+	ginkgo.It("forwards a geohash aggregation to the search service", func() {
+		g, captured := graphWithSearchAnswer(&searchsvc.SearchResponse{})
+		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		Expect(captured().GetAggregations()).To(HaveLen(1))
+		Expect(captured().GetAggregations()[0].GetField()).To(Equal("location"))
+		Expect(captured().GetAggregations()[0].GetGeohashDefinition().GetPrecision()).To(Equal(int32(5)))
 	})
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {

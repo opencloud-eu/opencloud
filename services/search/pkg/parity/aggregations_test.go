@@ -50,6 +50,7 @@ func aggregationGroups() []aggGroup {
 	return []aggGroup{
 		{name: "aggregations", fixtures: aggregationFixtures(), cases: aggregationCases()},
 		{name: "cardinality", fixtures: cardinalityFixtures(), cases: cardinalityCases()},
+		{name: "geohash", fixtures: geohashFixtures(), cases: geohashCases()},
 	}
 }
 
@@ -421,6 +422,42 @@ func cardinalityCases() []aggCase {
 		{id: 44, query: "mediatype:audio", reads: "more than 65535 buckets in one request are refused",
 			aggs:           []*searchService.AggregationOption{nested("audio.artist", "Name", "ID", "RootID", "ParentID", "audio.album", "audio.year")},
 			wantBadRequest: true},
+	}
+}
+
+// two in one precision-5 cell (u4pru), one in another (u33dc)
+func geohashFixtures() []search.Resource {
+	withGeo := func(name string, lat, lon float64) search.Resource {
+		return fixtureDoc(name, withMime("image/jpeg"),
+			withPhoto(&libregraph.Photo{CameraMake: libregraph.PtrString("Leica")}),
+			withLocation(&libregraph.GeoCoordinates{Latitude: &lat, Longitude: &lon}))
+	}
+	return []search.Resource{
+		withGeo("skagen-a.jpg", 57.64911, 10.40744),
+		withGeo("skagen-b.jpg", 57.6495, 10.4090),
+		withGeo("berlin.jpg", 52.52, 13.405),
+		fixtureDoc("nowhere.jpg", withMime("image/jpeg")),
+	}
+}
+
+func geohashCases() []aggCase {
+	cells := func(field string, precision int32, subs ...*searchService.AggregationOption) *searchService.AggregationOption {
+		return &searchService.AggregationOption{
+			Field:             field,
+			GeohashDefinition: &searchService.GeohashDefinition{Precision: precision},
+			SubAggregations:   subs,
+		}
+	}
+	return []aggCase{
+		{id: 50, query: "mediatype:image", reads: "geohash cells at precision 5",
+			aggs: []*searchService.AggregationOption{cells("location", 5)},
+			want: []string{"location u4pru=2", "location u33dc=1"}},
+		{id: 51, query: "mediatype:image", reads: "camera buckets nested in geohash cells at precision 3",
+			aggs: []*searchService.AggregationOption{cells("location", 3, &searchService.AggregationOption{Field: "photo.cameraMake"})},
+			want: []string{
+				"location u4p=2", "location u4p=2 / photo.cameraMake Leica=2",
+				"location u33=1", "location u33=1 / photo.cameraMake Leica=1",
+			}},
 	}
 }
 

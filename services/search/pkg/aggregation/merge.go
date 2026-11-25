@@ -107,7 +107,7 @@ func shapeBuckets(opt *searchsvc.AggregationOption, buckets []*searchsvc.Bucket)
 
 	// size shapes terms aggregations only, a range aggregation returns the
 	// ranges it was asked for
-	if size := int(opt.GetSize()); size > 0 && KindOf(opt) == KindTerms && len(buckets) > size {
+	if size := int(opt.GetSize()); size > 0 && KindOf(opt) != KindRange && len(buckets) > size {
 		buckets = buckets[:size]
 	}
 	return buckets

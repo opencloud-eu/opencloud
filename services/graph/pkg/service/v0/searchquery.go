@@ -95,18 +95,6 @@ func unsupportedProperty(sr libregraph.SearchRequest) string {
 	if len(sr.SortProperties) > 0 {
 		return "sortProperties"
 	}
-	var geohash func(aggs []libregraph.AggregationOption) bool
-	geohash = func(aggs []libregraph.AggregationOption) bool {
-		for _, a := range aggs {
-			if a.LibreGraphGeohashDefinition != nil || geohash(a.LibreGraphSubAggregations) {
-				return true
-			}
-		}
-		return false
-	}
-	if geohash(sr.Aggregations) {
-		return "@libre.graph.geohashDefinition"
-	}
 	return ""
 }
 
@@ -240,8 +228,14 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		if a.Field == "" {
 			return fmt.Errorf("aggregation field must not be empty")
 		}
-		if a.BucketDefinition != nil && a.LibreGraphMetricDefinition != nil {
-			return fmt.Errorf("aggregation on %q sets more than one of bucketDefinition and @libre.graph.metricDefinition", a.Field)
+		definitions := 0
+		for _, set := range []bool{a.BucketDefinition != nil, a.LibreGraphMetricDefinition != nil, a.LibreGraphGeohashDefinition != nil} {
+			if set {
+				definitions++
+			}
+		}
+		if definitions > 1 {
+			return fmt.Errorf("aggregation on %q sets more than one of bucketDefinition, @libre.graph.metricDefinition and @libre.graph.geohashDefinition", a.Field)
 		}
 		if a.Size != nil && *a.Size < 1 {
 			return fmt.Errorf("size of the aggregation on %q must be at least 1", a.Field)

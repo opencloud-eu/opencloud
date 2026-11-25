@@ -3,6 +3,8 @@ package bleve
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve/v2/numeric"
@@ -38,6 +40,8 @@ type aggLevel struct {
 	opt       *searchService.AggregationOption
 	kind      aggregation.Kind
 	fieldType string
+	field     string
+	prefix    string
 	ranges    aggregation.Ranges
 	children  []*aggLevel
 }
@@ -49,7 +53,11 @@ func (l *aggLevel) numericTerms() bool {
 }
 
 func newAggLevel(opt *searchService.AggregationOption) (*aggLevel, error) {
-	l := &aggLevel{opt: opt, kind: aggregation.KindOf(opt), fieldType: search.FieldType(opt.GetField())}
+	l := &aggLevel{opt: opt, kind: aggregation.KindOf(opt), fieldType: search.FieldType(opt.GetField()), field: opt.GetField()}
+	if l.kind == aggregation.KindGeohash {
+		l.field = opt.GetField() + geohashSuffix
+		l.prefix = strconv.Itoa(int(opt.GetGeohashDefinition().GetPrecision())) + "/"
+	}
 	if l.kind == aggregation.KindRange {
 		ranges, err := aggregation.ParseRanges(opt.GetField(), opt.GetBucketDefinition().GetRanges())
 		if err != nil {
@@ -123,13 +131,13 @@ func newAggCollector(aggs []*searchService.AggregationOption) (*aggCollector, er
 }
 
 func (c *aggCollector) register(l *aggLevel) {
-	fv, ok := c.fields[l.opt.GetField()]
+	fv, ok := c.fields[l.field]
 	if !ok {
 		fv = &fieldValues{}
-		c.fields[l.opt.GetField()] = fv
-		c.fieldNames = append(c.fieldNames, l.opt.GetField())
+		c.fields[l.field] = fv
+		c.fieldNames = append(c.fieldNames, l.field)
 	}
-	if l.kind == aggregation.KindTerms && !l.numericTerms() {
+	if l.kind == aggregation.KindGeohash || l.kind == aggregation.KindTerms && !l.numericTerms() {
 		fv.asTerms = true
 	} else {
 		fv.asNumbers = true
@@ -203,8 +211,14 @@ func (c *aggCollector) visit(field string, term []byte) {
 }
 
 func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
-	fv := c.fields[l.opt.GetField()]
+	fv := c.fields[l.field]
 	switch l.kind {
+	case aggregation.KindGeohash:
+		for _, term := range fv.terms {
+			if cell, ok := strings.CutPrefix(term, l.prefix); ok {
+				c.foldBucket(a, l, cell)
+			}
+		}
 	case aggregation.KindMetric:
 		for _, raw := range fv.numbers {
 			aggregation.Observe(a.metric, numeric.Int64ToFloat64(raw))

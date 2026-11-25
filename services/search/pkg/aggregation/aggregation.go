@@ -18,13 +18,19 @@ const (
 	KindTerms Kind = iota
 	KindRange
 	KindMetric
+	KindGeohash
 )
+
+// MaxGeohashPrecision is the longest geohash a cell can have.
+const MaxGeohashPrecision = 12
 
 // KindOf tells the kind from the definitions an option carries.
 func KindOf(opt *searchsvc.AggregationOption) Kind {
 	switch {
 	case opt.GetMetricDefinition() != nil:
 		return KindMetric
+	case opt.GetGeohashDefinition() != nil:
+		return KindGeohash
 	case len(opt.GetBucketDefinition().GetRanges()) > 0:
 		return KindRange
 	}
