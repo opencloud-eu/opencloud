@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// ErrUnreachable marks a failure to reach tika or the file, a failed connection,
-// a timeout or a server error, the next attempt may well get through
+// ErrUnreachable marks a failure to reach tika or the file, a failed connection
+// or a server error, the next attempt may well get through
 var ErrUnreachable = errors.New("tika or the file is unreachable")
 
 // Extractor is responsible to extract content and meta information from documents.
@@ -25,7 +25,7 @@ type Extractor interface {
 // other side answered that the request itself is wrong (not found, a 4xx)
 func unreachable(err error) error {
 	var tikaErr tika.ClientError
-	if errors.As(err, &tikaErr) && tikaErr.StatusCode < http.StatusInternalServerError {
+	if errors.As(err, &tikaErr) && !transientStatus(tikaErr.StatusCode) {
 		return err
 	}
 	if s, ok := status.FromError(err); ok {
@@ -36,6 +36,12 @@ func unreachable(err error) error {
 		}
 	}
 	return fmt.Errorf("%w: %w", ErrUnreachable, err)
+}
+
+// transientStatus tells an http status the next attempt may get past, a server
+// error or too many requests, from an answer about the request itself
+func transientStatus(code int) bool {
+	return code >= http.StatusInternalServerError || code == http.StatusTooManyRequests
 }
 
 // getFirstValue returns the first metadata value present among keys, trying them

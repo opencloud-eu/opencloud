@@ -81,21 +81,22 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 
 	// a tika that hangs instead of refusing connections would block the walk
+	attemptCtx := ctx
 	if t.Timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, t.Timeout)
+		attemptCtx, cancel = context.WithTimeout(ctx, t.Timeout)
 		defer cancel()
 	}
 
-	data, err := t.Retrieve(ctx, ri.Id)
+	data, err := t.Retrieve(attemptCtx, ri.GetId())
 	if err != nil {
-		return doc, err
+		return doc, t.attemptError(ctx, attemptCtx, ri, err)
 	}
 	defer data.Close()
 
-	metas, err := t.tika.MetaRecursive(ctx, data)
+	metas, err := t.tika.MetaRecursive(attemptCtx, data)
 	if err != nil {
-		return doc, unreachable(err)
+		return doc, t.attemptError(ctx, attemptCtx, ri, unreachable(err))
 	}
 	// a file with content always yields metadata, none means tika failed on it
 	if len(metas) == 0 {
@@ -145,11 +146,21 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
 	}
 
-	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
+	if langCode := t.detectLanguage(attemptCtx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
 	}
 
 	return doc, nil
+}
+
+// attemptError turns an attempt that ran out of time into a failure of the file:
+// tika accepted the request, so a retry would most likely run as long again and
+// stack more work on a tika that may still be parsing
+func (t Tika) attemptError(ctx, attemptCtx context.Context, ri *provider.ResourceInfo, err error) error {
+	if ctx.Err() == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("extracting %q took longer than %s: %w", ri.GetName(), t.Timeout, context.DeadlineExceeded)
+	}
+	return err
 }
 
 // detectLanguage asks tika for the language of content. Tika 4 moved the

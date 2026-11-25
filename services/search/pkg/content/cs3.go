@@ -85,7 +85,7 @@ func (s cs3) Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadClo
 
 	if cres.StatusCode != http.StatusOK {
 		err := fmt.Errorf("could not download resource. Request returned with statuscode %d ", cres.StatusCode)
-		if cres.StatusCode >= http.StatusInternalServerError {
+		if transientStatus(cres.StatusCode) {
 			err = fmt.Errorf("%w: %w", ErrUnreachable, err)
 		}
 		return nil, err

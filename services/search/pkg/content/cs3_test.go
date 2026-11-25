@@ -84,6 +84,7 @@ var _ = Describe("cs3 retriever", func() {
 		}, true),
 		Entry("storage unavailable", func() { download(rpc.Code_CODE_UNAVAILABLE) }, true),
 		Entry("data server error", func() { download(rpc.Code_CODE_OK); downloadStatus = http.StatusBadGateway }, true),
+		Entry("data server busy", func() { download(rpc.Code_CODE_OK); downloadStatus = http.StatusTooManyRequests }, true),
 		Entry("data server down", func() { download(rpc.Code_CODE_OK); downloadSrv.Close() }, true),
 		Entry("file not found", func() { download(rpc.Code_CODE_NOT_FOUND) }, false),
 		Entry("permission denied", func() { download(rpc.Code_CODE_PERMISSION_DENIED) }, false),

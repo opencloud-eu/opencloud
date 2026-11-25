@@ -157,10 +157,11 @@ var _ = Describe("Tika", func() {
 				Expect(errors.Is(err, content.ErrUnreachable)).To(Equal(unreachable))
 			},
 			Entry("server error", http.StatusServiceUnavailable, true),
+			Entry("too many requests", http.StatusTooManyRequests, true),
 			Entry("unprocessable file", http.StatusUnprocessableEntity, false),
 		)
 
-		It("gives up on a tika that does not answer in time", func() {
+		It("counts a tika that does not answer in time as a failure of the file", func() {
 			rmetaHangs = true
 			tika.Timeout = 10 * time.Millisecond
 
@@ -168,8 +169,8 @@ var _ = Describe("Tika", func() {
 				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
 				Size: 1,
 			})
-			Expect(err).To(MatchError(content.ErrUnreachable))
 			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(errors.Is(err, content.ErrUnreachable)).To(BeFalse())
 		})
 
 		It("adds the title", func() {
