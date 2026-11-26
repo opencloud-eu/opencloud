@@ -7,7 +7,7 @@ Feature: get file properties
     Given using OCS API version "1"
     And user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: user sends a PROPFIND request on various file names
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "uploaded content" to "<file-name>"
@@ -263,7 +263,7 @@ Feature: get file properties
       | new              | textfile.txt |
       | spaces           | textfile.txt |
 
-  @smokeTest @issue-2809
+  @issue-2809
   Scenario Outline: retrieving a private link
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/somefile.txt"

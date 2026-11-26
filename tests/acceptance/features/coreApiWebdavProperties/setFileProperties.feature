@@ -7,7 +7,7 @@ Feature: set file properties
     Given using OCS API version "1"
     And user "Alice" has been created with default attributes
 
-  @smokeTest @issue-1263
+  @issue-1263
   Scenario Outline: setting custom DAV property and reading it
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "testcustomprop.txt"

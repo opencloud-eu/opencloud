@@ -253,7 +253,7 @@ Feature: antivirus
       | eicar.com     | virusFile1.txt | Virus found in virusFile1.txt. Upload not possible. Virus: |
       | eicar_com.zip | virusFile2.zip | Virus found in virusFile2.zip. Upload not possible. Virus: |
 
-  @env-config  @issue-6494
+  @env-config @issue-6494
   Scenario Outline: upload a file with virus by setting antivirus infected file handling config to continue
     Given the config "ANTIVIRUS_INFECTED_FILE_HANDLING" has been set to "continue"
     And using <dav-path-version> DAV path

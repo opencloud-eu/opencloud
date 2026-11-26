@@ -13,7 +13,7 @@ Feature: MOVE file/folder
     And user "Alice" has created folder "/FOLDER"
     And user "Alice" has uploaded file with content "some data" to "/PARENT/parent.txt"
 
-  @smokeTest
+
   Scenario: send MOVE requests to webDav endpoints as normal user with wrong password
     When user "Alice" requests these endpoints with "MOVE" using password "invalid" about user "Alice"
       | endpoint                                |
@@ -27,7 +27,7 @@ Feature: MOVE file/folder
       | /dav/spaces/%spaceid%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "401"
 
-  @smokeTest
+
   Scenario: send MOVE requests to webDav endpoints as normal user with no password
     When user "Alice" requests these endpoints with "MOVE" using password "" about user "Alice"
       | endpoint                                |
@@ -88,7 +88,7 @@ Feature: MOVE file/folder
       | /dav/spaces/%spaceid%/PARENT/parent.txt |
     Then the HTTP status code of responses on all endpoints should be "401"
 
-  @smokeTest
+
   Scenario: send MOVE requests to webDav endpoints without any authentication
     When a user requests these endpoints with "MOVE" with no authentication about user "Alice"
       | endpoint                                |

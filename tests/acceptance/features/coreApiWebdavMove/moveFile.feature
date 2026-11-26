@@ -7,7 +7,7 @@ Feature: move (rename) file
     Given using OCS API version "1"
     And user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: moving a file
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER"
@@ -23,7 +23,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: moving and overwriting a file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 0 v1" to "textfile0.txt"
@@ -56,7 +56,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: moving (renaming) a file to a file with only different case to an existing file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "textfile0.txt"
@@ -175,7 +175,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @sqliteDB
+
   Scenario Outline: renaming to a file with special characters
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "textfile0.txt"
@@ -242,7 +242,7 @@ Feature: move (rename) file
       | spaces           | /...          | abcd.txt    |
       | spaces           | /...          | ...         |
 
-  @smokeTest
+
   Scenario Outline: user tries to move a file that doesnt exist into a folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "FOLDER"
@@ -255,7 +255,7 @@ Feature: move (rename) file
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: user tries to rename a file that doesn't exist
     Given using <dav-path-version> DAV path
     When user "Alice" moves file "/doesNotExist.txt" to "/exist.txt" using the WebDAV API

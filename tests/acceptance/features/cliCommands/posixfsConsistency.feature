@@ -1,4 +1,4 @@
-@env-config @skipOnOpencloud-decomposed-Storage @skipOnOpencloud-decomposeds3-Storage
+@env-config @skipOnOpencloud-decomposed-Storage
 Feature: posixfs consistency CLI command
   As an administrator
   I want to check and repair the consistency of the posix filesystem metadata
