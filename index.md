@@ -303,14 +303,14 @@ While writing tests for a new OpenCloud ENV configuration, please make sure to f
 
 ### Running Test Suite With Email Service (@email)
 
-Test suites that are tagged with `@email` require an email service. We use inbucket as the email service in our tests.
+Test suites that are tagged with `@email` require an email service. We use [mailpit](https://mailpit.axllent.org/) as the email service in our tests: it catches the emails that OpenCloud sends via SMTP (port 1025), and the tests read them through its API (port 8025). Its web UI at http://localhost:8025 shows the caught emails.
 
-#### Setup Inbucket
+#### Setup Mailpit
 
-Run the following command to setup inbucket
+Run the following command to setup mailpit
 
 ```bash
-docker run -d -p9000:9000 -p2500:2500 --name inbucket inbucket/inbucket
+docker run -d -p 127.0.0.1:8025:8025 -p 127.0.0.1:1025:1025 --name mailpit axllent/mailpit:v1.32.0
 ```
 
 #### Run OpenCloud
@@ -326,7 +326,7 @@ opencloud/bin/opencloud init --insecure true
 PROXY_ENABLE_BASIC_AUTH=true \
 OC_ADD_RUN_SERVICES=notifications \
 NOTIFICATIONS_SMTP_HOST=localhost \
-NOTIFICATIONS_SMTP_PORT=2500 \
+NOTIFICATIONS_SMTP_PORT=1025 \
 NOTIFICATIONS_SMTP_INSECURE=true \
 NOTIFICATIONS_SMTP_SENDER="OpenCloud <noreply@example.com>" \
 opencloud/bin/opencloud server
@@ -339,7 +339,7 @@ Run the acceptance test with the following command:
 ```bash
 TEST_SERVER_URL="https://localhost:9200" \
 EMAIL_HOST="localhost" \
-EMAIL_PORT=9000 \
+EMAIL_PORT=8025 \
 BEHAT_FEATURE="tests/acceptance/features/apiNotification/emailNotification.feature" \
 make test-acceptance-api
 ```
