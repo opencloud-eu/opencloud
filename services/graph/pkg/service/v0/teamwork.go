@@ -9,6 +9,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
@@ -104,7 +105,12 @@ func (g Graph) SendActivityNotification(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	ref := &storageprovider.Reference{ResourceId: &itemID}
+	resourceID, ok := g.resolveShareJailID(w, r, gatewayClient, &itemID)
+	if !ok {
+		return
+	}
+
+	ref := &storageprovider.Reference{ResourceId: resourceID}
 
 	statResponse, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{Ref: ref})
 	switch {
@@ -194,4 +200,40 @@ func (g Graph) SendActivityNotification(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// resolveShareJailID maps a share jail id to the shared resource. Its opaque id is the
+// caller's own received share id, which no other user can resolve.
+func (g Graph) resolveShareJailID(w http.ResponseWriter, r *http.Request, gatewayClient gateway.GatewayAPIClient, id *storageprovider.ResourceId) (*storageprovider.ResourceId, bool) {
+	if !IsShareJail(id) {
+		return id, true
+	}
+
+	res, err := gatewayClient.GetReceivedShare(r.Context(), &collaboration.GetReceivedShareRequest{
+		Ref: &collaboration.ShareReference{
+			Spec: &collaboration.ShareReference_Id{
+				Id: ExtractShareIdFromResourceId(id),
+			},
+		},
+	})
+	switch {
+	case err != nil:
+		g.logger.Error().Err(err).Msg("could not get the received share")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not get the received share")
+		return nil, false
+	case res.GetStatus().GetCode() == rpc.Code_CODE_NOT_FOUND,
+		res.GetStatus().GetCode() == rpc.Code_CODE_PERMISSION_DENIED,
+		res.GetStatus().GetCode() == rpc.Code_CODE_OK && res.GetShare().GetShare().GetResourceId() == nil:
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "item not found")
+		return nil, false
+	case res.GetStatus().GetCode() != rpc.Code_CODE_OK:
+		g.logger.Error().
+			Str("code", res.GetStatus().GetCode().String()).
+			Str("message", res.GetStatus().GetMessage()).
+			Msg("could not get the received share")
+		errorcode.RenderError(w, r, errorcode.FromCS3Status(res.GetStatus(), nil))
+		return nil, false
+	}
+
+	return res.GetShare().GetShare().GetResourceId(), true
 }
