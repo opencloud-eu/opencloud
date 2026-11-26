@@ -119,12 +119,18 @@ Confirm the reva line in `go.mod` is exactly `github.com/opencloud-eu/reva/v3 RE
 - PR base: **`main`** (reva bumps always target main).
 - PR title: `[full-ci] chore: bump reva to 2.48.0` (the commit message prefixed with `[full-ci] `).
 - PR body: the file from step 4.
-- Add the label `Type:Maintenance`.
+- Add exactly one `Type:*` label, picked from what the bump brings in (the changelog sections from step 4), the first that applies:
+  1. `Type:Security` if it contains a security fix
+  2. `Type:Enhancement` if it contains a feature or an enhancement
+  3. `Type:Bug` if it contains a bug fix
+  4. `Type:Dependencies` if it has nothing users or admins notice (only dependency updates, tests, refactorings)
+
+  The label decides the changelog section of the OpenCloud release and its version bump (see `release-config.ts`), so the reva changes show up in the OpenCloud changelog. Never use `Type:Maintenance`: it isn't a changelog type, the reva changes would be missing from the changelog, and the release PR isn't updated after the merge. The same applies to a bump to an untagged reva commit: pick the label from the reva PRs it brings in.
 
 ```bash
 gh pr create --base main \
   --title "[full-ci] chore: bump reva to $REVA_VERSION_NO_V" \
-  --label "Type:Maintenance" \
+  --label "$TYPE_LABEL" \
   --body-file <body-file>
 ```
 
@@ -148,6 +154,7 @@ gh api "repos/opencloud-eu/reva/contents/CHANGELOG.md?ref=$REVA_VERSION" --jq '.
 - Forgetting to re-run `go mod vendor` after `go mod tidy`, leaving `vendor/` out of sync with `go.mod`.
 - Asking for or hardcoding `OC_VERSION` — always derive it from the open `next-release/main` release PR (step 3); it can even be a new major after a breaking change.
 - Reading the changelog from reva `main` instead of the tag (`?ref=$REVA_VERSION`). Always pin to the tag.
-- Missing the `[full-ci] ` prefix in the PR title, the `Type:Maintenance` label, or the two summary bullets at the top of the body.
+- Missing the `[full-ci] ` prefix in the PR title or the two summary bullets at the top of the body.
+- Labelling the PR `Type:Maintenance` instead of the type of the changes it brings in (step 6): the reva changes then don't appear in the OpenCloud changelog.
 - Dumping the full `vendor/` diff at the confirmation step instead of `go.mod` + `version.go` + a `--stat` summary.
 - Committing before the user confirms the diff.
