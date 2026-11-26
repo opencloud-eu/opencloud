@@ -1877,6 +1877,97 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			_, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{})
 			Expect(err).To(HaveOccurred())
 		})
+		DescribeTable("lists a share whose creator does not exist anymore with the creator's id only",
+			func(prepare func(creator *userpb.UserId)) {
+				creator := &userpb.UserId{OpaqueId: "deleted-user-id"}
+				prepare(creator)
+				gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *userpb.GetUserRequest) bool {
+					return req.GetUserId().GetOpaqueId() == creator.GetOpaqueId()
+				})).Return(&userpb.GetUserResponse{
+					Status: status.NewNotFound(ctx, "user not found"),
+				}, nil)
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+				service, logBuf := newLoggedService()
+
+				permissions, err := service.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(permissions.Value).To(HaveLen(1))
+				Expect(permissions.Value[0].GetInvitation().InvitedBy.GetUser()).To(Equal(libregraph.Identity{
+					Id: libregraph.PtrString("deleted-user-id"),
+				}))
+
+				warnEntries := entriesAtLevel(logEntries(logBuf), "warn")
+				Expect(warnEntries).To(ContainElement(HaveKeyWithValue("userid", "deleted-user-id")))
+			},
+			Entry("user share", func(creator *userpb.UserId) {
+				listSharesResponse.Shares = []*collaboration.Share{
+					{
+						Id:          &collaboration.ShareId{OpaqueId: "1"},
+						Permissions: &collaboration.SharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+						ResourceId:  itemID,
+						Grantee: &provider.Grantee{
+							Type: provider.GranteeType_GRANTEE_TYPE_USER,
+							Id:   &provider.Grantee_UserId{UserId: &userpb.UserId{OpaqueId: "user-id"}},
+						},
+						Creator: creator,
+					},
+				}
+				gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+				gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *userpb.GetUserRequest) bool {
+					return req.GetUserId().GetOpaqueId() == "user-id"
+				})).Return(getUserResponse, nil)
+			}),
+			Entry("ocm share", func(creator *userpb.UserId) {
+				cfg.IncludeOCMSharees = true
+				gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+				gatewayClient.On("ListOCMShares", mock.Anything, mock.Anything).Return(&ocm.ListOCMSharesResponse{
+					Status: status.NewOK(ctx),
+					Shares: []*ocm.Share{{
+						Id:         &ocm.ShareId{OpaqueId: "ocmshareid"},
+						ResourceId: itemID,
+						Grantee: &provider.Grantee{
+							Type: provider.GranteeType_GRANTEE_TYPE_USER,
+							Id: &provider.Grantee_UserId{UserId: &userpb.UserId{
+								OpaqueId: "remote", Idp: "ocm.example.org", Type: userpb.UserType_USER_TYPE_FEDERATED,
+							}},
+						},
+						Creator: creator,
+					}},
+				}, nil)
+				gatewayClient.On("GetAcceptedUser", mock.Anything, mock.Anything).Return(&invitepb.GetAcceptedUserResponse{
+					Status: status.NewOK(ctx),
+					RemoteUser: &userpb.User{
+						Id: &userpb.UserId{OpaqueId: "remote", Idp: "ocm.example.org", Type: userpb.UserType_USER_TYPE_FEDERATED},
+					},
+				}, nil)
+			}),
+		)
+		It("fails when the creator of a share can not be looked up for other reasons", func() {
+			listSharesResponse.Shares = []*collaboration.Share{
+				{
+					Id:          &collaboration.ShareId{OpaqueId: "1"},
+					Permissions: &collaboration.SharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+					ResourceId:  itemID,
+					Grantee: &provider.Grantee{
+						Type: provider.GranteeType_GRANTEE_TYPE_USER,
+						Id:   &provider.Grantee_UserId{UserId: &userpb.UserId{OpaqueId: "user-id"}},
+					},
+					Creator: &userpb.UserId{OpaqueId: "creator-id"},
+				},
+			}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *userpb.GetUserRequest) bool {
+				return req.GetUserId().GetOpaqueId() == "user-id"
+			})).Return(getUserResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *userpb.GetUserRequest) bool {
+				return req.GetUserId().GetOpaqueId() == "creator-id"
+			})).Return(nil, errors.New("connection refused"))
+
+			_, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{})
+			Expect(errorcode.IsErrorCode(err, errorcode.GeneralException)).To(BeTrue(), "unexpected error: %v", err)
+		})
 		It("returns role denied", func() {
 			statResponse.Info.PermissionSet = roleconversions.NewManagerRole().CS3ResourcePermissions()
 			statResponse.Info.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
@@ -2247,6 +2338,44 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			permissions, err := driveItemPermissionsService.ListSpaceRootPermissions(context.Background(), driveId, svc.ListPermissionsQueryOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
+		})
+
+		It("lists a space member whose creator does not exist anymore with the creator's id only", func() {
+			spaceRootID := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+			listSpacesResponse.StorageSpaces[0].SpaceType = "project"
+			listSpacesResponse.StorageSpaces[0].Root = spaceRootID
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{
+				Status: status.NewOK(ctx),
+				Shares: []*collaboration.Share{{
+					Id:          &collaboration.ShareId{OpaqueId: "1"},
+					ResourceId:  spaceRootID,
+					Permissions: &collaboration.SharePermissions{Permissions: roleconversions.NewSpaceViewerRole().CS3ResourcePermissions()},
+					Grantee: &provider.Grantee{
+						Type: provider.GranteeType_GRANTEE_TYPE_USER,
+						Id:   &provider.Grantee_UserId{UserId: &userpb.UserId{OpaqueId: "user-id"}},
+					},
+					Creator: &userpb.UserId{OpaqueId: "deleted-user-id"},
+				}},
+			}, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *userpb.GetUserRequest) bool {
+				return req.GetUserId().GetOpaqueId() == "user-id"
+			})).Return(getUserResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *userpb.GetUserRequest) bool {
+				return req.GetUserId().GetOpaqueId() == "deleted-user-id"
+			})).Return(&userpb.GetUserResponse{Status: status.NewNotFound(ctx, "user not found")}, nil)
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
+			statResponse.Info.Id = spaceRootID
+			statResponse.Info.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+			statResponse.Info.Space = listSpacesResponse.StorageSpaces[0]
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+
+			permissions, err := driveItemPermissionsService.ListSpaceRootPermissions(context.Background(), driveId, svc.ListPermissionsQueryOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permissions.Value).To(HaveLen(1))
+			Expect(permissions.Value[0].GetInvitation().InvitedBy.GetUser()).To(Equal(libregraph.Identity{
+				Id: libregraph.PtrString("deleted-user-id"),
+			}))
 		})
 
 		DescribeTable("returns only the selected actions of the space root and does not list the shares",

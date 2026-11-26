@@ -619,7 +619,11 @@ func (g BaseGraphService) cs3UserShareToPermission(ctx context.Context, share *c
 	perm.SetGrantedToV2(grantedTo)
 	if share.GetCreator() != nil {
 		cs3Identity, err := cs3UserIdToIdentity(ctx, g.identityCache, share.GetCreator())
-		if err != nil {
+		switch {
+		case errors.Is(err, identity.ErrNotFound):
+			g.logger.Warn().Str("userid", share.GetCreator().GetOpaqueId()).Msg("Creator not found by id")
+			// The creator does not seem to exist anymore, keep the permission with the creator's id only
+		case err != nil:
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
 		perm.SetInvitation(
@@ -704,7 +708,11 @@ func (g BaseGraphService) cs3OCMShareToPermission(ctx context.Context, share *oc
 	perm.SetGrantedToV2(grantedTo)
 	if share.GetCreator() != nil {
 		cs3Identity, err := cs3UserIdToIdentity(ctx, g.identityCache, share.GetCreator())
-		if err != nil {
+		switch {
+		case errors.Is(err, identity.ErrNotFound):
+			g.logger.Warn().Str("userid", share.GetCreator().GetOpaqueId()).Msg("Creator not found by id")
+			// The creator does not seem to exist anymore, keep the permission with the creator's id only
+		case err != nil:
 			return nil, errorcode.New(errorcode.GeneralException, err.Error())
 		}
 		perm.SetInvitation(
