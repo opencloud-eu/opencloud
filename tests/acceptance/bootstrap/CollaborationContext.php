@@ -23,6 +23,7 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
 use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
+use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\CollaborationHelper;
@@ -158,11 +159,11 @@ class CollaborationContext implements Context {
 	 * @param string $password
 	 * @param string $folder
 	 *
-	 * @return void
+	 * @return ResponseInterface
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
-	public function createFile(string $file, string $password, string $folder = ""): void {
+	public function createFile(string $file, string $password, string $folder = ""): ResponseInterface {
 		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
 		$baseUrl = $this->featureContext->getBaseUrl();
 		$davPath = WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_NEW, $token, "public-files");
@@ -182,16 +183,14 @@ class CollaborationContext implements Context {
 		$headers = [
 			"Public-Token" => $token
 		];
-		$this->featureContext->setResponse(
-			CollaborationHelper::createFile(
-				$this->featureContext->getBaseUrl(),
-				$this->featureContext->getStepLineRef(),
-				"public",
-				$this->featureContext->getActualPassword($password),
-				$parentContainerId,
-				$file,
-				$headers
-			)
+		return CollaborationHelper::createFile(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			"public",
+			$this->featureContext->getActualPassword($password),
+			$parentContainerId,
+			$file,
+			$headers
 		);
 	}
 
@@ -209,7 +208,7 @@ class CollaborationContext implements Context {
 		string $file,
 		string $password
 	): void {
-		$this->createFile($file, $password);
+		$this->featureContext->setResponse($this->createFile($file, $password));
 	}
 
 	/**
@@ -228,7 +227,7 @@ class CollaborationContext implements Context {
 		string $folder,
 		string $password
 	): void {
-		$this->createFile($file, $password, $folder);
+		$this->featureContext->setResponse($this->createFile($file, $password, $folder));
 	}
 
 	/**

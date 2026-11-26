@@ -342,9 +342,9 @@ class CliContext implements Context {
 	 * @param string $scope the flags that select the files, e.g. "--all"
 	 * @param string $flags e.g. "--strategy 1 --dry-run"
 	 *
-	 * @return void
+	 * @return ResponseInterface
 	 */
-	private function cleanUpFileVersions(string $scope, string $flags): void {
+	private function cleanUpFileVersions(string $scope, string $flags): ResponseInterface {
 		// The test server keeps its file metadata cache in memory, the default, which the command
 		// refuses unless it is allowed: the scenarios check the versions through the API, which
 		// lists them from disk, so the cache of the server going stale doesn't matter here.
@@ -352,7 +352,7 @@ class CliContext implements Context {
 		$body = [
 			"command" => $command
 		];
-		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		return CliHelper::runCommand($body);
 	}
 
 	/**
@@ -363,7 +363,7 @@ class CliContext implements Context {
 	 */
 	#[When('the administrator cleans up the file versions using the CLI with flags :flags')]
 	public function theAdministratorCleansUpTheFileVersionsUsingTheCliWithFlags(string $flags): void {
-		$this->cleanUpFileVersions("", $flags);
+		$this->featureContext->setResponse($this->cleanUpFileVersions("", $flags));
 	}
 
 	/**
@@ -374,7 +374,7 @@ class CliContext implements Context {
 	 */
 	#[When('the administrator cleans up the file versions of all spaces using the CLI with flags :flags')]
 	public function theAdministratorCleansUpTheFileVersionsOfAllSpacesUsingTheCliWithFlags(string $flags): void {
-		$this->cleanUpFileVersions("--all", $flags);
+		$this->featureContext->setResponse($this->cleanUpFileVersions("--all", $flags));
 	}
 
 	/**
@@ -392,7 +392,7 @@ class CliContext implements Context {
 		string $flags
 	): void {
 		$spaceId = $this->spacesContext->getSpaceIdByName($user, $space);
-		$this->cleanUpFileVersions("--space $spaceId", $flags);
+		$this->featureContext->setResponse($this->cleanUpFileVersions("--space $spaceId", $flags));
 	}
 
 	/**
@@ -412,7 +412,7 @@ class CliContext implements Context {
 		string $flags
 	): void {
 		$spaceId = $this->spacesContext->getSpaceIdByName($user, $space);
-		$this->cleanUpFileVersions("--space $spaceId --path $path", $flags);
+		$this->featureContext->setResponse($this->cleanUpFileVersions("--space $spaceId --path $path", $flags));
 	}
 
 	/**
@@ -431,7 +431,7 @@ class CliContext implements Context {
 	): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$fsPath = $this->getUsersStoragePath() . "/$userUuid/" . \ltrim($path, '/');
-		$this->cleanUpFileVersions("--fs-path $fsPath", $flags);
+		$this->featureContext->setResponse($this->cleanUpFileVersions("--fs-path $fsPath", $flags));
 	}
 
 	/**
