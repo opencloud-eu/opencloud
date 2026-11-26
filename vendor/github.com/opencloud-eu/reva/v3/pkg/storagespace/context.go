@@ -22,6 +22,8 @@ import (
 	"context"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+
 	"github.com/opencloud-eu/reva/v3/pkg/storage"
 )
 
@@ -32,6 +34,7 @@ const (
 	moveResultSlotKey
 	deleteResultSlotKey
 	deleteStorageSpaceResultSlotKey
+	itemSlotKey
 )
 
 // --- space owner ---
@@ -169,4 +172,44 @@ func ContextGetDeleteStorageSpaceResult(ctx context.Context) *storage.DeleteStor
 		return slot.result
 	}
 	return nil
+}
+
+// --- item ---
+
+// ItemSlot receives the item a storage call acts on, so the audit events can
+// tell files and folders apart. ID and Name identify the item when the driver
+// knows them; ID may lack the storage ID. Path is the path in the space, set
+// where the request has no path, e.g. for trashed items.
+type ItemSlot struct {
+	Type provider.ResourceType
+	ID   *provider.ResourceId
+	Name string
+	Path string
+}
+
+// ContextRegisterItemSlot stores an empty slot in ctx so the storage driver can fill it.
+func ContextRegisterItemSlot(ctx context.Context, slot *ItemSlot) context.Context {
+	return context.WithValue(ctx, itemSlotKey, slot)
+}
+
+// ContextWantsItem reports whether a slot is registered in ctx, so a driver
+// only looks up what the slot needs when someone reads it.
+func ContextWantsItem(ctx context.Context) bool {
+	_, ok := ctx.Value(itemSlotKey).(*ItemSlot)
+	return ok
+}
+
+// ContextSetItemPath sets the path of the item in the space.
+func ContextSetItemPath(ctx context.Context, p string) {
+	if slot, ok := ctx.Value(itemSlotKey).(*ItemSlot); ok {
+		slot.Path = p
+	}
+}
+
+// ContextSetItem fills the slot registered in ctx with the type, ID and name
+// of the item.
+func ContextSetItem(ctx context.Context, t provider.ResourceType, id *provider.ResourceId, name string) {
+	if slot, ok := ctx.Value(itemSlotKey).(*ItemSlot); ok {
+		slot.Type, slot.ID, slot.Name = t, id, name
+	}
 }

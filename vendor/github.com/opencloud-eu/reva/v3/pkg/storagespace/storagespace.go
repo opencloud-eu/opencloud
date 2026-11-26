@@ -32,6 +32,17 @@ const (
 	_storageIDDelimiter string = "$"
 )
 
+// The types of the spaces that hold files, see provider.StorageSpace.SpaceType. Other types, e.g.
+// "mountpoint" or "virtual", are views onto files in such spaces, which the providers of shares
+// and public links make up.
+const (
+	// TypePersonal is the type of the personal space of a user.
+	TypePersonal = "personal"
+	// TypeProject is the type of a space that space managers create, e.g. for a team or a
+	// project, and share with its members.
+	TypeProject = "project"
+)
+
 var (
 	// ErrInvalidSpaceReference signals that the space reference is invalid.
 	ErrInvalidSpaceReference = errors.New("invalid storage space reference")

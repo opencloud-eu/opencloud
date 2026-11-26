@@ -1360,11 +1360,12 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v3 v3.0.2-0.20261123180324-2b2b8732790b
+# github.com/opencloud-eu/reva/v3 v3.0.2-0.20261126092628-02d5d9ba9a18
 ## explicit; go 1.26.0
 github.com/opencloud-eu/reva/v3/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v3/cmd/revad/runtime
 github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/appctx
+github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/auditctx
 github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/auth
 github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/eventsmiddleware
 github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/loader
@@ -1467,6 +1468,7 @@ github.com/opencloud-eu/reva/v3/pkg/appauth/manager/jsoncs3
 github.com/opencloud-eu/reva/v3/pkg/appauth/manager/loader
 github.com/opencloud-eu/reva/v3/pkg/appauth/manager/registry
 github.com/opencloud-eu/reva/v3/pkg/appctx
+github.com/opencloud-eu/reva/v3/pkg/audit
 github.com/opencloud-eu/reva/v3/pkg/auth
 github.com/opencloud-eu/reva/v3/pkg/auth/manager/appauth
 github.com/opencloud-eu/reva/v3/pkg/auth/manager/demo
@@ -2290,6 +2292,14 @@ go.opentelemetry.io/otel/semconv/v1.43.0
 go.opentelemetry.io/otel/semconv/v1.43.0/httpconv
 go.opentelemetry.io/otel/semconv/v1.43.0/otelconv
 go.opentelemetry.io/otel/semconv/v1.43.0/rpcconv
+# go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.23.0
+## explicit; go 1.26.0
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc/internal
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc/internal/observ
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc/internal/retry
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc/internal/transform
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc/internal/x
 # go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/exporters/otlp/otlptrace
@@ -2315,6 +2325,7 @@ go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal/x
 ## explicit; go 1.26.0
 go.opentelemetry.io/otel/log
 go.opentelemetry.io/otel/log/embedded
+go.opentelemetry.io/otel/log/noop
 # go.opentelemetry.io/otel/metric v1.47.0
 ## explicit; go 1.26.0
 go.opentelemetry.io/otel/metric
@@ -2331,6 +2342,13 @@ go.opentelemetry.io/otel/sdk/trace
 go.opentelemetry.io/otel/sdk/trace/internal/env
 go.opentelemetry.io/otel/sdk/trace/internal/observ
 go.opentelemetry.io/otel/sdk/trace/tracetest
+# go.opentelemetry.io/otel/sdk/log v1.47.0
+## explicit; go 1.26.0
+go.opentelemetry.io/otel/sdk/log
+go.opentelemetry.io/otel/sdk/log/internal/attrnorm
+go.opentelemetry.io/otel/sdk/log/internal/counter
+go.opentelemetry.io/otel/sdk/log/internal/observ
+go.opentelemetry.io/otel/sdk/log/internal/x
 # go.opentelemetry.io/otel/trace v1.47.0
 ## explicit; go 1.26.0
 go.opentelemetry.io/otel/trace
@@ -2339,8 +2357,10 @@ go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
 # go.opentelemetry.io/proto/otlp v1.11.0
 ## explicit; go 1.25.0
+go.opentelemetry.io/proto/otlp/collector/logs/v1
 go.opentelemetry.io/proto/otlp/collector/trace/v1
 go.opentelemetry.io/proto/otlp/common/v1
+go.opentelemetry.io/proto/otlp/logs/v1
 go.opentelemetry.io/proto/otlp/resource/v1
 go.opentelemetry.io/proto/otlp/trace/v1
 # go.uber.org/multierr v1.11.0

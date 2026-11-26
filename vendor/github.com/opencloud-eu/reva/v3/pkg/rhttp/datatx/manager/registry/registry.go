@@ -21,13 +21,15 @@ package registry
 import (
 	"github.com/rs/zerolog"
 
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx"
 )
 
 // NewFunc is the function that data transfer implementations
 // should register at init time.
-type NewFunc func(map[string]interface{}, events.Publisher, *zerolog.Logger) (datatx.DataTX, error)
+// The emitter receives the audit events of uploads and downloads.
+type NewFunc func(map[string]interface{}, events.Publisher, audit.Emitter, *zerolog.Logger) (datatx.DataTX, error)
 
 // NewFuncs is a map containing all the registered data transfers.
 var NewFuncs = map[string]NewFunc{}

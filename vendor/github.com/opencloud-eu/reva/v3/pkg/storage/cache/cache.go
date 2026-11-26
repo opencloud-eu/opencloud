@@ -29,6 +29,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/store"
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -135,7 +136,8 @@ type cacheStore struct {
 	ttl             time.Duration
 }
 
-// PullFromCache pulls a value from the configured database and table of the underlying store using the given key
+// PullFromCache pulls a value from the configured database and table of the underlying store using the given key.
+// dest must be a pointer. A nil value (e.g. a nil map that was pushed) counts as not found.
 func (cache cacheStore) PullFromCache(key string, dest interface{}) error {
 	r, err := cache.s.Read(key, microstore.ReadFrom(cache.database, cache.table), microstore.ReadLimit(1))
 	if err != nil {
@@ -144,8 +146,16 @@ func (cache cacheStore) PullFromCache(key string, dest interface{}) error {
 	if len(r) == 0 {
 		return fmt.Errorf("not found")
 	}
+	// A nil map or pointer is stored as the msgpack nil. Decoded, it would make the caller's
+	// value nil, which callers don't expect (a nil map from the file metadata cache, see
+	// https://github.com/opencloud-eu/reva/issues/1073): read it again from where it comes from.
+	if len(r[0].Value) == 1 && r[0].Value[0] == msgpcode.Nil {
+		return fmt.Errorf("not found")
+	}
 
-	return msgpack.Unmarshal(r[0].Value, &dest)
+	// dest, not &dest: decoding a nil into the pointer wrapped in the interface panics
+	// ("reflect.Value.Set using unaddressable value")
+	return msgpack.Unmarshal(r[0].Value, dest)
 }
 
 // PushToCache pushes a key and value to the configured database and table of the underlying store
