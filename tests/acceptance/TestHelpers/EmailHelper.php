@@ -47,7 +47,7 @@ class EmailHelper {
 		$localEmailHost = self::getLocalEmailHost();
 		$emailPort = \getenv('EMAIL_PORT');
 		if ($emailPort === false) {
-			$emailPort = "9000";
+			$emailPort = "8025";
 		}
 		return "http://$localEmailHost:$emailPort";
 	}
@@ -81,8 +81,8 @@ class EmailHelper {
 	}
 
 	/**
-	 * Returns general response information about the provided mailbox
-	 * A mailbox is created automatically in InBucket for every unique email sender|receiver
+	 * Returns the emails sent to the provided mailbox (the local part of the
+	 * address), the oldest first
 	 *
 	 * @param string $mailBox
 	 * @param string|null $xRequestId
@@ -92,19 +92,28 @@ class EmailHelper {
 	 */
 	public static function getMailBoxInformation(string $mailBox, ?string $xRequestId = null): array {
 		$response = HttpRequestHelper::get(
-			self::getLocalEmailUrl() . "/api/v1/mailbox/" . $mailBox,
+			self::getLocalEmailUrl() . "/api/v1/search?query=" . \urlencode("to:$mailBox"),
 			$xRequestId,
 			null,
 			null,
 			['Content-Type' => 'application/json']
 		);
-		return \json_decode($response->getBody()->getContents());
+		$emails = \json_decode($response->getBody()->getContents())->messages;
+		// mailpit also finds parts of addresses (to:alice finds malice@...)
+		$emails = \array_filter(
+			$emails,
+			fn ($email) => \in_array(
+				\strtolower($mailBox),
+				\array_map(fn ($to) => \strtolower(self::getMailBoxFromEmail($to->Address)), $email->To)
+			)
+		);
+		// mailpit lists the newest first
+		return \array_reverse(\array_values($emails));
 	}
 
 	/**
-	 * returns body content of a specific email (mailBox) with email ID (mailbox Id)
+	 * returns a specific email by its ID
 	 *
-	 * @param string $mailBox
 	 * @param string $mailboxId
 	 * @param string|null $xRequestId
 	 *
@@ -112,12 +121,11 @@ class EmailHelper {
 	 * @throws GuzzleException
 	 */
 	public static function getBodyOfAnEmailById(
-		string $mailBox,
 		string $mailboxId,
 		?string $xRequestId = null
 	): object {
 		$response = HttpRequestHelper::get(
-			self::getLocalEmailUrl() . "/api/v1/mailbox/" . $mailBox . "/" . $mailboxId,
+			self::getLocalEmailUrl() . "/api/v1/message/" . $mailboxId,
 			$xRequestId,
 			null,
 			null,
@@ -143,14 +151,10 @@ class EmailHelper {
 		$mailBox = self::getMailBoxFromEmail($emailAddress);
 		$emails = self::getMailboxInformation($mailBox, $xRequestId);
 		if (!empty($emails)) {
-			$emailId = \array_pop($emails)->id;
-			$response = self::getBodyOfAnEmailById($mailBox, $emailId, $xRequestId);
-			$body = \str_replace(
-				"\r\n",
-				"\n",
-				\quoted_printable_decode($response->body->text . "\n" . $response->body->html)
-			);
-			return $body;
+			$emailId = \array_pop($emails)->ID;
+			$response = self::getBodyOfAnEmailById($emailId, $xRequestId);
+			// mailpit returns the body decoded already
+			return \str_replace("\r\n", "\n", $response->Text . "\n" . $response->HTML);
 		}
 		return "";
 	}
@@ -171,7 +175,7 @@ class EmailHelper {
 		string $xRequestId,
 	): ResponseInterface {
 		return HttpRequestHelper::delete(
-			$url . "/api/v1/mailbox/" . $mailBox,
+			$url . "/api/v1/search?query=" . \urlencode("to:$mailBox"),
 			$xRequestId,
 		);
 	}
