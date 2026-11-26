@@ -1,10 +1,18 @@
 # Changelog
 
-## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-25
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-26
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
+
+### ✅ Tests
+
+- tests: set the response only in When steps [[#4121](https://github.com/opencloud-eu/opencloud/pull/4121)]
+- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
+- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
+- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
 
 ### 🐛 Bug Fixes
 
@@ -32,13 +40,6 @@
 - feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
 - feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
 - feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
-
-### ✅ Tests
-
-- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
-- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
-- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
-- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
 
 ### 📦️ Dependencies
 
