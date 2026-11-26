@@ -106,6 +106,39 @@
         ]
       }
     },
+    "/api/v0/search/optimize-index": {
+      "post": {
+        "summary": "OptimizeIndex merges the segments of the index into one, without indexing\nanything again. It answers once the merge is done.",
+        "operationId": "SearchProvider_OptimizeIndex",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v0OptimizeIndexResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v0OptimizeIndexRequest"
+            }
+          }
+        ],
+        "tags": [
+          "SearchProvider"
+        ]
+      }
+    },
     "/api/v0/search/search": {
       "post": {
         "operationId": "SearchProvider_Search",
@@ -451,6 +484,18 @@
         "videoSize": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "v0OptimizeIndexRequest": {
+      "type": "object"
+    },
+    "v0OptimizeIndexResponse": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "type": "string",
+          "description": "The duration it took to optimize the index."
         }
       }
     },

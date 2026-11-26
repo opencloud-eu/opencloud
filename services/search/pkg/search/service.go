@@ -60,6 +60,7 @@ type Searcher interface {
 	IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error
 	PurgeSpace(spaceID *provider.StorageSpaceId) error
 	PurgeDeleted(spaceID *provider.StorageSpaceId) error
+	OptimizeIndex(ctx context.Context) error
 
 	TrashItem(resourceID *provider.ResourceId)
 	PurgeItem(ref *provider.Reference)
@@ -694,6 +695,11 @@ func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
 	logDocCount(s.engine, s.logger)
 
 	return nil
+}
+
+// OptimizeIndex merges the segments of the index, the documents stay as they are
+func (s *Service) OptimizeIndex(ctx context.Context) error {
+	return s.engine.Optimize(ctx)
 }
 
 // UpdateMetadata rewrites the tags and favorites of an indexed resource without

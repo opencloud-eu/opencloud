@@ -255,6 +255,12 @@ func (b *Backend) DocCount() (uint64, error) {
 	return uint64(resp.Count), nil
 }
 
+// Optimize leaves the segments to the merge policy of the cluster, operators
+// that want a forced merge run it against OpenSearch directly
+func (b *Backend) Optimize(context.Context) error {
+	return search.ErrOptimizeUnsupported
+}
+
 func (b *Backend) Upsert(id string, r search.Resource) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
