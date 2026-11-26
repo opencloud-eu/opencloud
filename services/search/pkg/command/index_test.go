@@ -1,12 +1,15 @@
 package command_test
 
 import (
+	"context"
 	"net"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -16,6 +19,14 @@ import (
 
 type fakeSearchProvider struct {
 	searchsvc.UnimplementedSearchProviderServer
+	optimizeErr error
+}
+
+func (f fakeSearchProvider) OptimizeIndex(context.Context, *searchsvc.OptimizeIndexRequest) (*searchsvc.OptimizeIndexResponse, error) {
+	if f.optimizeErr != nil {
+		return nil, f.optimizeErr
+	}
+	return &searchsvc.OptimizeIndexResponse{Duration: durationpb.New(time.Second)}, nil
 }
 
 func (fakeSearchProvider) IndexSpace(_ *searchsvc.IndexSpaceRequest, stream grpc.ServerStreamingServer[searchsvc.IndexSpaceResponse]) error {

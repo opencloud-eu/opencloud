@@ -17,6 +17,7 @@ func GetCommands(cfg *config.Config) []*cobra.Command {
 
 		// interaction with this service
 		Index(cfg),
+		Optimize(cfg),
 
 		// infos about this service
 		Health(cfg),

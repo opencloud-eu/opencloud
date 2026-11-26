@@ -39,10 +39,20 @@ var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:
 // ErrResourceNotFound is returned when the index holds no document with the requested id
 var ErrResourceNotFound = errors.New("resource not found")
 
+// ErrOptimizeUnsupported is returned by an engine that leaves merging its
+// segments to the engine itself
+var ErrOptimizeUnsupported = errors.New("the search engine merges its index on its own")
+
+// ErrOptimizeInProgress is returned while another optimization of the index runs
+var ErrOptimizeInProgress = errors.New("the index is being optimized already")
+
 // Engine is the interface to the search engine
 type Engine interface {
 	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
 	DocCount() (uint64, error)
+	// Optimize merges the segments of the index, ErrOptimizeUnsupported if the
+	// engine merges on its own
+	Optimize(ctx context.Context) error
 
 	Upsert(id string, r Resource) error
 	Move(id string, parentID string, targetPath string) error

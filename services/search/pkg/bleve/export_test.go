@@ -7,3 +7,9 @@ package bleve
 func SetMaxBytes(b *Batch, n uint64) {
 	b.maxBytes = n
 }
+
+// LockOptimize holds the lock of a running optimization until the returned func is called
+func LockOptimize(b *Backend) func() {
+	b.optimizeMu.Lock()
+	return b.optimizeMu.Unlock
+}
