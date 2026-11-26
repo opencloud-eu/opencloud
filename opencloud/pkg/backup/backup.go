@@ -3,6 +3,7 @@ package backup
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -78,6 +79,7 @@ func newRechecker(storagepath string, lbs ListBlobstore) *rechecker {
 	sep := string(filepath.Separator)
 	return &rechecker{
 		localPrefix: strings.TrimSuffix(filepath.Clean(storagepath), sep) + sep,
+		fsys:        os.DirFS(storagepath),
 		lbs:         lbs,
 	}
 }
@@ -226,6 +228,7 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 // rechecker checks if a finding is resolved by now. All methods are safe to call on a nil rechecker.
 type rechecker struct {
 	localPrefix string
+	fsys        fs.FS
 	lbs         ListBlobstore
 
 	// the blobs are listed at most once and only if a blob outside of the storagepath needs a re-check
@@ -283,11 +286,8 @@ func (r *rechecker) nodeInconsistencyResolved(nodePath string, inc Inconsistency
 		_, mpkErr := os.Stat(mpkPath)
 		return nodeErr == nil && mpkErr == nil
 	case InconsistencyMalformedFile:
-		b, err := os.ReadFile(mpkPath)
-		if err != nil {
-			return false
-		}
-		return msgpack.Unmarshal(b, &map[string][]byte{}) == nil
+		_, err := r.readMetadata(nodePath)
+		return err == nil
 	default:
 		return false
 	}
@@ -299,12 +299,8 @@ func (r *rechecker) symlinkExists(nodePath string) bool {
 		return false
 	}
 
-	b, err := os.ReadFile(nodePath + ".mpk")
+	m, err := r.readMetadata(nodePath)
 	if err != nil {
-		return false
-	}
-	m := map[string][]byte{}
-	if msgpack.Unmarshal(b, &m) != nil {
 		return false
 	}
 	parentID := string(m[prefixes.ParentidAttr])
@@ -334,12 +330,8 @@ func (r *rechecker) nodeProcessing(nodePath string) bool {
 		return false
 	}
 
-	b, err := os.ReadFile(nodePath + ".mpk")
+	m, err := r.readMetadata(nodePath)
 	if err != nil {
-		return false
-	}
-	m := map[string][]byte{}
-	if msgpack.Unmarshal(b, &m) != nil {
 		return false
 	}
 	id, ok := strings.CutPrefix(string(m[prefixes.StatusPrefix]), node.ProcessingStatus)
@@ -349,6 +341,17 @@ func (r *rechecker) nodeProcessing(nodePath string) bool {
 
 	_, err = os.Stat(filepath.Join(r.localPrefix, "uploads", id+".info"))
 	return err == nil
+}
+
+// readMetadata reads the metadata of a node below the storage root
+func (r *rechecker) readMetadata(nodePath string) (map[string][]byte, error) {
+	b, err := fs.ReadFile(r.fsys, strings.TrimPrefix(nodePath, r.localPrefix)+".mpk")
+	if err != nil {
+		return nil, err
+	}
+
+	m := map[string][]byte{}
+	return m, msgpack.Unmarshal(b, &m)
 }
 
 func deleteInconsistency(incs map[string][]Inconsistency, path string) {
