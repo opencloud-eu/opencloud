@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"golang.org/x/net/html"
@@ -77,6 +78,12 @@ func (f *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // open returns the file with the given name. It returns errNoFile if there is
 // no file with this name, and any other error if the file couldn't be opened.
 func (f *fileServer) open(name string) (http.File, fs.FileInfo, error) {
+	// no filesystem can have a name with a NUL byte. checked here, because the
+	// error of the OS for it (EINVAL) can also have other causes.
+	if strings.ContainsRune(name, 0) {
+		return nil, nil, errNoFile
+	}
+
 	file, err := f.fsys.Open(name)
 	switch {
 	case isNoFile(err):
@@ -100,12 +107,11 @@ func (f *fileServer) open(name string) (http.File, fs.FileInfo, error) {
 
 // isNoFile reports whether err means that there is no file with the requested
 // name, either because it doesn't exist or because the filesystem can't have
-// such a name, e.g. one that is too long or contains a NUL byte.
+// such a name, e.g. one that is too long.
 func isNoFile(err error) bool {
 	return errors.Is(err, fs.ErrNotExist) ||
 		errors.Is(err, fs.ErrInvalid) ||
-		errors.Is(err, syscall.ENAMETOOLONG) ||
-		errors.Is(err, syscall.EINVAL) // e.g. a NUL byte in the name
+		errors.Is(err, syscall.ENAMETOOLONG)
 }
 
 // serverError logs err with the requested path and the file that failed, which

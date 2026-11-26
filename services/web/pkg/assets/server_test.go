@@ -278,12 +278,14 @@ func TestFileServerFaultyFiles(t *testing.T) {
 			expectedCacheControl: "no-cache",
 		},
 		{
-			name:                 "invalid name falls back to the index without a log entry",
+			// a NUL byte in the name is checked before opening; EINVAL from the filesystem is a server error.
+			name:                 "EINVAL without a NUL byte in the name",
 			url:                  "/invalid",
 			openErr:              map[string]error{"/invalid": &fs.PathError{Op: "open", Path: "invalid", Err: syscall.EINVAL}},
-			expectedCode:         http.StatusOK,
-			expectedBody:         index,
-			expectedCacheControl: "no-cache",
+			expectedCode:         http.StatusInternalServerError,
+			expectedBody:         "Internal Server Error\n",
+			expectedCacheControl: "no-store",
+			expectedLogs:         []logEntry{{level: "error", path: "/invalid", filename: "/invalid"}},
 		},
 		{
 			name:                 "invalid fs path falls back to the index without a log entry",
