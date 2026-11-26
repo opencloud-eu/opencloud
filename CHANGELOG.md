@@ -6,17 +6,9 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @pbleser-oc, @v-scharf
 
-### ✅ Tests
-
-- tests: renew the bearer token on 401 instead of checking it before each request [[#4126](https://github.com/opencloud-eu/opencloud/pull/4126)]
-- tests: set the response only in When steps [[#4121](https://github.com/opencloud-eu/opencloud/pull/4121)]
-- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
-- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
-- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
-- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
 ### 🐛 Bug Fixes
 
+- fix(search): extract the metadata of files over the size limit [[#4133](https://github.com/opencloud-eu/opencloud/pull/4133)]
 - fix(web): serve the index fallback without recursion and handle file errors [[#4125](https://github.com/opencloud-eu/opencloud/pull/4125)]
 - fix(proxy): redirect to HTTPS on the host of OC_URL [[#4120](https://github.com/opencloud-eu/opencloud/pull/4120)]
 - fix(search): answer text on numeric and date fields the same on both engines [[#4122](https://github.com/opencloud-eu/opencloud/pull/4122)]
@@ -30,6 +22,15 @@
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
 - fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
+### ✅ Tests
+
+- tests: renew the bearer token on 401 instead of checking it before each request [[#4126](https://github.com/opencloud-eu/opencloud/pull/4126)]
+- tests: set the response only in When steps [[#4121](https://github.com/opencloud-eu/opencloud/pull/4121)]
+- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
+- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
+- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
 
 ### 📈 Enhancement
 
