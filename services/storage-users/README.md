@@ -341,6 +341,29 @@ The `decomposed`, `decomposeds3` and `posix` storage drivers are supported, with
 
 The default strategy `disabled` keeps all revisions and, as one would expect, does not perform any cleanup process for revisions at all.
 
+Personal spaces and project spaces can have strategies of their own, for example to keep fewer versions of the files of each user than of the files a team works on together:
+
+| Variable | Applies to |
+|---|---|
+| `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` | all spaces that the two below don't apply to |
+| `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL` | the personal spaces |
+| `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT` | the project spaces |
+
+When `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL` or `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT` is empty, which is the default, `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` applies to the spaces of that type. When it is `disabled`, all revisions of the spaces of that type are kept, whatever `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` says. No cleanup runs at all only when none of the three has a strategy.
+
+For example, to keep the versions of personal files for 30 days, but always the 5 newest, and to thin out the versions in project spaces and keep them for a year:
+
+```bash
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL="5, 30d"
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT="7d, auto, 52w"
+```
+
+Or to clean up only the project spaces, and keep all versions of personal files:
+
+```bash
+STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT="auto, 90d"
+```
+
 The service only cleans up a file when it gets a new revision, so files that are never changed again keep their revisions.
 
 The `revisions cleanup` command cleans up the revisions of whole spaces, folders or files on demand, to cover those files as well, or to apply a different strategy once, e.g. after changing the strategy or to free storage.
@@ -390,11 +413,13 @@ Exactly one of these selects the files to clean up:
 
 #### Options
 
-The strategy and the settings of the background workers default to the configured ones and can be overridden for a run. Only `--queue-full` defaults to `block` without a timeout, whatever is configured: the command finds files faster than the workers clean them up, so dropping the files that find the queue full would skip most of them.
+The strategies and the settings of the background workers default to the configured ones and can be overridden for a run. Only `--queue-full` defaults to `block` without a timeout, whatever is configured: the command finds files faster than the workers clean them up, so dropping the files that find the queue full would skip most of them.
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--strategy`, `-s` | `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY` | The strategy, see above. The command fails if there is none. |
+| `--strategy`, `-s` | the configured ones | One strategy for all spaces, see above, instead of the configured strategies, including those of the space types. Without it, every space gets the strategy configured for its type, or `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY`. The command fails if no strategy is given or configured. |
+| `--strategy-personal` | `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL` | The strategy for the personal spaces. Can't be combined with `--strategy`. |
+| `--strategy-project` | `STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT` | The strategy for the project spaces. Can't be combined with `--strategy`. |
 | `--async` | `STORAGE_USERS_REVISIONS_CLEANUP_ASYNC` | Clean up files in background workers while looking for more. |
 | `--workers` | `STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_WORKERS` | The number of background workers, `0` for half the available CPUs, at least 2. |
 | `--queue-size` | `STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE` | The number of files that can wait for a worker, `0` for 64 per worker. |
@@ -407,7 +432,7 @@ The strategy and the settings of the background workers default to the configure
 | `--shuffle` | off | Clean up the spaces, and the files within each folder, in a random order. |
 | `--allow-local-cache` | off | Run even though the file metadata cache is kept in the memory of each process, see above. |
 
-By default, the command prints a line for every file whose revisions it deleted, that it could not clean up or that it skipped, with the space ID and the path of the file within the space, and a summary:
+By default, the command prints a line for every file whose revisions it deleted, that it could not clean up or that it skipped, with the space ID and the path of the file within the space, and a summary. The files of spaces whose strategy is `disabled`, e.g. as that is the strategy of their type, are left out, and not counted as skipped:
 
 ```plaintext
 25b69780-5f39-43be-a7ac-a9b9e9fe4230 /Documents/report.odt: deleted 3 of 12 revisions (4.2 MiB)
@@ -415,27 +440,27 @@ By default, the command prints a line for every file whose revisions it deleted,
 1520 files in 3 spaces: deleted 3 revisions (4.2 MiB) of 1 file, 1 skipped, 0 failed
 ```
 
-With `--verbose`, every revision is listed with the decision (`deleted`, `kept` or `protected`), its time, its size and the reason. The time is when the revision was created, see above, which can differ from the date the version list shows for it:
+With `--verbose`, every file is listed with its strategy and where it came from (`--strategy`, `of the space type` or `the default`), and every revision with the decision (`deleted`, `kept` or `protected`), its time, its size and the reason. The time is when the revision was created, see above, which can differ from the date the version list shows for it:
 
 ```plaintext
-25b69780-5f39-43be-a7ac-a9b9e9fe4230 /dir1/file1 (node 43ca5408-c77b-4d9a-8a3b-d4470b1253b8): would delete 1 of 3 revisions (1.2 KiB)
+25b69780-5f39-43be-a7ac-a9b9e9fe4230 /dir1/file1 (node 43ca5408-c77b-4d9a-8a3b-d4470b1253b8): would delete 1 of 3 revisions (1.2 KiB), strategy "1, 30d" (of the space type)
   protected 2026-10-15T13:24:35+02:00   1.2 KiB  protected by "1": one of the 1 newest
   kept      2026-10-13T15:24:35+02:00   1.2 KiB  kept by "30d": not older than 2026-09-15T15:24:35+02:00
   deleted   2026-03-29T15:24:35+02:00   1.2 KiB  deleted by "30d": older than 2026-09-15T15:24:35+02:00
 ```
 
-With `--json`, every file is an object of the `type` `file`, with the revisions in `details` when `--verbose` is set, and the last line is an object of the `type` `summary`. The sizes are in bytes. The same run as above:
+With `--json`, every file is an object of the `type` `file`, with its `strategy` and its `strategy_source` (`forced`, `space type` or `default`), and with the revisions in `details` when `--verbose` is set, and the last line is an object of the `type` `summary`. The sizes are in bytes. The same run as above:
 
 ```json
-{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"8a1c0e2f-6b4d-4f7a-9c3e-2d5b7f1a0c94","path":"/Documents/report.odt","dry_run":false,"revisions":12,"deleted":3,"deleted_bytes":4404019,"failed":0}
-{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"f3e9d2c1-0a7b-4c8e-b6d5-9e4f1a2b3c7d","path":"/Photos/holiday.jpg","dry_run":false,"skipped":"an upload to the file is still being processed","revisions":0,"deleted":0,"deleted_bytes":0,"failed":0}
+{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"8a1c0e2f-6b4d-4f7a-9c3e-2d5b7f1a0c94","path":"/Documents/report.odt","dry_run":false,"strategy":"auto, 90d","strategy_source":"default","revisions":12,"deleted":3,"deleted_bytes":4404019,"failed":0}
+{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"f3e9d2c1-0a7b-4c8e-b6d5-9e4f1a2b3c7d","path":"/Photos/holiday.jpg","dry_run":false,"skipped":"an upload to the file is still being processed","strategy":"auto, 90d","strategy_source":"default","revisions":0,"deleted":0,"deleted_bytes":0,"failed":0}
 {"type":"summary","dry_run":false,"spaces":3,"files":1520,"cleaned":1,"deleted":3,"deleted_bytes":4404019,"skipped":1,"failed":0}
 ```
 
 With `--verbose` as well, a file object lists its revisions in `details`, here from the dry run above:
 
 ```json
-{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8","path":"/dir1/file1","dry_run":true,"revisions":3,"deleted":1,"deleted_bytes":1234,"failed":0,"details":[{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-10-15T11:24:35.118424081Z","time":"2026-10-15T11:24:35.118424081Z","size":1234,"decision":"protected","reason":"protected by \"1\": one of the 1 newest"},{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-10-13T13:24:35.118424081Z","time":"2026-10-13T13:24:35.118424081Z","size":1234,"decision":"kept","reason":"kept by \"30d\": not older than 2026-09-15T15:24:35+02:00"},{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-03-29T13:24:35.118424081Z","time":"2026-03-29T13:24:35.118424081Z","size":1234,"decision":"deleted","reason":"deleted by \"30d\": older than 2026-09-15T15:24:35+02:00"}]}
+{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8","path":"/dir1/file1","dry_run":true,"strategy":"1, 30d","strategy_source":"space type","revisions":3,"deleted":1,"deleted_bytes":1234,"failed":0,"details":[{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-10-15T11:24:35.118424081Z","time":"2026-10-15T11:24:35.118424081Z","size":1234,"decision":"protected","reason":"protected by \"1\": one of the 1 newest"},{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-10-13T13:24:35.118424081Z","time":"2026-10-13T13:24:35.118424081Z","size":1234,"decision":"kept","reason":"kept by \"30d\": not older than 2026-09-15T15:24:35+02:00"},{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-03-29T13:24:35.118424081Z","time":"2026-03-29T13:24:35.118424081Z","size":1234,"decision":"deleted","reason":"deleted by \"30d\": older than 2026-09-15T15:24:35+02:00"}]}
 ```
 
 A file that failed has an `error`, and so has a revision in `details` that could not be deleted. When `--timeout` stopped the cleanup, the summary has a `stopped` field with the reason.
@@ -460,7 +485,10 @@ opencloud storage-users revisions cleanup --space 25b69780-5f39-43be-a7ac-a9b9e9
 # clean up a folder by its path on disk, with the posix driver
 opencloud storage-users revisions cleanup --fs-path /var/lib/opencloud/storage/users/projects/25b69780-5f39-43be-a7ac-a9b9e9fe4230/Documents
 
-# a nightly cron job: the configured strategy, at most one hour, in a random order
+# show what a stricter strategy for project spaces would delete; the other spaces keep the configured one
+opencloud storage-users revisions cleanup --all --strategy-project "7d, auto, 52w" --dry-run --verbose
+
+# a nightly cron job: the configured strategies, at most one hour, in a random order
 opencloud storage-users revisions cleanup --all --timeout 1h --shuffle
 
 # the same with the short flags

@@ -85,6 +85,8 @@ func TestRevisionsCleanupReachesAllDrivers(t *testing.T) {
 			o, err := options.New(driver)
 			require.NoError(t, err, name)
 			require.Equal(t, "disabled", o.RevisionsCleanupStrategy, name)
+			require.Empty(t, o.RevisionsCleanupStrategyPersonal, name)
+			require.Empty(t, o.RevisionsCleanupStrategyProject, name)
 			require.True(t, o.RevisionsCleanupAsync, name)
 			require.Equal(t, 0, o.RevisionsCleanupAsyncWorkers, name)
 			require.Equal(t, 0, o.RevisionsCleanupAsyncQueueSize, name)
@@ -95,6 +97,8 @@ func TestRevisionsCleanupReachesAllDrivers(t *testing.T) {
 
 	t.Run("environment variables", func(t *testing.T) {
 		t.Setenv("STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY", "7d, auto, 90d")
+		t.Setenv("STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PERSONAL", "5, 30d")
+		t.Setenv("STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY_PROJECT", "disabled")
 		t.Setenv("STORAGE_USERS_REVISIONS_CLEANUP_ASYNC", "false")
 		t.Setenv("STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_WORKERS", "3")
 		t.Setenv("STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE", "42")
@@ -105,6 +109,8 @@ func TestRevisionsCleanupReachesAllDrivers(t *testing.T) {
 			o, err := options.New(driver)
 			require.NoError(t, err, name)
 			require.Equal(t, "7d, auto, 90d", o.RevisionsCleanupStrategy, name)
+			require.Equal(t, "5, 30d", o.RevisionsCleanupStrategyPersonal, name)
+			require.Equal(t, "disabled", o.RevisionsCleanupStrategyProject, name)
 			require.False(t, o.RevisionsCleanupAsync, name)
 			require.Equal(t, 3, o.RevisionsCleanupAsyncWorkers, name)
 			require.Equal(t, 42, o.RevisionsCleanupAsyncQueueSize, name)

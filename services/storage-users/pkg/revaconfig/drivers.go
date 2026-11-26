@@ -106,6 +106,8 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any 
 		"propagator":                  cfg.Drivers.Posix.Propagator,
 
 		"revisions_cleanup_strategy":                 cfg.RevisionsCleanup.Strategy,
+		"revisions_cleanup_strategy_personal":        cfg.RevisionsCleanup.StrategyPersonal,
+		"revisions_cleanup_strategy_project":         cfg.RevisionsCleanup.StrategyProject,
 		"revisions_cleanup_async":                    cfg.RevisionsCleanup.Async,
 		"revisions_cleanup_async_workers":            cfg.RevisionsCleanup.AsyncWorkers,
 		"revisions_cleanup_async_queue_size":         cfg.RevisionsCleanup.AsyncQueueSize,
@@ -218,6 +220,8 @@ func Decomposed(cfg *config.Config) map[string]any {
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 
 		"revisions_cleanup_strategy":                 cfg.RevisionsCleanup.Strategy,
+		"revisions_cleanup_strategy_personal":        cfg.RevisionsCleanup.StrategyPersonal,
+		"revisions_cleanup_strategy_project":         cfg.RevisionsCleanup.StrategyProject,
 		"revisions_cleanup_async":                    cfg.RevisionsCleanup.Async,
 		"revisions_cleanup_async_workers":            cfg.RevisionsCleanup.AsyncWorkers,
 		"revisions_cleanup_async_queue_size":         cfg.RevisionsCleanup.AsyncQueueSize,
@@ -285,6 +289,8 @@ func DecomposedNoEvents(cfg *config.Config) map[string]any {
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 
 		"revisions_cleanup_strategy":                 cfg.RevisionsCleanup.Strategy,
+		"revisions_cleanup_strategy_personal":        cfg.RevisionsCleanup.StrategyPersonal,
+		"revisions_cleanup_strategy_project":         cfg.RevisionsCleanup.StrategyProject,
 		"revisions_cleanup_async":                    cfg.RevisionsCleanup.Async,
 		"revisions_cleanup_async_workers":            cfg.RevisionsCleanup.AsyncWorkers,
 		"revisions_cleanup_async_queue_size":         cfg.RevisionsCleanup.AsyncQueueSize,
@@ -357,6 +363,8 @@ func DecomposedS3(cfg *config.Config) map[string]any {
 		"asyncfileuploads":            cfg.Drivers.DecomposedS3.AsyncUploads,
 
 		"revisions_cleanup_strategy":                 cfg.RevisionsCleanup.Strategy,
+		"revisions_cleanup_strategy_personal":        cfg.RevisionsCleanup.StrategyPersonal,
+		"revisions_cleanup_strategy_project":         cfg.RevisionsCleanup.StrategyProject,
 		"revisions_cleanup_async":                    cfg.RevisionsCleanup.Async,
 		"revisions_cleanup_async_workers":            cfg.RevisionsCleanup.AsyncWorkers,
 		"revisions_cleanup_async_queue_size":         cfg.RevisionsCleanup.AsyncQueueSize,
@@ -428,6 +436,8 @@ func DecomposedS3NoEvents(cfg *config.Config) map[string]any {
 		"lock_cycle_duration_factor":  cfg.Drivers.DecomposedS3.LockCycleDurationFactor,
 
 		"revisions_cleanup_strategy":                 cfg.RevisionsCleanup.Strategy,
+		"revisions_cleanup_strategy_personal":        cfg.RevisionsCleanup.StrategyPersonal,
+		"revisions_cleanup_strategy_project":         cfg.RevisionsCleanup.StrategyProject,
 		"revisions_cleanup_async":                    cfg.RevisionsCleanup.Async,
 		"revisions_cleanup_async_workers":            cfg.RevisionsCleanup.AsyncWorkers,
 		"revisions_cleanup_async_queue_size":         cfg.RevisionsCleanup.AsyncQueueSize,
