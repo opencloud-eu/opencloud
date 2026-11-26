@@ -94,36 +94,6 @@ class HttpRequestHelper {
 		$bearerToken = null;
 		if (TokenHelper::useBearerToken() && $user && $user !== 'public') {
 			$bearerToken = TokenHelper::getTokens($user, $password, $url)['access_token'];
-			// check token is still valid
-			$parsedUrl = parse_url($url);
-			$baseUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-			$baseUrl .= isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '';
-			$testUrl = $baseUrl . "/graph/v1.0/me";
-			if (OcHelper::isTestingOnReva()) {
-				$url = $baseUrl . "/ocs/v2.php/cloud/users/$user";
-			}
-			// check token validity with a GET request
-			$c = self::createClient(
-				$user,
-				$password,
-				$config,
-				$cookies,
-				$stream,
-				$timeout,
-				$bearerToken
-			);
-			$testReq = self::createRequest($testUrl, $xRequestId, 'GET');
-			try {
-				$testRes = $c->send($testReq);
-			} catch (RequestException $ex) {
-				$testRes = $ex->getResponse();
-				if ($testRes && $testRes->getStatusCode() === Response::HTTP_UNAUTHORIZED) {
-					// token is invalid or expired, get a new one
-					echo "[INFO] Bearer token expired or invalid, getting a new one...\n";
-					TokenHelper::clearAllTokens();
-					$bearerToken = TokenHelper::getTokens($user, $password, $url)['access_token'];
-				}
-			}
 		}
 
 		if ($client === null) {
@@ -260,6 +230,7 @@ class HttpRequestHelper {
 		}
 
 		$sendCount = 0;
+		$tokenRenewed = false;
 		do {
 			$response = self::sendRequestOnce(
 				$url,
@@ -284,8 +255,8 @@ class HttpRequestHelper {
 			$tooEarly = $statusCode === Response::HTTP_TOO_EARLY;
 			$conflict = $statusCode === Response::HTTP_CONFLICT;
 			$retryOnConflict = $conflict && $isGivenStep;
-			$isShareMigrating = $statusCode === Response::HTTP_INTERNAL_SERVER_ERROR
-				&& self::responseIndicatesShareManagerMigrating($response);
+			$tokenRejected = $statusCode === Response::HTTP_UNAUTHORIZED && !$tokenRenewed && $client === null
+				&& TokenHelper::useBearerToken() && $user && $user !== 'public';
 
 			// Retry request only if:
 			// 1. we get HTTP_TOO_EARLY (425) - can happen if async processing is still happening.
@@ -293,10 +264,16 @@ class HttpRequestHelper {
 			// 2. we get HTTP_CONFLICT (409) and is Given step - can happen if the user has just been created.
 			//    The OCS API might not "realize" yet that the user exists. A folder creation (MKCOL) or maybe even
 			//    a file upload might return 409.
-			// 3. share manager is migrating (500) - can happen right after oc_wrapper restarts server
-			//    while the jsoncs3 share manager is still running its data migrations.
-			if (!($tooEarly || $retryOnConflict || $isShareMigrating)) {
+			// 3. we get HTTP_UNAUTHORIZED (401) with a bearer token, once - the cached token can become invalid
+			//    before it expires, e.g. when the server was restarted with another config. Get a new one.
+			if (!($tooEarly || $retryOnConflict || $tokenRejected)) {
 				break;
+			}
+			if ($tokenRejected) {
+				echo "[INFO] Bearer token expired or invalid, getting a new one...\n";
+				TokenHelper::clearAllTokens();
+				$tokenRenewed = true;
+				continue;
 			}
 
 			$sendCount = $sendCount + 1;
@@ -339,19 +316,6 @@ class HttpRequestHelper {
 		self::printHeaders($response->getHeaders());
 		self::printBody($response->getBody());
 		print("\n### END RESPONSE\n");
-	}
-
-	/**
-	 * Checks whether the response body indicates that the share manager is currently migrating.
-	 *
-	 * @param ResponseInterface $response
-	 *
-	 * @return bool
-	 */
-	private static function responseIndicatesShareManagerMigrating(ResponseInterface $response): bool {
-		$body = $response->getBody()->getContents();
-		$response->getBody()->rewind();
-		return \str_contains($body, 'share manager is currently migrating');
 	}
 
 	/**
