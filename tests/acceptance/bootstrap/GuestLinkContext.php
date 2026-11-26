@@ -136,7 +136,7 @@ class GuestLinkContext implements Context {
 					$this->featureContext->getStepLineRef(),
 				);
 			} catch (Exception $e) {
-				echo __METHOD__ . " could not delete emails of '$mailBox', is inbucket set up?\n" . $e->getMessage();
+				echo __METHOD__ . " could not delete emails of '$mailBox', is mailpit set up?\n" . $e->getMessage();
 			}
 		}
 	}

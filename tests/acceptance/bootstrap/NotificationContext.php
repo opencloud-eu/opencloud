@@ -712,7 +712,7 @@ class NotificationContext implements Context {
 			}
 		} catch (Exception $e) {
 			echo __METHOD__ .
-				" could not delete inbucket messages, is inbucket set up?\n" .
+				" could not delete emails, is mailpit set up?\n" .
 				$e->getMessage();
 		}
 	}
