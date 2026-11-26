@@ -1415,12 +1415,16 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 					}
 				case "public-link-item-type": // only on a share root node
 					if ls != nil {
+						itemType := "file"
 						if md.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
-							appendToOK(prop.Raw("oc:public-link-item-type", "folder"))
-						} else {
-							appendToOK(prop.Raw("oc:public-link-item-type", "file"))
-							// redirectref is another option
+							itemType = "folder"
 						}
+						// the synthetic collection of a single file link carries the type of the shared resource
+						if t := utils.ReadPlainFromOpaque(md.Opaque, "public-link-item-type"); t != "" {
+							itemType = t
+						}
+						appendToOK(prop.Raw("oc:public-link-item-type", itemType))
+						// redirectref is another option
 					} else {
 						appendToNotFound(prop.NotFound("oc:public-link-item-type"))
 					}
@@ -1538,8 +1542,8 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeUser)) + "</oc:share-type>")
 						case "2": // provider.GranteeType_GRANTEE_TYPE_GROUP
 							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeGroup)) + "</oc:share-type>")
-						case "4": // conversions.ShareTypeGuest, guest shares are stored as user grants
-							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeGuest)) + "</oc:share-type>")
+						case "4": // conversions.ShareTypeEmail, guest shares are stored as user grants
+							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeEmail)) + "</oc:share-type>")
 						default:
 							sublog.Debug().Interface("shareType", shareType).Msg("unknown share type, ignoring")
 						}

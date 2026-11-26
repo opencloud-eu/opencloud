@@ -82,9 +82,13 @@ Class | Method | HTTP request | Description
 *DriveItemApi* | [**GetDriveItemV1**](docs/DriveItemApi.md#getdriveitemv1) | **Get** /v1.0/drives/{drive-id}/items/{item-id} | Get a DriveItem.
 *DriveItemApi* | [**UpdateDriveItem**](docs/DriveItemApi.md#updatedriveitem) | **Patch** /v1beta1/drives/{drive-id}/items/{item-id} | Update a DriveItem.
 *DrivesApi* | [**CreateDrive**](docs/DrivesApi.md#createdrive) | **Post** /v1.0/drives | Create a new drive of a specific type
+*DrivesApi* | [**CreateDriveBeta**](docs/DrivesApi.md#createdrivebeta) | **Post** /v1beta1/drives | Alias for creating a drive with &#39;/v1.0/drives&#39;, but the new drive is returned in the v1beta1 format, with grantedToV2 and unified role IDs in its permissions
 *DrivesApi* | [**DeleteDrive**](docs/DrivesApi.md#deletedrive) | **Delete** /v1.0/drives/{drive-id} | Delete a specific space
+*DrivesApi* | [**DeleteDriveBeta**](docs/DrivesApi.md#deletedrivebeta) | **Delete** /v1beta1/drives/{drive-id} | Alias for deleting a drive with &#39;/v1.0/drives/{drive-id}&#39;
 *DrivesApi* | [**GetDrive**](docs/DrivesApi.md#getdrive) | **Get** /v1.0/drives/{drive-id} | Get drive by id
+*DrivesApi* | [**GetDriveBeta**](docs/DrivesApi.md#getdrivebeta) | **Get** /v1beta1/drives/{drive-id} | Alias for &#39;/v1.0/drives/{drive-id}&#39;, but the drive is returned in the v1beta1 format, with grantedToV2 and unified role IDs in its permissions
 *DrivesApi* | [**UpdateDrive**](docs/DrivesApi.md#updatedrive) | **Patch** /v1.0/drives/{drive-id} | Update the drive
+*DrivesApi* | [**UpdateDriveBeta**](docs/DrivesApi.md#updatedrivebeta) | **Patch** /v1beta1/drives/{drive-id} | Alias for updating a drive with &#39;/v1.0/drives/{drive-id}&#39;, but the updated drive is returned in the v1beta1 format, with grantedToV2 and unified role IDs in its permissions
 *DrivesGetDrivesApi* | [**ListAllDrives**](docs/DrivesGetDrivesApi.md#listalldrives) | **Get** /v1.0/drives | Get all available drives
 *DrivesGetDrivesApi* | [**ListAllDrivesBeta**](docs/DrivesGetDrivesApi.md#listalldrivesbeta) | **Get** /v1beta1/drives | Alias for &#39;/v1.0/drives&#39;, the difference is that grantedtoV2 is used and roles contain unified roles instead of cs3 roles
 *DrivesPermissionsApi* | [**CreateLink**](docs/DrivesPermissionsApi.md#createlink) | **Post** /v1beta1/drives/{drive-id}/items/{item-id}/createLink | Create a sharing link for a DriveItem
@@ -138,6 +142,7 @@ Class | Method | HTTP request | Description
 *GroupApi* | [**UpdateGroup**](docs/GroupApi.md#updategroup) | **Patch** /v1.0/groups/{group-id} | Update entity in groups
 *GroupsApi* | [**CreateGroup**](docs/GroupsApi.md#creategroup) | **Post** /v1.0/groups | Add new entity to groups
 *GroupsApi* | [**ListGroups**](docs/GroupsApi.md#listgroups) | **Get** /v1.0/groups | Get entities from groups
+*GuestLinksApi* | [**LogoutGuestLink**](docs/GuestLinksApi.md#logoutguestlink) | **Post** /v1beta1/extensions/org.libregraph/guestLinks/logout | Log out of a guest session
 *GuestLinksApi* | [**RenewGuestLink**](docs/GuestLinksApi.md#renewguestlink) | **Post** /v1beta1/extensions/org.libregraph/guestLinks/renew | Renew a guest link
 *GuestLinksApi* | [**VerifyGuestLinkPin**](docs/GuestLinksApi.md#verifyguestlinkpin) | **Post** /v1beta1/extensions/org.libregraph/guestLinks/verify/pin | Verify a guest link PIN
 *GuestLinksApi* | [**VerifyGuestLinkToken**](docs/GuestLinksApi.md#verifyguestlinktoken) | **Post** /v1beta1/extensions/org.libregraph/guestLinks/verify/token | Verify a guest link token

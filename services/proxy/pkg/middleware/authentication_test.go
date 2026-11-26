@@ -40,6 +40,10 @@ var _ = Describe("authentication helpers", func() {
 		Entry("token info path", "/ocs/v1.php/apps/files_sharing/api/v1/tokeninfo/unprotected", true),
 		Entry("token info path", "/ocs/v2.php/apps/files_sharing/api/v1/tokeninfo/unprotected", true),
 		Entry("capabilities", "/ocs/v1.php/cloud/capabilities", true),
+		// a public link token carries the link owner as user, so the signing key
+		// endpoint must never be public or link visitors could sign urls as the owner
+		Entry("signing-key v1 must not be public", "/ocs/v1.php/cloud/user/signing-key", false),
+		Entry("signing-key v2 must not be public", "/ocs/v2.php/cloud/user/signing-key", false),
 	)
 })
 

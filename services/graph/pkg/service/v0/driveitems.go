@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/reva/v3/pkg/conversions"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
@@ -618,6 +619,8 @@ func shareTypesOf(info *storageprovider.ResourceInfo, linkShares map[string]stru
 			types = append(types, "user")
 		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_GROUP)):
 			types = append(types, "group")
+		case strconv.Itoa(int(conversions.ShareTypeEmail)):
+			types = append(types, "email")
 		}
 	}
 

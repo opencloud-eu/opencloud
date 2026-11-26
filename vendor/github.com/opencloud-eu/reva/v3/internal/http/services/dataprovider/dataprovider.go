@@ -19,6 +19,7 @@
 package dataprovider
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -26,7 +27,9 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	datatxregistry "github.com/opencloud-eu/reva/v3/pkg/rhttp/datatx/manager/registry"
 	"github.com/opencloud-eu/reva/v3/pkg/rhttp/global"
@@ -41,18 +44,22 @@ func init() {
 }
 
 type config struct {
-	Prefix             string                            `mapstructure:"prefix" docs:"data;The prefix to be used for this HTTP service"`
-	Driver             string                            `mapstructure:"driver" docs:"localhome;The storage driver to be used."`
-	Drivers            map[string]map[string]interface{} `mapstructure:"drivers" docs:"url:pkg/storage/fs/localhome/localhome.go;The configuration for the storage driver"`
-	DataTXs            map[string]map[string]interface{} `mapstructure:"data_txs" docs:"url:pkg/rhttp/datatx/manager/simple/simple.go;The configuration for the data tx protocols"`
-	NatsAddress        string                            `mapstructure:"nats_address"`
-	NatsClusterID      string                            `mapstructure:"nats_clusterID"`
-	NatsTLSInsecure    bool                              `mapstructure:"nats_tls_insecure"`
-	NatsRootCACertPath string                            `mapstructure:"nats_root_ca_cert_path"`
-	NatsEnableTLS      bool                              `mapstructure:"nats_enable_tls"`
-	NatsUsername       string                            `mapstructure:"nats_username"`
-	NatsPassword       string                            `mapstructure:"nats_password"`
-	UploadDirectory    string                            `mapstructure:"upload_directory" docs:";Local directory for staging upload sessions. Overrides the driver's root. Required for drivers that have no local filesystem root."`
+	Prefix              string                            `mapstructure:"prefix" docs:"data;The prefix to be used for this HTTP service"`
+	Driver              string                            `mapstructure:"driver" docs:"localhome;The storage driver to be used."`
+	Drivers             map[string]map[string]interface{} `mapstructure:"drivers" docs:"url:pkg/storage/fs/localhome/localhome.go;The configuration for the storage driver"`
+	DataTXs             map[string]map[string]interface{} `mapstructure:"data_txs" docs:"url:pkg/rhttp/datatx/manager/simple/simple.go;The configuration for the data tx protocols"`
+	NatsAddress         string                            `mapstructure:"nats_address"`
+	NatsClusterID       string                            `mapstructure:"nats_clusterID"`
+	NatsTLSInsecure     bool                              `mapstructure:"nats_tls_insecure"`
+	NatsRootCACertPath  string                            `mapstructure:"nats_root_ca_cert_path"`
+	NatsEnableTLS       bool                              `mapstructure:"nats_enable_tls"`
+	NatsUsername        string                            `mapstructure:"nats_username"`
+	NatsPassword        string                            `mapstructure:"nats_password"`
+	UploadDirectory     string                            `mapstructure:"upload_directory" docs:";Local directory for staging upload sessions. Overrides the driver's root. Required for drivers that have no local filesystem root."`
+	AuditEnabled        bool                              `mapstructure:"audit_enabled"`
+	AuditMode           string                            `mapstructure:"audit_mode"`
+	AuditService        string                            `mapstructure:"audit_service"`
+	AuditServiceVersion string                            `mapstructure:"audit_service_version"`
 }
 
 func (c *config) init() {
@@ -69,6 +76,7 @@ type svc struct {
 	handler http.Handler
 	storage storage.FS
 	dataTXs map[string]http.Handler
+	emitter audit.Emitter
 }
 
 // New returns a new datasvc
@@ -82,9 +90,14 @@ func New(m map[string]interface{}, log *zerolog.Logger) (global.Service, error) 
 
 	var evstream events.Stream
 
-	if conf.NatsAddress == "" || conf.NatsClusterID == "" {
-		log.Warn().Msg("missing or incomplete nats configuration. Events will not be published.")
-	} else {
+	switch {
+	case conf.NatsAddress == "" && conf.NatsClusterID == "":
+		// services like the system storage run a dataprovider without events on purpose
+		log.Debug().Msg("no nats configuration. Events will not be published.")
+	case conf.NatsAddress == "" || conf.NatsClusterID == "":
+		log.Warn().Str("nats_address", conf.NatsAddress).Str("nats_clusterID", conf.NatsClusterID).
+			Msg("incomplete nats configuration. Events will not be published.")
+	default:
 		s, err := stream.NatsFromConfig("dataprovider", false, stream.NatsConfig{
 			Endpoint:             conf.NatsAddress,
 			Cluster:              conf.NatsClusterID,
@@ -99,6 +112,25 @@ func New(m map[string]interface{}, log *zerolog.Logger) (global.Service, error) 
 		}
 
 		evstream = s
+	}
+
+	emitter, err := audit.EmitterFromConfig(context.Background(), "dataprovider-audit", audit.EmitterConfig{
+		Enabled:        conf.AuditEnabled,
+		Mode:           conf.AuditMode,
+		Service:        conf.AuditService,
+		ServiceVersion: conf.AuditServiceVersion,
+		Nats: raw.Config{
+			Endpoint:             conf.NatsAddress,
+			Cluster:              conf.NatsClusterID,
+			EnableTLS:            conf.NatsEnableTLS,
+			TLSInsecure:          conf.NatsTLSInsecure,
+			TLSRootCACertificate: conf.NatsRootCACertPath,
+			AuthUsername:         conf.NatsUsername,
+			AuthPassword:         conf.NatsPassword,
+		},
+	}, audit.Options{Logger: log})
+	if err != nil {
+		return nil, fmt.Errorf("dataprovider: %w", err)
 	}
 
 	fs, err := getFS(conf, evstream, log)
@@ -120,7 +152,7 @@ func New(m map[string]interface{}, log *zerolog.Logger) (global.Service, error) 
 		}
 	}
 
-	dataTXs, err := getDataTXs(conf, coord, fs, evstream, log)
+	dataTXs, err := getDataTXs(conf, coord, fs, evstream, emitter, log)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +161,7 @@ func New(m map[string]interface{}, log *zerolog.Logger) (global.Service, error) 
 		storage: fs,
 		conf:    conf,
 		dataTXs: dataTXs,
+		emitter: emitter,
 	}
 
 	err = s.setHandler()
@@ -142,7 +175,7 @@ func getFS(c *config, stream events.Stream, log *zerolog.Logger) (storage.FS, er
 	return nil, fmt.Errorf("driver not found: %s", c.Driver)
 }
 
-func getDataTXs(c *config, coord upload.Coordinator, fs storage.FS, publisher events.Publisher, log *zerolog.Logger) (map[string]http.Handler, error) {
+func getDataTXs(c *config, coord upload.Coordinator, fs storage.FS, publisher events.Publisher, emitter audit.Emitter, log *zerolog.Logger) (map[string]http.Handler, error) {
 	if c.DataTXs == nil {
 		c.DataTXs = make(map[string]map[string]interface{})
 	}
@@ -161,7 +194,7 @@ func getDataTXs(c *config, coord upload.Coordinator, fs storage.FS, publisher ev
 	txs := make(map[string]http.Handler)
 	for t := range c.DataTXs {
 		if f, ok := datatxregistry.NewFuncs[t]; ok {
-			if tx, err := f(c.DataTXs[t], publisher, log); err == nil {
+			if tx, err := f(c.DataTXs[t], publisher, emitter, log); err == nil {
 				if handler, err := tx.Handler(coord, fs); err == nil {
 					txs[t] = handler
 				}
@@ -172,6 +205,7 @@ func getDataTXs(c *config, coord upload.Coordinator, fs storage.FS, publisher ev
 }
 
 func (s *svc) Close() error {
+	audit.CloseEmitter(s.emitter)
 	return nil
 }
 

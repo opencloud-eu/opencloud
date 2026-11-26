@@ -31,6 +31,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/propfind"
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
 	"github.com/opencloud-eu/reva/v3/pkg/rhttp/router"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 )
@@ -176,11 +177,12 @@ func (s *svc) getPublicFileInfos(onContainer, onlyRoot bool, i *provider.Resourc
 		// we don't copy everything because the checksum should not be present
 		var o *typesv1beta1.Opaque
 		if i.Opaque != nil && i.Opaque.Map != nil && i.Opaque.Map["link-share"] != nil {
-			o = &typesv1beta1.Opaque{
+			// the collection is synthetic and the shared resource is a file
+			o = utils.AppendPlainToOpaque(&typesv1beta1.Opaque{
 				Map: map[string]*typesv1beta1.OpaqueEntry{
 					"link-share": i.Opaque.Map["link-share"],
 				},
-			}
+			}, "public-link-item-type", "file")
 		}
 		// always add collection
 		infos = append(infos, &provider.ResourceInfo{

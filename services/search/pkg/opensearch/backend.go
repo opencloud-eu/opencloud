@@ -1,11 +1,16 @@
 package opensearch
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
@@ -17,12 +22,17 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 const defaultBatchSize = 50
+
+// updateRetries lets OpenSearch merge a partial update again onto a document
+// another write changed between its read and its write
+const updateRetries = 3
 
 var (
 	ErrUnhealthyCluster = fmt.Errorf("cluster is not healthy")
@@ -167,6 +177,63 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
 	}, nil
+}
+
+func (b *Backend) Get(ctx context.Context, id string) (*search.Resource, error) {
+	resource, err := searchResourceByID(ctx, b.client, b.index, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resource, nil
+}
+
+// Update sends a partial document, OpenSearch merges it into the stored one, so
+// the extracted fields are never read and written back
+func (b *Backend) Update(ctx context.Context, id string, u search.MetadataUpdate) error {
+	r := search.Resource{}
+	r.Tags = u.Tags
+	r.Favorites = u.Favorites
+	full, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	if err != nil {
+		return fmt.Errorf("failed to prepare the update: %w", err)
+	}
+
+	// a field the update empties has no sibling in full, the explicit null clears the stale one
+	siblings := mapping.SearchSiblings(reflect.TypeFor[search.Resource](), r.SearchFieldOverrides())
+	partial := map[string]any{}
+	for _, field := range []string{"Tags", "Favorites"} {
+		partial[field] = full[field]
+		if siblings[field].Lowercase {
+			partial[field+mapping.LowercaseSuffix] = full[field+mapping.LowercaseSuffix]
+		}
+		if siblings[field].Words {
+			partial[field+mapping.WordsSuffix] = full[field+mapping.WordsSuffix]
+		}
+	}
+
+	body, err := json.Marshal(map[string]any{"doc": partial})
+	if err != nil {
+		return fmt.Errorf("failed to marshal the update: %w", err)
+	}
+
+	_, err = b.client.Update(ctx, opensearchgoAPI.UpdateReq{
+		Index:      b.index,
+		DocumentID: id,
+		Body:       bytes.NewReader(body),
+		Params: opensearchgoAPI.UpdateParams{
+			Refresh:         "wait_for",
+			RetryOnConflict: new(updateRetries),
+		},
+	})
+	var structErr *opensearchgo.StructError
+	switch {
+	case errors.As(err, &structErr) && structErr.Err.Type == "document_missing_exception":
+		return fmt.Errorf("document with id %s: %w", id, search.ErrResourceNotFound)
+	case err != nil:
+		return fmt.Errorf("failed to update the document: %w", err)
+	}
+	return nil
 }
 
 func (b *Backend) DocCount() (uint64, error) {

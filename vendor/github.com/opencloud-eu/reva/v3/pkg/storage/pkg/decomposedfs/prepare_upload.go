@@ -175,6 +175,7 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		versionNode    *node.BaseNode
 		oldAttrs       node.Attributes
 		oldMtime       time.Time
+		obsoleteBlobID string
 	)
 
 	defer func() {
@@ -264,6 +265,9 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		supersededMark := oldAttrs[prefixes.StatusPrefix]
 		superseding := strings.HasPrefix(string(supersededMark), node.ProcessingStatus)
 		if !fs.o.DisableVersioning || superseding {
+			// the revision is named after the mtime of the content it preserves, not after the
+			// time it is created; the revision cleanup goes by the time it is created, which
+			// CreateRevision records (see node.RevisionCreatedAttr)
 			timestamp := oldMtime.UTC().Format(time.RFC3339Nano)
 			versionPath, err := fs.tp.CreateRevision(ctx, n, timestamp)
 			if err != nil {
@@ -278,12 +282,19 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 				revisionAttrs := map[string][]byte{prefixes.StatusPrefix: supersededMark}
 				if fs.o.DisableVersioning {
 					// not a version, only kept for a rollback: a live commit removes it
-					revisionAttrs[uploadSnapshotAttr] = []byte("1")
+					revisionAttrs[node.UploadSnapshotAttr] = []byte("1")
 				}
 				if err := fs.lu.MetadataBackend().SetMultiple(ctx, versionNode, revisionAttrs); err != nil {
 					return nil, err
 				}
 			}
+		}
+
+		// Without a revision the old blob has no reference left once the node points to
+		// the new one. A revision kept only for a rollback holds it until its removal.
+		// On posix the blob is the file itself, which the new content replaces.
+		if fs.o.DisableVersioning && fs.separateBlobs && overwrite && !versionCreated && old.BlobID != sessionID {
+			obsoleteBlobID = old.BlobID
 		}
 
 		sizeDiff = info.Size - old.Blobsize
@@ -348,9 +359,13 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		// and their blobs are deleted with them.
 		n.BlobID = sessionID
 		fs.removeRevisions(ctx, n)
+		fs.deleteObsoleteBlob(ctx, n, obsoleteBlobID)
 	}
 
 	result := &storage.PrepareUploadResult{VersionCreated: versionCreated, SizeDiff: sizeDiff, Committed: inline}
+	if !inline {
+		result.ObsoleteBlobID = obsoleteBlobID
+	}
 	if !info.NodeExisted {
 		// read off the disk, not through ListGrants: an uploader who cannot see the
 		// space root still needs the manager of a project space reported
@@ -517,19 +532,11 @@ func (fs *Decomposedfs) restoreLatestRevision(ctx context.Context, n *node.Node)
 	if v, ok := revisionAttrs[prefixes.BlobsizeAttr]; ok {
 		n.Blobsize, _ = strconv.ParseInt(string(v), 10, 64)
 	}
-	_, purge = revisionAttrs[purgeOnRestoreAttr]
+	_, purge = revisionAttrs[node.PurgeOnRestoreAttr]
 
 	removeRevision(ctx, fs.lu, revisionNode)
 	return true, purge, nil
 }
-
-// purgeOnRestoreAttr marks a revision kept for an upload that created the file and was
-// rolled back while a newer upload was processing: restoring it removes the file.
-var purgeOnRestoreAttr = prefixes.OcPrefix + "purgeonrestore"
-
-// uploadSnapshotAttr marks a revision PrepareUpload kept with versioning disabled, only so
-// that a rollback can hand the node back to the upload it superseded. It is not a version.
-var uploadSnapshotAttr = prefixes.OcPrefix + "uploadsnapshot"
 
 // retireUploadRevision handles the revision a newer upload kept of the upload sessionID,
 // which is being rolled back. If that upload overwrote the file, the revision is dropped:
@@ -563,7 +570,7 @@ func (fs *Decomposedfs) retireUploadRevision(ctx context.Context, n *node.Node, 
 		removeRevision(ctx, fs.lu, &revision.BaseNode)
 		return
 	}
-	if err := revision.SetXattrsWithContext(ctx, node.Attributes{purgeOnRestoreAttr: []byte("1")}); err != nil {
+	if err := revision.SetXattrsWithContext(ctx, node.Attributes{node.PurgeOnRestoreAttr: []byte("1")}); err != nil {
 		log.Error().Err(err).Msg("could not mark the upload's revision")
 	}
 	if err := revision.RemoveXattr(ctx, prefixes.StatusPrefix); err != nil && !metadata.IsAttrUnset(err) {

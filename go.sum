@@ -759,10 +759,10 @@ github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-202505121527
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+lP5lUUIzjRGDg93WrQfZJZCaV1ZP3KeyXi8bzY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89/go.mod h1:vigJkNss1N2QEceCuNw/ullDehncuJNFB6mEnzfq9UI=
-github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346 h1:3ptbiFhSK4fzY/rC3idcYUveiwepMoOov1sBpc7Rg3k=
-github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
-github.com/opencloud-eu/reva/v3 v3.0.2-0.20261117134925-37496dc6abd3 h1:fXAGn3HwuyQGRSw64i49FrzoOci6wwgJ57OONGST0fk=
-github.com/opencloud-eu/reva/v3 v3.0.2-0.20261117134925-37496dc6abd3/go.mod h1:GYVaPfxKgmER65YvpN0uwYL8QSXnwXbR4Qr3iwsYlPU=
+github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e h1:5sf3dNw/eYuuvDL8+3c4pbPSX+Pblw6lsylGtq+cw30=
+github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261119152805-1a7a500a264e/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
+github.com/opencloud-eu/reva/v3 v3.0.2-0.20261126092628-02d5d9ba9a18 h1:yXO3rKf82pb8oaRhokDLTjZWSqZpAHpdWtnT35y+Q5Q=
+github.com/opencloud-eu/reva/v3 v3.0.2-0.20261126092628-02d5d9ba9a18/go.mod h1:oqi8rN/Nt2v+Gn/dmY9p2Zct3VHrdvnYtqZWHrjij7M=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
@@ -1046,6 +1046,8 @@ go.opentelemetry.io/contrib/zpages v0.71.0 h1:OrQSEmdlfknIusEyGj/t30uBR7MnbmGcCR
 go.opentelemetry.io/contrib/zpages v0.71.0/go.mod h1:C3IIpqkQbjswcSREqxQLyEapF0SI9bqwJpxpjwtzFrE=
 go.opentelemetry.io/otel v1.47.0 h1:j7ALJ/zgkS7Z6aeJW09p8VC9804bC+PpeTfCD4XPnOM=
 go.opentelemetry.io/otel v1.47.0/go.mod h1:8wS9O2qfXrYrzp6hIF/HOYJJf/wIhFPhR2xLuP+iXQU=
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.23.0 h1:5Ek4qQ5XX0PSQfY7lMW3CvcR36yy8YFDfGnYnaku8zE=
+go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.23.0/go.mod h1:NUKIMOKSexQdTmS1pSxOQBDiVes3DHRier2ePsGW/gQ=
 go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 h1:OFnwLJr+pF3iHrlGSzbxyuo6/6HyBlnlN1CWEJmBVcw=
 go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0/go.mod h1:716wFneO0ov19A2beH5hjfh9AK5z/VWNAtDijp1Y0/g=
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.46.0 h1:w53CDeOA/Kurp7yRsegSr6pbbr759dOvJ+yNmWM6Hxs=
@@ -1058,6 +1060,10 @@ go.opentelemetry.io/otel/metric v1.47.0 h1:4PptaldXx3Eat1XjMZ68pPJEs5wrhlemctZE9
 go.opentelemetry.io/otel/metric v1.47.0/go.mod h1:ADGSXxRrXM6bjbvLo535EstVFlPpPYZm4LBKixjDHwU=
 go.opentelemetry.io/otel/sdk v1.47.0 h1:zWXEr4j2lFefG87TU6Yg8a7ngfohIKFZHKp0Hf5hC6I=
 go.opentelemetry.io/otel/sdk v1.47.0/go.mod h1:VUc24kiOeoGsxG8G9ULx3fWKvB7jMhnGE8Oi607lgR0=
+go.opentelemetry.io/otel/sdk/log v1.47.0 h1:W4N/ZfgpkRRnmARnqYoQ6BrWA0mrj8IzVDNLlpmUJZY=
+go.opentelemetry.io/otel/sdk/log v1.47.0/go.mod h1:Wu74Z2EmOKXi2FleSNAb0Hyau2G+r5kubSEMJw5aAMs=
+go.opentelemetry.io/otel/sdk/log/logtest v0.23.0 h1:j3pm42QCrKYYLLkI6OrV1QHFkUfDA6/4EP+Y1PzggLg=
+go.opentelemetry.io/otel/sdk/log/logtest v0.23.0/go.mod h1:zt0gEnuTZgDvqvczHwYswz93eqMaIr6upTTsdV/HUlU=
 go.opentelemetry.io/otel/sdk/metric v1.47.0 h1:lfISg2j93VT6yqdk9OfUaZmw/GfcZqCCV3jdXtsPnKw=
 go.opentelemetry.io/otel/sdk/metric v1.47.0/go.mod h1:ypLp+mW1Nt2x+Szt3b5/i1syodyts49lMOwxpDI3VGw=
 go.opentelemetry.io/otel/trace v1.47.0 h1:JOjX/Oci8K94QHddo+bbfya/Ai/nf6/dt9ZfrFNWSrM=

@@ -73,6 +73,10 @@ type PrepareUploadResult struct {
 	// Committed reports that PrepareUpload stored UploadInfo.Source: the upload
 	// is complete, and neither CommitUpload nor MarkProcessing must follow.
 	Committed bool
+	// ObsoleteBlobID is the blob the node pointed to before this upload and
+	// that nothing else references. The driver deletes it once the new content
+	// is stored; the coordinator hands it back in UploadSource. Empty when none.
+	ObsoleteBlobID string
 }
 
 // RollbackInfo carries what a driver needs to undo PrepareUpload. NodeID and
@@ -274,6 +278,11 @@ type UploadSource struct {
 	// Path is the staged file, if the caller has one. Drivers may move it into
 	// place instead of copying Body; the file is gone after a successful commit.
 	Path string
+
+	// ObsoleteBlobID is the blob the node pointed to before this upload and
+	// that nothing else references. The driver deletes it once the new content
+	// is stored. Empty when none.
+	ObsoleteBlobID string
 
 	// ScanResult is the antivirus verdict: empty means clean.
 	ScanResult string

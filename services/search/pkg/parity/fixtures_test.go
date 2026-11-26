@@ -50,8 +50,26 @@ func withAudio(audio *libregraph.Audio) fixtureOption {
 	return func(r *search.Resource) { r.Audio = audio }
 }
 
+func withPhoto(photo *libregraph.Photo) fixtureOption {
+	return func(r *search.Resource) { r.Photo = photo }
+}
+
 func withLocation(location *libregraph.GeoCoordinates) fixtureOption {
 	return func(r *search.Resource) { r.Location = location }
+}
+
+func withExtractionFailure(count int, retryAt string) fixtureOption {
+	return func(r *search.Resource) {
+		f := &search.ExtractionFailure{Count: count}
+		if retryAt != "" {
+			t, err := time.Parse(time.RFC3339Nano, retryAt)
+			if err != nil {
+				panic(err)
+			}
+			f.RetryAt = &t
+		}
+		r.ExtractionFailure = f
+	}
 }
 
 func fixtureDoc(name string, opts ...fixtureOption) search.Resource {

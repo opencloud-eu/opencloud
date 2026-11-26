@@ -169,7 +169,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -350,7 +350,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -434,7 +434,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -660,7 +660,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -736,7 +736,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",

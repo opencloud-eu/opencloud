@@ -151,7 +151,7 @@
 #### [sharee (editor role) MOVE a file by file-id into shared sub-folder returns 502](https://github.com/owncloud/ocis/issues/7617)
 
 - [apiSpacesDavOperation/moveByFileId.feature:368](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L368)
-- [apiSpacesDavOperation/moveByFileId.feature:591](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L591)
+- [apiSpacesDavOperation/moveByFileId.feature:620](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L620)
 
 #### [MOVE a file into same folder with same name returns 404 instead of 403](https://github.com/owncloud/ocis/issues/1976)
 

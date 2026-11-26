@@ -38,6 +38,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/tree"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 )
 
 type DecomposedfsTrashbin struct {
@@ -365,6 +366,8 @@ func (tb *DecomposedfsTrashbin) RestoreRecycleItem(ctx context.Context, spaceID 
 		}
 		return nil, err
 	}
+	setAuditItem(ctx, rn)
+	tb.setAuditOrigin(ctx, spaceID, key, relativePath)
 
 	// check permissions of deleted node
 	rp, err := tb.fs.p.AssembleTrashPermissions(ctx, rn)
@@ -407,6 +410,8 @@ func (tb *DecomposedfsTrashbin) PurgeRecycleItem(ctx context.Context, spaceID, k
 		}
 		return err
 	}
+	setAuditItem(ctx, rn)
+	tb.setAuditOrigin(ctx, spaceID, key, relativePath)
 
 	// check permissions of deleted node
 	rp, err := tb.fs.p.AssembleTrashPermissions(ctx, rn)
@@ -471,4 +476,15 @@ func (fs *DecomposedfsTrashbin) IsEmpty(ctx context.Context, spaceID string) boo
 	}
 	// if we cannot read the trash, we assume there are no trashed items
 	return true
+}
+
+// setAuditOrigin tells the events middleware where a trashed item was
+// before it was deleted.
+func (tb *DecomposedfsTrashbin) setAuditOrigin(ctx context.Context, spaceID, key, relativePath string) {
+	if !storagespace.ContextWantsItem(ctx) {
+		return
+	}
+	if origin, err := tb.fs.tp.(*tree.Tree).RecycleItemOrigin(ctx, spaceID, key, relativePath); err == nil {
+		storagespace.ContextSetItemPath(ctx, origin)
+	}
 }

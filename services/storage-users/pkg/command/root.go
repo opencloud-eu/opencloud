@@ -19,6 +19,7 @@ func GetCommands(cfg *config.Config) []*cobra.Command {
 		Uploads(cfg),
 		TrashBin(cfg),
 		Blobstore(cfg),
+		Revisions(cfg),
 
 		// infos about this service
 		Health(cfg),

@@ -114,7 +114,7 @@ Feature: accepting invitation
             "const": "INVALID_PARAMETER"
           },
           "message": {
-            "const": "token has expired"
+            "const": "token not valid"
           }
         }
       }

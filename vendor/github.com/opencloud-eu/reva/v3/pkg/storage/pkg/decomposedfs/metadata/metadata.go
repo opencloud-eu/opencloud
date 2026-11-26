@@ -56,6 +56,12 @@ type Backend interface {
 	// All reads all extended attributes for a node. It acquires the node's metadata
 	// lock unless n.LockHeld() reports that the caller already holds it.
 	All(ctx context.Context, n MetadataNode) (map[string][]byte, error)
+	// Reload reads all extended attributes for a node from storage, never from the
+	// cache, and updates the cache with them. The cache may be local to the process,
+	// so another process, e.g. a command run next to the server, can have changed the
+	// attributes since they were cached: use Reload where a decision must not rest on
+	// such a stale state. It locks like All.
+	Reload(ctx context.Context, n MetadataNode) (map[string][]byte, error)
 
 	Get(ctx context.Context, n MetadataNode, key string) ([]byte, error)
 	GetInt64(ctx context.Context, n MetadataNode, key string) (int64, error)
@@ -89,6 +95,11 @@ func (NullBackend) IdentifyPath(ctx context.Context, path string) (string, strin
 
 // All reads all extended attributes for a node
 func (NullBackend) All(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
+	return nil, errUnconfiguredError
+}
+
+// Reload reads all extended attributes for a node from storage
+func (NullBackend) Reload(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
 	return nil, errUnconfiguredError
 }
 

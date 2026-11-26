@@ -14,6 +14,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -66,6 +67,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			lastGroupSyncCache:     lastGroupSyncCache,
 			tenantIDCache:          tenantIDCache,
 			eventsPublisher:        options.EventsPublisher,
+			auditEmitter:           options.AuditEmitter,
 		}
 	}
 }
@@ -92,6 +94,7 @@ type accountResolver struct {
 	// tenantIDCache maps external tenant IDs (from OIDC claims) to internal tenant IDs.
 	tenantIDCache   *ttlcache.Cache[string, string]
 	eventsPublisher events.Publisher
+	auditEmitter    audit.Emitter
 }
 
 func readStringClaim(path string, claims map[string]any) (string, error) {
@@ -248,17 +251,23 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// If this is a new session, publish user login event
-		if newSession := oidc.NewSessionFlagFromContext(ctx); newSession && m.eventsPublisher != nil {
-			if err := events.Publish(req.Context(), m.eventsPublisher, events.UserSignedIn{
-				Executant: user.Id,
-				Timestamp: utils.TimeToTS(time.Now()),
-			}); err != nil {
-				m.logger.Error().Err(err).Msg("could not publish user signin event.")
+		if newSession := oidc.NewSessionFlagFromContext(ctx); newSession {
+			if m.eventsPublisher != nil {
+				event := events.UserSignedIn{
+					Executant: user.Id,
+					Timestamp: utils.TimeToTS(time.Now()),
+				}
+				if err := events.Publish(req.Context(), m.eventsPublisher, event); err != nil {
+					m.logger.Error().Err(err).Msg("could not publish user signin event.")
+				}
+			}
+			if newLoginFromContext(ctx) {
+				auditLogin(revactx.ContextSetUser(ctx, user), m.auditEmitter, user)
 			}
 
 			// If the OIDC claims contain a profile picture URL, request
 			// the graph service to sync it.
-			if pictureURL := m.readProfilePictureURL(claims, user.Id.GetOpaqueId()); pictureURL != "" {
+			if pictureURL := m.readProfilePictureURL(claims, user.Id.GetOpaqueId()); pictureURL != "" && m.eventsPublisher != nil {
 				if err := events.Publish(req.Context(), m.eventsPublisher, ocevents.UserProfilePictureSyncRequested{
 					Executant:  user.Id,
 					PictureURL: pictureURL,

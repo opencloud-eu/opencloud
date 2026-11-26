@@ -28,7 +28,7 @@ func searchResourceByID(ctx context.Context, client *opensearchgoAPI.Client, ind
 	case err != nil:
 		return search.Resource{}, fmt.Errorf("failed to search for resource: %w", err)
 	case resp.Hits.Total.Value == 0 || len(resp.Hits.Hits) == 0:
-		return search.Resource{}, fmt.Errorf("document with id %s not found", id)
+		return search.Resource{}, fmt.Errorf("document with id %s: %w", id, search.ErrResourceNotFound)
 	}
 
 	resource, err := conversions.To[search.Resource](resp.Hits.Hits[0].Source)

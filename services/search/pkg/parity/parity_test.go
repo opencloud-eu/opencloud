@@ -110,6 +110,8 @@ func queryGroups() []queryGroup {
 		stressGroup(),
 		everythingGroup(),
 		rangeGroup(),
+		photoGroup(),
+		extractionGroup(),
 		scopeGroup(),
 		invalidGroup(),
 		quotingGroup(),

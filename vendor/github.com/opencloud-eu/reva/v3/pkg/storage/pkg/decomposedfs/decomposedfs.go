@@ -16,6 +16,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+// Package decomposedfs is the shared core of the decomposed, decomposeds3 and posix
+// storage drivers. Each driver supplies its storage layout through aspects.Aspects,
+// see README.md in this directory for how the drivers are built and how they
+// delegate to and override the shared code.
 package decomposedfs
 
 import (
@@ -55,6 +59,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/options"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/permissions"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/spaceidindex"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/timemanager"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/trashbin"
@@ -72,6 +77,10 @@ type CtxKey int
 const (
 	CtxKeySpaceGID CtxKey = iota
 )
+
+// maxDownloadAttempts is the number of times Download tries to open the blob of a node
+// whose blob id changed in the meantime.
+const maxDownloadAttempts = 3
 
 var (
 	tracer trace.Tracer
@@ -101,6 +110,10 @@ type Decomposedfs struct {
 	// separateBlobs is set when the blobstore keeps blobs apart from the nodes
 	separateBlobs bool
 
+	// deletes old revisions after uploads and restores created new ones, disabled
+	// without a strategy, see aspects.Aspects.
+	revisionsCleanup *revisioncleanup.Service
+
 	UserCache       *ttlcache.Cache
 	userSpaceIndex  *spaceidindex.Index
 	groupSpaceIndex *spaceidindex.Index
@@ -127,12 +140,10 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 
 	var lu *lookup.Lookup
 	switch o.MetadataBackend {
-	case "xattrs":
-		lu = lookup.New(metadata.NewXattrsBackend(o.FileMetadataCache), o, &timemanager.Manager{})
 	case "messagepack":
 		lu = lookup.New(metadata.NewMessagePackBackend(o.FileMetadataCache), o, &timemanager.Manager{})
 	default:
-		return nil, fmt.Errorf("unknown metadata backend %s, only 'messagepack' or 'xattrs' (default) supported", o.MetadataBackend)
+		return nil, fmt.Errorf("unknown metadata backend %s, only 'messagepack' (default) supported", o.MetadataBackend)
 	}
 
 	permissionsSelector, err := pool.PermissionsSelector(o.PermissionsSVC, pool.WithTLSMode(o.PermTLSMode))
@@ -155,16 +166,30 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 		store.TLSRootCA(o.IDCache.TLSRootCACertificate),
 	), log)
 
-	aspects := aspects.Aspects{
-		Lookup:        lu,
-		Tree:          tp,
-		Permissions:   p,
-		EventStream:   es,
-		Trashbin:      &DecomposedfsTrashbin{},
-		SeparateBlobs: true,
+	// fail at startup on an invalid strategy or async settings rather than silently keeping
+	// or deleting revisions the admin did not expect. The posix driver does the same in tree.New.
+	revisionsCleanup, err := revisioncleanup.NewServiceFromOptions(o, lu, tp, log)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid revisions cleanup configuration")
 	}
 
-	return New(o, aspects, log)
+	aspects := aspects.Aspects{
+		Lookup:           lu,
+		Tree:             tp,
+		Permissions:      p,
+		EventStream:      es,
+		Trashbin:         &DecomposedfsTrashbin{},
+		SeparateBlobs:    true,
+		RevisionsCleanup: revisionsCleanup,
+	}
+
+	fs, err := New(o, aspects, log)
+	if err != nil {
+		// stop the workers of the revision cleanup again
+		_ = revisionsCleanup.Shutdown(context.Background())
+		return nil, err
+	}
+	return fs, nil
 }
 
 // New returns an implementation of the storage.FS interface that talks to
@@ -217,20 +242,21 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 	}
 
 	fs := &Decomposedfs{
-		tp:              aspects.Tree,
-		lu:              aspects.Lookup,
-		trashbin:        aspects.Trashbin,
-		o:               o,
-		p:               aspects.Permissions,
-		um:              aspects.UserMapper,
-		stream:          aspects.EventStream,
-		separateBlobs:   aspects.SeparateBlobs,
-		UserCache:       ttlcache.NewCache(),
-		userSpaceIndex:  userSpaceIndex,
-		groupSpaceIndex: groupSpaceIndex,
-		mailSpaceIndex:  mailSpaceIndex,
-		spaceTypeIndex:  spaceTypeIndex,
-		log:             log,
+		tp:               aspects.Tree,
+		lu:               aspects.Lookup,
+		trashbin:         aspects.Trashbin,
+		o:                o,
+		p:                aspects.Permissions,
+		um:               aspects.UserMapper,
+		stream:           aspects.EventStream,
+		separateBlobs:    aspects.SeparateBlobs,
+		UserCache:        ttlcache.NewCache(),
+		revisionsCleanup: aspects.RevisionsCleanup,
+		userSpaceIndex:   userSpaceIndex,
+		groupSpaceIndex:  groupSpaceIndex,
+		mailSpaceIndex:   mailSpaceIndex,
+		spaceTypeIndex:   spaceTypeIndex,
+		log:              log,
 	}
 	if err = fs.trashbin.Setup(fs); err != nil {
 		return nil, err
@@ -297,7 +323,7 @@ func (fs *Decomposedfs) handleRevisionEvent(ctx context.Context, event events.Ev
 				sublog.Debug().Msg("node is not stuck, ignoring")
 				return
 			}
-			_, deleteErr = n.DeleteRevision(ctx, "")
+			_, deleteErr = n.DeleteRevisionUnchecked(ctx, "")
 		} else {
 			versionID := time.Unix(int64(ev.Timestamp.Seconds), int64(ev.Timestamp.Nanos)).UTC().Format(time.RFC3339Nano)
 			deleteErr = fs.deleteRevisionFile(ctx, n, n.ID+node.RevisionIDDelimiter+versionID)
@@ -319,7 +345,8 @@ func (fs *Decomposedfs) WithDisabledSpaces() storage.FS {
 
 // Shutdown shuts down the storage
 func (fs *Decomposedfs) Shutdown(ctx context.Context) error {
-	return nil
+	// stop the background revision cleanup workers, see revisioncleanup.Service.Shutdown
+	return fs.revisionsCleanup.Shutdown(ctx)
 }
 
 // Capabilities declares decomposedfs fully writeable, stated explicitly so it is
@@ -351,7 +378,7 @@ func (fs *Decomposedfs) GetQuota(ctx context.Context, ref *provider.Reference) (
 	switch {
 	case err != nil:
 		return 0, 0, 0, err
-	case !rp.GetQuota && !fs.p.ListAllSpaces(ctx):
+	case !rp.GetQuota && !fs.canListAllSpaces(ctx, n):
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
 			return 0, 0, 0, errtypes.PermissionDenied(f)
@@ -524,6 +551,8 @@ func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) 
 	if err = fs.tp.CreateDir(ctx, n); err != nil {
 		return nil, err
 	}
+	setAuditItem(ctx, n)
+	fs.setAuditPath(ctx, n, ref)
 
 	return &storage.CreateDirResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID, ResourceID: &provider.ResourceId{OpaqueId: n.ID, SpaceId: n.SpaceID}}, nil
 }
@@ -602,6 +631,8 @@ func (fs *Decomposedfs) Move(ctx context.Context, oldRef, newRef *provider.Refer
 	if !oldNode.Exists {
 		return nil, errtypes.NotFound(filepath.Join(oldNode.ParentID, oldNode.Name))
 	}
+	setAuditItem(ctx, oldNode)
+	fs.setAuditPath(ctx, oldNode, oldRef)
 
 	orp, err := fs.p.AssemblePermissions(ctx, oldNode)
 	switch {
@@ -889,6 +920,8 @@ func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (dr
 	if node.IsProcessing(ctx) {
 		return nil, errtypes.TooEarly("file is processing")
 	}
+	setAuditItem(ctx, node)
+	fs.setAuditPath(ctx, node, ref)
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
@@ -967,14 +1000,54 @@ func (fs *Decomposedfs) Download(ctx context.Context, ref *provider.Reference, o
 	if err != nil {
 		return nil, nil, err
 	}
-	var reader io.ReadCloser
 	if openReaderFunc(ri) {
-		reader, err = fs.tp.ReadBlob(n)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "Decomposedfs: error download blob '"+n.ID+"'")
+		// A concurrent upload finalization can replace and delete the blob between resolving
+		// the node and opening the blob. If opening fails and the blob id of the node has
+		// changed, retry with the new blob.
+		log := appctx.GetLogger(ctx)
+		for attempt := 1; ; attempt++ {
+			reader, err := fs.tp.ReadBlob(n)
+			if err == nil {
+				return ri, reader, nil
+			}
+			err = errors.Wrap(err, "Decomposedfs: error download blob '"+n.ID+"'")
+			if attempt == maxDownloadAttempts {
+				return nil, nil, err
+			}
+
+			currentNode, readErr := node.ReadNode(ctx, fs.lu, n.SpaceID, n.ID, "", true, n.SpaceRoot, false)
+			if readErr != nil {
+				log.Warn().Err(readErr).AnErr("blobError", err).Str("nodeid", n.ID).Msg("could not re-read node after failing to open blob")
+				return nil, nil, err
+			}
+			if !currentNode.Exists {
+				return nil, nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
+			}
+			// a newer upload may have marked the node as processing, its blob is not written yet.
+			if currentNode.IsProcessing(ctx) {
+				return nil, nil, errtypes.TooEarly("file is still being processed")
+			}
+			if currentNode.BlobID != n.BlobID {
+				// the blob was replaced: retry with the new one
+				refreshed, riErr := currentNode.AsResourceInfo(ctx, rp, nil, []string{"size", "mimetype", "etag"}, true)
+				if riErr != nil {
+					log.Warn().Err(err).Str("nodeid", n.ID).Msg("dropped blob error, could not refresh resource info of replaced blob")
+					return nil, nil, riErr
+				}
+				log.Debug().
+					Err(err).
+					Str("nodeid", n.ID).
+					Str("oldblobid", n.BlobID).
+					Str("newblobid", currentNode.BlobID).
+					Int("attempt", attempt).
+					Msg("blob was replaced while opening it, retrying")
+				n, ri = currentNode, refreshed
+				continue
+			}
+			return nil, nil, err
 		}
 	}
-	return ri, reader, nil
+	return ri, nil, nil
 }
 
 // GetLock returns an existing lock on the given reference
@@ -1018,6 +1091,9 @@ func (fs *Decomposedfs) SetLock(ctx context.Context, ref *provider.Reference, lo
 	if !node.Exists {
 		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
+
+	setAuditItem(ctx, node)
+	fs.setAuditPath(ctx, node, ref)
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
@@ -1087,6 +1163,9 @@ func (fs *Decomposedfs) Unlock(ctx context.Context, ref *provider.Reference, loc
 	if !node.Exists {
 		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
+
+	setAuditItem(ctx, node)
+	fs.setAuditPath(ctx, node, ref)
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
@@ -1322,4 +1401,27 @@ func (fs *Decomposedfs) refFromNode(ctx context.Context, n *node.Node, storageId
 		},
 		Path: path,
 	}, nil
+}
+
+// setAuditPath tells the events middleware the path of n in its space when
+// the request does not start at the space root, e.g. a request through a
+// share, a link or by ID: its path is relative to another node. The permission
+// check walks the same parents, so their metadata is cached.
+func (fs *Decomposedfs) setAuditPath(ctx context.Context, n *node.Node, ref *provider.Reference) {
+	if !storagespace.ContextWantsItem(ctx) || utils.IsSpaceRootedReference(ref) {
+		return
+	}
+	if p, err := fs.lu.Path(ctx, n, node.NoCheck); err == nil {
+		storagespace.ContextSetItemPath(ctx, p)
+	}
+}
+
+// setAuditItem tells the events middleware which item a call acts on. A
+// trashed node keeps the ID it had before it was deleted.
+func setAuditItem(ctx context.Context, n *node.Node) {
+	if !storagespace.ContextWantsItem(ctx) {
+		return
+	}
+	id, _, _ := strings.Cut(n.ID, node.TrashIDDelimiter)
+	storagespace.ContextSetItem(ctx, n.Type(ctx), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: id}, n.Name)
 }

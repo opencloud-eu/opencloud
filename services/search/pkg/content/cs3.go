@@ -44,14 +44,18 @@ func (s cs3) Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadClo
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
 		s.logger.Error().Err(err).Msg("could not get reva gatewayClient")
-		return nil, err
+		return nil, unreachable(err)
 	}
 
 	res, err := gatewayClient.InitiateFileDownload(ctx, &provider.InitiateFileDownloadRequest{Ref: &provider.Reference{ResourceId: rID, Path: "."}})
 	if err != nil {
-		return nil, err
+		return nil, unreachable(err)
 	}
-	if res.Status.Code != rpc.Code_CODE_OK {
+	switch res.GetStatus().GetCode() {
+	case rpc.Code_CODE_OK:
+	case rpc.Code_CODE_UNAVAILABLE:
+		return nil, fmt.Errorf("%w: could not load resoure: %s", ErrUnreachable, res.GetStatus().GetMessage())
+	default:
 		return nil, fmt.Errorf("could not load resoure: %s", res.Status.Message)
 	}
 
@@ -66,7 +70,7 @@ func (s cs3) Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadClo
 		ep, tt = res.Protocols[0].DownloadEndpoint, res.Protocols[0].Token
 	}
 
-	req, err := http.NewRequest(http.MethodGet, ep, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ep, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +80,15 @@ func (s cs3) Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadClo
 
 	cres, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, unreachable(err)
 	}
 
 	if cres.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("could not download resource. Request returned with statuscode %d ", cres.StatusCode)
+		err := fmt.Errorf("could not download resource. Request returned with statuscode %d ", cres.StatusCode)
+		if transientStatus(cres.StatusCode) {
+			err = fmt.Errorf("%w: %w", ErrUnreachable, err)
+		}
+		return nil, err
 	}
 
 	return cres.Body, nil

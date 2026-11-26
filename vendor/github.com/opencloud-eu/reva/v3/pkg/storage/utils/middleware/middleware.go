@@ -67,6 +67,14 @@ func (f *FS) PrepareCreatesNode() bool {
 	nc, ok := f.next.(storage.NodeCreator)
 	return ok && nc.PrepareCreatesNode()
 }
+
+// HandleUploadFinished passes the end of an upload on to the wrapped driver, if it
+// handles it, see storage.UploadFinishedHandler.
+func (f *FS) HandleUploadFinished(ctx context.Context, ref *provider.Reference, sessionID string, versionCreated bool) {
+	if h, ok := f.next.(storage.UploadFinishedHandler); ok {
+		h.HandleUploadFinished(ctx, ref, sessionID, versionCreated)
+	}
+}
 func (f *FS) GetHome(ctx context.Context) (string, error) {
 	var (
 		err     error

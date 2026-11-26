@@ -122,13 +122,32 @@ func (a *authorizer) GetInfoByDomain(_ context.Context, domain string) (*ocmprov
 		// check if the domain matches a regex
 		if ok, err := regexp.MatchString(p.Domain, normalizedDomain); ok && err == nil {
 			// overwrite wildcards with the actual domain
-			for i, s := range p.Services {
-				s.Endpoint.Path = strings.ReplaceAll(s.Endpoint.Path, p.Domain, normalizedDomain)
-				s.Host = strings.ReplaceAll(s.Host, p.Domain, normalizedDomain)
-				p.Services[i] = s
+			var services []*ocmprovider.Service
+			for _, s := range p.Services {
+				services = append(services, &ocmprovider.Service{
+					Host: strings.ReplaceAll(s.Host, p.Domain, normalizedDomain),
+					Endpoint: &ocmprovider.ServiceEndpoint{
+						Type:        s.Endpoint.Type,
+						Name:        s.Endpoint.Name,
+						Path:        strings.ReplaceAll(s.Endpoint.Path, p.Domain, normalizedDomain),
+						IsMonitored: s.Endpoint.IsMonitored,
+						Properties:  s.Endpoint.Properties,
+					},
+					ApiVersion:          s.ApiVersion,
+					AdditionalEndpoints: s.AdditionalEndpoints,
+				})
 			}
-			p.Domain = normalizedDomain
-			return p, nil
+			return &ocmprovider.ProviderInfo{
+				Name:         p.Name,
+				FullName:     p.FullName,
+				Description:  p.Description,
+				Organization: p.Organization,
+				Domain:       normalizedDomain,
+				Homepage:     p.Homepage,
+				Email:        p.Email,
+				Services:     services,
+				Properties:   p.Properties,
+			}, nil
 		}
 	}
 	return nil, errtypes.NotFound(domain)

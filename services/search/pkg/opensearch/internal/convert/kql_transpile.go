@@ -3,7 +3,6 @@ package convert
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -118,6 +117,22 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 			return osu.NewTermQuery[bool](node.Key).Value(b), nil
 		}
 
+		// a numeric field takes a number, which : and = both match as a whole.
+		// Anything else matches nothing instead of failing the search:
+		// size:>100 is the value ">100" and not the range size>100
+		if query.FieldIsNumeric(node.Key) {
+			v, ok := query.ParseNumber(node.Value)
+			if !ok {
+				return osu.NewMatchNoneQuery(), nil
+			}
+			return osu.NewTermQuery[float64](node.Key).Value(v), nil
+		}
+
+		// a date arrives as a date node, text on a date field is none
+		if query.FieldIsDatetime(node.Key) {
+			return osu.NewMatchNoneQuery(), nil
+		}
+
 		field, value := node.Key, node.Value
 		if node.CaseInsensitive {
 			field += mapping.LowercaseSuffix
@@ -219,7 +234,7 @@ func numberNodeQuery(node *ast.NumberNode) (osu.Builder, error) {
 		return nil, fmt.Errorf("number node without operator: %w", ErrUnsupportedNodeType)
 	}
 
-	if !slices.Contains([]string{"Size", "Type"}, node.Key) {
+	if !query.FieldIsNumeric(node.Key) {
 		return osu.NewMatchNoneQuery(), nil
 	}
 

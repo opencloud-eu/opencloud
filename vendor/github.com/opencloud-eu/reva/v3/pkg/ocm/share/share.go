@@ -55,6 +55,9 @@ type Repository interface {
 	// GetReceivedShare returns the information for a received share the user has access.
 	GetReceivedShare(ctx context.Context, user *userpb.User, ref *ocm.ShareReference) (*ocm.ReceivedShare, error)
 
+	// DeleteReceivedShare deletes the share pointed by ref.
+	DeleteReceivedShare(ctx context.Context, user *userpb.User, ref *ocm.ShareReference) error
+
 	// UpdateReceivedShare updates the received share with share state.
 	UpdateReceivedShare(ctx context.Context, user *userpb.User, share *ocm.ReceivedShare, fieldMask *field_mask.FieldMask) (*ocm.ReceivedShare, error)
 }

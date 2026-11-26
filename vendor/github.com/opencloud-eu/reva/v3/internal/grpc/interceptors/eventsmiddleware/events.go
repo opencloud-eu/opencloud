@@ -29,6 +29,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
@@ -55,6 +56,13 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 	if err != nil {
 		return nil, 0, err
 	}
+	emitter, err := emitterFromConfig(m)
+	if err != nil {
+		return nil, 0, err
+	}
+	linkAccesses := newLinkAccesses()
+	_, auditOff := emitter.(audit.Discard)
+	auditOn := !auditOff
 
 	interceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		// Register slots so the storage driver can pass data back up through
@@ -67,9 +75,24 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 		// Register a slot for typed DeleteStorageSpace results
 		ctx = storagespace.ContextRegisterDeleteStorageSpaceResultSlot(ctx)
 
+		// only with audit on, the drivers look up more for the slot
+		itemSlot := &storagespace.ItemSlot{}
+		if auditOn {
+			ctx = storagespace.ContextRegisterItemSlot(ctx, itemSlot)
+		}
+
 		res, err := handler(ctx, req)
 		if err != nil {
 			return res, err
+		}
+
+		if auditOn {
+			if aev, ok := auditEvent(req, res, itemSlot); ok && !autoAccepted(ctx, res) && firstLinkAccess(ctx, linkAccesses, aev) {
+				if err := emitter.Emit(ctx, aev); err != nil {
+					// the call is done already, failing it now would hide that it happened
+					appctx.GetLogger(ctx).Error().Err(err).Str("event", aev.Definition.Name).Msg("audit event not emitted")
+				}
+			}
 		}
 
 		spaceOwnerID := storagespace.ContextGetSpaceOwner(ctx) // nil if not set by handler

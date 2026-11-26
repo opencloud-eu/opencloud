@@ -311,7 +311,8 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 		return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list spaces of other users", authenticatedUserID))
 	}
 
-	checkNodePermissions := fs.MustCheckNodePermissions(ctx, unrestricted)
+	checkProjectNodePermissions := fs.MustCheckNodePermissions(ctx, unrestricted)
+	checkPersonalNodePermissions := fs.mustCheckPersonalNodePermissions(ctx, unrestricted)
 
 	spaces := []*provider.StorageSpace{}
 	// build the glob path, eg.
@@ -330,7 +331,7 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 			// return empty list
 			return spaces, nil
 		}
-		space, err := fs.StorageSpaceFromNode(ctx, n, checkNodePermissions)
+		space, err := fs.storageSpaceFromNode(ctx, n, checkProjectNodePermissions, checkPersonalNodePermissions)
 		if err != nil {
 			return nil, err
 		}
@@ -484,7 +485,7 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 					continue
 				}
 
-				space, err := fs.StorageSpaceFromNode(ctx, n, checkNodePermissions)
+				space, err := fs.storageSpaceFromNode(ctx, n, checkProjectNodePermissions, checkPersonalNodePermissions)
 				if err != nil {
 					switch err.(type) {
 					case errtypes.IsPermissionDenied:
@@ -549,7 +550,7 @@ func (fs *Decomposedfs) ListStorageSpaces(ctx context.Context, filter []*provide
 			return nil, err
 		}
 		if n.Exists {
-			space, err := fs.StorageSpaceFromNode(ctx, n, checkNodePermissions)
+			space, err := fs.storageSpaceFromNode(ctx, n, checkProjectNodePermissions, checkPersonalNodePermissions)
 			if err != nil {
 				return nil, err
 			}
@@ -588,14 +589,42 @@ func (fs *Decomposedfs) UserIDToUserAndGroups(ctx context.Context, userid *userv
 // MustCheckNodePermissions checks if permission checks are needed to be performed when user requests spaces
 func (fs *Decomposedfs) MustCheckNodePermissions(ctx context.Context, unrestricted bool) bool {
 	// canListAllSpaces indicates if the user has the permission from the global user role
-	canListAllSpaces := fs.p.ListAllSpaces(ctx)
+	// and requests all spaces
+	canListAllSpaces := unrestricted && fs.p.ListAllSpaces(ctx)
 	// unrestricted is the param which indicates if the user wants to list all spaces or only the spaces he is part of
 	// if a user lists all spaces unrestricted and doesn't have the permissions from the role, we need to check
 	// the nodePermissions and this will return a spaces list where the user has access to
 	// we can only skip the NodePermissions check if both values are true
-	if canListAllSpaces && unrestricted {
+	if canListAllSpaces {
 		return false
 	}
+	return true
+}
+
+// canListAllSpaces returns true when the user is allowed to list all spaces of the given node's type
+func (fs *Decomposedfs) canListAllSpaces(ctx context.Context, n *node.Node) bool {
+	if n.SpaceRoot == nil {
+		return false
+	}
+
+	spaceType, err := n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
+	if err != nil {
+		return false
+	}
+
+	if spaceType == _spaceTypePersonal {
+		return fs.p.ListAllPersonalSpaces(ctx)
+	}
+
+	return fs.p.ListAllSpaces(ctx)
+}
+
+// mustCheckPersonalNodePermissions is the Drives.ListPersonal counterpart of MustCheckNodePermissions.
+func (fs *Decomposedfs) mustCheckPersonalNodePermissions(ctx context.Context, unrestricted bool) bool {
+	if unrestricted && fs.p.ListAllPersonalSpaces(ctx) {
+		return false
+	}
+
 	return true
 }
 
@@ -669,6 +698,14 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 			Status: &v1beta11.Status{Code: v1beta11.Code_CODE_NOT_FOUND},
 		}, nil
 	}
+	setAuditSpace(ctx, spaceNode)
+
+	spaceType, err := spaceNode.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
+	if err != nil {
+		return &provider.UpdateStorageSpaceResponse{
+			Status: &v1beta11.Status{Code: v1beta11.Code_CODE_INTERNAL, Message: "space has no type"},
+		}, nil
+	}
 
 	sp, err := fs.p.AssemblePermissions(ctx, spaceNode)
 	if err != nil {
@@ -693,31 +730,25 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 			k = append(k, prefixes.SpaceReadmeAttr, prefixes.SpaceAliasAttr, prefixes.SpaceImageAttr)
 		}
 
-		if mapHasKey(metadata, k...) && !fs.p.ManageSpaceProperties(ctx, spaceID) {
-			return &provider.UpdateStorageSpaceResponse{
-				Status: &v1beta11.Status{Code: v1beta11.Code_CODE_PERMISSION_DENIED},
-			}, nil
+		if mapHasKey(metadata, k...) {
+			if !fs.p.ManageSpaceProperties(ctx, spaceID, spaceType) {
+				return &provider.UpdateStorageSpaceResponse{
+					Status: &v1beta11.Status{Code: v1beta11.Code_CODE_PERMISSION_DENIED},
+				}, nil
+			}
 		}
 
-		if restore && !fs.p.SpaceAbility(ctx, spaceID) {
-			return &provider.UpdateStorageSpaceResponse{
-				Status: &v1beta11.Status{Code: v1beta11.Code_CODE_NOT_FOUND},
-			}, nil
+		if restore {
+			if !fs.p.RestoreSpace(ctx, spaceID, spaceType) {
+				return &provider.UpdateStorageSpaceResponse{
+					Status: &v1beta11.Status{Code: v1beta11.Code_CODE_NOT_FOUND},
+				}, nil
+			}
 		}
 	}
 
 	if mapHasKey(metadata, prefixes.QuotaAttr) {
-		typ, err := spaceNode.SpaceRoot.Xattr(ctx, prefixes.SpaceTypeAttr)
-		if err != nil {
-			return &provider.UpdateStorageSpaceResponse{
-				Status: &v1beta11.Status{
-					Code:    v1beta11.Code_CODE_INTERNAL,
-					Message: "space has no type",
-				},
-			}, nil
-		}
-
-		if !fs.p.SetSpaceQuota(ctx, spaceID, string(typ)) {
+		if !fs.p.SetSpaceQuota(ctx, spaceID, spaceType) {
 			return &provider.UpdateStorageSpaceResponse{
 				Status: &v1beta11.Status{Code: v1beta11.Code_CODE_PERMISSION_DENIED},
 			}, nil
@@ -790,6 +821,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 	if !n.Exists {
 		return nil, errtypes.NotFound(spaceID)
 	}
+	setAuditSpace(ctx, n)
 
 	st, err := n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
 	if err != nil {
@@ -1000,7 +1032,22 @@ func (fs *Decomposedfs) linkStorageSpaceType(ctx context.Context, spaceType, spa
 }
 
 func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, checkPermissions bool) (*provider.StorageSpace, error) {
+	return fs.storageSpaceFromNode(ctx, n, checkPermissions, checkPermissions)
+}
+
+func (fs *Decomposedfs) storageSpaceFromNode(ctx context.Context, n *node.Node, checkProjectNodePermissions, checkPersonalNodePermissions bool) (*provider.StorageSpace, error) {
 	user := ctxpkg.ContextMustGetUser(ctx)
+
+	spaceType, err := n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
+	if err != nil {
+		return nil, errtypes.InternalError(fmt.Sprintf("space %s does not have a type attribute", n.GetID()))
+	}
+
+	checkPermissions := checkProjectNodePermissions
+	if spaceType == _spaceTypePersonal {
+		checkPermissions = checkPersonalNodePermissions
+	}
+
 	if checkPermissions {
 		rp, err := fs.p.AssemblePermissions(ctx, n)
 		switch {
@@ -1020,7 +1067,6 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 
 	sublog := appctx.GetLogger(ctx).With().Str("spaceid", n.GetSpaceID()).Logger()
 
-	var err error
 	// TODO apply more filters
 	var sname string
 	if sname, err = n.SpaceRoot.XattrString(ctx, prefixes.SpaceNameAttr); err != nil {
@@ -1145,14 +1191,9 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 			SpaceId:  n.SpaceRoot.GetSpaceID(),
 			OpaqueId: n.SpaceRoot.GetID(),
 		},
-		Name: sname,
-		// SpaceType is read from xattr below
+		Name:      sname,
+		SpaceType: spaceType,
 		// Mtime is set either as node.tmtime or as fi.mtime below
-	}
-
-	space.SpaceType, err = n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
-	if err != nil {
-		appctx.GetLogger(ctx).Debug().Err(err).Msg("space does not have a type attribute")
 	}
 
 	if n.SpaceRoot.IsDisabled(ctx) {
@@ -1350,4 +1391,14 @@ func canDeleteSpace(ctx context.Context, spaceID string, typ string, purge bool,
 	}
 
 	return errtypes.PermissionDenied(fmt.Sprintf("user is not allowed to delete space %s", n.GetID()))
+}
+
+// setAuditSpace tells the events middleware the name of the space a call acts
+// on, before it is changed.
+func setAuditSpace(ctx context.Context, n *node.Node) {
+	if !storagespace.ContextWantsItem(ctx) {
+		return
+	}
+	name, _ := n.SpaceRoot.XattrString(ctx, prefixes.SpaceNameAttr)
+	storagespace.ContextSetItem(ctx, provider.ResourceType_RESOURCE_TYPE_CONTAINER, &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.SpaceID}, name)
 }

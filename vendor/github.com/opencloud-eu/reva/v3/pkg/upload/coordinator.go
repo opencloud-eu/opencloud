@@ -17,6 +17,7 @@ import (
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
@@ -179,6 +180,8 @@ func (c *coordinator) populateSession(ctx context.Context, session Session, t *u
 
 	// The ctx is gone by the time the bytes arrive, so record the actor now.
 	session.SetExecutant(ctxpkg.ContextMustGetUser(ctx))
+	rc, _ := audit.ContextGetRequest(ctx)
+	session.SetAuditOrigin(rc, audit.PublicShareID(ctx))
 	lockID, _ := ctxpkg.ContextGetLockID(ctx)
 	session.SetMetadata("lockid", lockID)
 	initiatorID, _ := ctxpkg.ContextGetInitiator(ctx)
@@ -448,6 +451,7 @@ func (c *coordinator) prepare(ctx context.Context, session Session, info storage
 	}
 	session.SetSizeDiff(prepared.SizeDiff)
 	session.SetVersionCreated(prepared.VersionCreated)
+	session.SetObsoleteBlobID(prepared.ObsoleteBlobID)
 	if prepared.Committed {
 		// the upload is complete, the session is about to be removed
 		return true, nil
@@ -642,11 +646,12 @@ func (c *coordinator) commit(ctx context.Context, session Session) (*provider.Re
 	// CommitUpload does not own the body; we opened it, so we close it. The path
 	// lets a driver that can move the staged file into place skip the copy.
 	err = c.fs.CommitUpload(ctx, &ref, session.ID(), storage.UploadSource{
-		Body:       f,
-		Path:       session.BinPath(),
-		Length:     session.Size(),
-		ScanResult: scanResult,
-		ScanDate:   scanDate,
+		Body:           f,
+		Path:           session.BinPath(),
+		Length:         session.Size(),
+		ObsoleteBlobID: session.ObsoleteBlobID(),
+		ScanResult:     scanResult,
+		ScanDate:       scanDate,
 	})
 	f.Close()
 	if err != nil {
@@ -665,6 +670,11 @@ func (c *coordinator) commit(ctx context.Context, session Session) (*provider.Re
 func (c *coordinator) finished(ctx context.Context, session Session) *provider.ResourceInfo {
 	session.Cleanup(ctx, true, true)
 	metrics.UploadSessionsFinalized.Inc()
+
+	if h, ok := c.fs.(storage.UploadFinishedHandler); ok {
+		ref := session.Reference()
+		h.HandleUploadFinished(ctx, &ref, session.ID(), session.VersionCreated())
+	}
 
 	ri := c.uploadedResourceInfo(ctx, session)
 	c.publishUploadReady(ctx, session, ri)

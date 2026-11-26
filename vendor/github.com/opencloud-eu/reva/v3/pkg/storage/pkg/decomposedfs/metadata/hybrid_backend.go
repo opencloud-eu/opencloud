@@ -133,17 +133,62 @@ func (b HybridBackend) All(ctx context.Context, n MetadataNode) (map[string][]by
 	}
 
 	if !n.LockHeld() {
-		unlock, err := b.Lock(n)
+		unlock, locked, err := b.lockToRead(ctx, n)
 		if err != nil {
 			return nil, err
 		}
 		defer func() { _ = unlock() }()
+		if !locked {
+			// read without a lock, see WithReadOnly: it may see a write halfway through, so
+			// don't cache it, where it could replace what the writer just cached
+			return b.readAll(ctx, n, false)
+		}
 	}
 
 	return b.getAll(ctx, n, false)
 }
 
+// Reload reads all extended attributes for a node from storage, never from the cache,
+// and updates the cache with them, except after a read without a lock (see WithReadOnly).
+// It acquires a shared file lock unless the caller already holds the node's metadata lock
+// (n.LockHeld()).
+func (b HybridBackend) Reload(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
+	if !n.LockHeld() {
+		unlock, locked, err := b.lockToRead(ctx, n)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = unlock() }()
+		if !locked {
+			// read without a lock, see WithReadOnly: it may see a write halfway through, so
+			// don't cache it, where it could replace what the writer just cached
+			return b.readAll(ctx, n, false)
+		}
+	}
+
+	return b.getAll(ctx, n, false)
+}
+
+// getAll reads all attributes of n from storage, like readAll, and caches them.
+// If the read fails, it drops the cached attributes of n, so that the next read goes to storage.
 func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipOffloaded bool) (map[string][]byte, error) {
+	attribs, err := b.readAll(ctx, n, skipOffloaded)
+	if err != nil {
+		// SetMultiple and Remove refresh the cache with getAll after they changed the
+		// attributes on storage: if that read fails, the cached attributes are outdated
+		// and would be served until their TTL runs out. The read error is what matters to
+		// the caller, a failure to drop the entry is left out.
+		_ = b.metaCache.RemoveMetadata(b.cacheKey(n))
+		return nil, err
+	}
+	if err := b.metaCache.PushToCache(b.cacheKey(n), attribs); err != nil {
+		return nil, err
+	}
+	return attribs, nil
+}
+
+// readAll reads all attributes of n from storage, without caching them.
+func (b HybridBackend) readAll(ctx context.Context, n MetadataNode, skipOffloaded bool) (map[string][]byte, error) {
 	b.metrics.reads.Inc()
 	attribs := map[string][]byte{}
 	attrNames, err := b.list(ctx, n)
@@ -152,32 +197,13 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipOffloaded
 	}
 
 	if len(attrNames) == 0 {
-		err = b.metaCache.PushToCache(b.cacheKey(n), attribs)
-		if err != nil {
-			return nil, err
-		}
 		return attribs, nil
 	}
 
-	var (
-		xerrs = 0
-		xerr  error
-	)
-	// error handling: Count if there are errors while reading all attribs.
-	// if there were any, return an error.
-	attribs = make(map[string][]byte, len(attrNames))
 	path := n.InternalPath()
-	for _, name := range attrNames {
-		var val []byte
-		if val, xerr = xattr.Get(path, name); xerr != nil && !IsAttrUnset(xerr) {
-			xerrs++
-		} else {
-			attribs[name] = val
-		}
-	}
-
-	if xerrs > 0 {
-		return nil, errors.Wrap(xerr, "Failed to read all xattrs")
+	attribs, err = readXattrs(path, attrNames, xattr.Get)
+	if err != nil {
+		return nil, err
 	}
 
 	// merge the attributes from the offload file
@@ -200,11 +226,32 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipOffloaded
 		}
 	}
 
-	err = b.metaCache.PushToCache(b.cacheKey(n), attribs)
-	if err != nil {
-		return nil, err
-	}
+	return attribs, nil
+}
 
+// readXattrs reads the named attributes of path with get. If any of them can't be read, it
+// fails as a whole: its result gets cached, and must not miss attributes, or be nil.
+// It used to keep only the error of the last attribute, so a failure followed by a successful
+// read returned no error and a nil map, which then got cached,
+// https://github.com/opencloud-eu/reva/issues/1073.
+func readXattrs(path string, names []string, get func(path, name string) ([]byte, error)) (map[string][]byte, error) {
+	attribs := make(map[string][]byte, len(names))
+	failed := 0
+	var firstErr error
+	for _, name := range names {
+		val, err := get(path, name)
+		if err != nil && !IsAttrUnset(err) {
+			if failed == 0 {
+				firstErr = err
+			}
+			failed++
+			continue
+		}
+		attribs[name] = val
+	}
+	if failed > 0 {
+		return nil, fmt.Errorf("failed to read %d of %d xattrs, the first: %w", failed, len(names), firstErr)
+	}
 	return attribs, nil
 }
 
@@ -363,13 +410,17 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 	}
 	// remove offloaded attributes from xattrs
 	for key := range msgpackAttribs {
-		xerr = xattr.Remove(path, key)
-		if xerr != nil {
+		if err := xattr.Remove(path, key); err != nil {
+			if xerrs == 0 {
+				// the first one: the last one may have been removed fine, so its nil error
+				// would have reported success (errors.Wrap(nil, ...) is nil)
+				xerr = err
+			}
 			xerrs++
 		}
 	}
 	if xerrs > 0 {
-		return errors.Wrap(xerr, "Failed to remove xattrs while offloading")
+		return fmt.Errorf("failed to remove %d of %d xattrs while offloading, the first: %w", xerrs, len(msgpackAttribs), xerr)
 	}
 
 	return nil
@@ -547,6 +598,28 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
 		return mlock.Close()
 	}, nil
+}
+
+// lockToRead locks n to read its metadata, like Lock. Under WithReadOnly, it doesn't create the
+// lock file: it locks the lock file only if it exists, and doesn't lock otherwise, which locked
+// tells.
+func (b HybridBackend) lockToRead(ctx context.Context, n MetadataNode) (unlock UnlockFunc, locked bool, err error) {
+	if !IsReadOnly(ctx) {
+		unlock, err = b.Lock(n)
+		return unlock, err == nil, err
+	}
+	mlock, locked, err := lockExisting(n, b.LockfilePath(n), os.O_RDWR, b.metrics)
+	if err != nil {
+		return nil, false, err
+	}
+	if !locked {
+		return func() error { return nil }, false, nil
+	}
+	n.SetLockHeld(true)
+	return func() error {
+		n.SetLockHeld(false)
+		return mlock.Close()
+	}, true, nil
 }
 
 func (b HybridBackend) cacheKey(n MetadataNode) string {

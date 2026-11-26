@@ -24,7 +24,7 @@ The ocs endpoint, by default `/ocs`, implements the Open Collaboration Services 
 
 #### Event Handler
 
-As of now, the `frontend` service does not contain any event handlers.
+As of now, the `frontend` service does not contain any event handlers. It only connects to the event system, see `FRONTEND_EVENTS_ENDPOINT`, when the audit log is enabled: the archiver records every archive download in the audit stream, see the [audit](https://github.com/opencloud-eu/opencloud/tree/main/services/audit) service.
 
 ### Sharing
 

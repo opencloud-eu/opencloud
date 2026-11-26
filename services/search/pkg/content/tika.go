@@ -2,11 +2,14 @@ package content
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -17,6 +20,13 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
 
+// ErrUnparsable marks a file tika answered for but could not parse, unlike an
+// unreachable tika it fails the same way on the next attempt more often than not
+var ErrUnparsable = errors.New("tika failed to parse")
+
+// tika answers its version without parsing anything, even while busy with a file
+var probeTimeout = 5 * time.Second
+
 // Tika is used to extract content from a resource,
 // it uses apache tika to retrieve all the data.
 type Tika struct {
@@ -26,6 +36,7 @@ type Tika struct {
 	tikaURL                    string
 	ContentExtractionSizeLimit uint64
 	CleanStopWords             bool
+	Timeout                    time.Duration
 }
 
 // NewTikaExtractor creates a new Tika instance.
@@ -49,6 +60,7 @@ func NewTikaExtractor(gatewaySelector pool.Selectable[gateway.GatewayAPIClient],
 		tikaURL:                    cfg.Extractor.Tika.TikaURL,
 		ContentExtractionSizeLimit: cfg.ContentExtractionSizeLimit,
 		CleanStopWords:             cfg.Extractor.Tika.CleanStopWords,
+		Timeout:                    cfg.Extractor.Tika.Timeout,
 	}, nil
 }
 
@@ -59,31 +71,61 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, err
 	}
 
-	if ri.Size == 0 {
+	if !t.Remote(ri) {
 		return doc, nil
 	}
+	// the head of a file over the limit still holds its metadata (exif, image
+	// size), its content is left out and tika may fail on the cut
+	oversized := ri.GetSize() > t.ContentExtractionSizeLimit
 
-	if ri.Type != provider.ResourceType_RESOURCE_TYPE_FILE {
-		return doc, nil
+	// a tika that hangs instead of refusing connections would block the walk
+	attemptCtx := ctx
+	if t.Timeout > 0 {
+		var cancel context.CancelFunc
+		attemptCtx, cancel = context.WithTimeout(ctx, t.Timeout)
+		defer cancel()
 	}
 
-	if ri.Size > t.ContentExtractionSizeLimit {
-		t.logger.Info().Interface("ResourceID", ri.Id).Str("Name", ri.Name).Msg("file exceeds content extraction size limit. skipping.")
-		return doc, nil
-	}
-
-	data, err := t.Retrieve(ctx, ri.Id)
+	data, err := t.Retrieve(attemptCtx, ri.GetId())
 	if err != nil {
-		return doc, err
+		return doc, t.attemptError(ctx, attemptCtx, ri, err)
 	}
 	defer data.Close()
 
-	metas, err := t.tika.MetaRecursive(ctx, data)
+	var input io.Reader = data
+	handler := "text"
+	if oversized {
+		input = io.LimitReader(data, int64(min(t.ContentExtractionSizeLimit, math.MaxInt64)))
+		handler = "ignore"
+	}
+	metas, err := t.tika.MetaRecursiveType(attemptCtx, input, handler)
 	if err != nil {
+		err = t.attemptError(ctx, attemptCtx, ri, unreachable(err))
+		if oversized && !errors.Is(err, ErrUnreachable) {
+			// a failure on the cut says nothing about the file, a retry would fail the same way
+			t.logger.Info().Err(err).Interface("ResourceID", ri.GetId()).Str("Name", ri.GetName()).Msg("no metadata from the head of a file over the content extraction size limit")
+			return doc, nil
+		}
 		return doc, err
 	}
-	if len(metas) == 0 {
+	if oversized {
+		t.addFacets(&doc, metas)
 		return doc, nil
+	}
+	// a file with content always yields metadata, none means tika failed on it
+	if len(metas) == 0 {
+		return doc, fmt.Errorf("%w %q: no metadata", ErrUnparsable, ri.GetName())
+	}
+	// tika answers a failed parse (ocr crash, broken pdf) with 200 and empty
+	// content, only this key tells it apart from a file without text
+	cause, err := getFirstValue(metas[0],
+		"tk:exception:container-exception",     // tika 4
+		"X-TIKA:EXCEPTION:container_exception", // tika 3 legacy
+	)
+	if err == nil {
+		// the value is a java stack trace, its first line names the cause
+		cause, _, _ = strings.Cut(cause, "\n")
+		return doc, fmt.Errorf("%w %q: %s", ErrUnparsable, ri.GetName(), cause)
 	}
 
 	for _, meta := range metas {
@@ -103,7 +145,54 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		}
 	}
 
-	// facets describe the file itself, not its embedded parts (cover art, clips)
+	t.addFacets(&doc, metas)
+
+	if langCode := t.detectLanguage(attemptCtx, doc.Content); langCode != "" && t.CleanStopWords {
+		doc.Content = CleanString(doc.Content, langCode)
+	}
+
+	return doc, nil
+}
+
+// Remote tells whether extracting ri goes to tika, only a file with content does
+func (t Tika) Remote(ri *provider.ResourceInfo) bool {
+	return ri.GetType() == provider.ResourceType_RESOURCE_TYPE_FILE && ri.GetSize() > 0
+}
+
+// Probe asks tika for its version, which tells a tika that is down or hangs
+// from one busy with a hard file
+func (t Tika) Probe(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	_, err := t.tika.Version(ctx)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrUnreachable, err)
+	}
+	return nil
+}
+
+// attemptError turns an attempt that ran out of time into a failure of the file:
+// tika accepted the request, so a retry would most likely run as long again and
+// stack more work on a tika that may still be parsing. Unless tika does not even
+// answer its version, then it hangs and is unreachable.
+func (t Tika) attemptError(ctx, attemptCtx context.Context, ri *provider.ResourceInfo, err error) error {
+	if ctx.Err() != nil || !errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
+		return err
+	}
+	err = fmt.Errorf("extracting %q took longer than %s: %w", ri.GetName(), t.Timeout, context.DeadlineExceeded)
+	probeErr := t.Probe(ctx)
+	if probeErr != nil {
+		return fmt.Errorf("%w, %w", probeErr, err)
+	}
+	return err
+}
+
+// addFacets takes the facets of the file itself, not of its embedded parts
+// (cover art, clips)
+func (t Tika) addFacets(doc *Document, metas []map[string][]string) {
+	if len(metas) == 0 {
+		return
+	}
 	m0 := metas[0]
 	doc.Location = t.getLocation(m0)
 	doc.Image = t.getImage(m0)
@@ -117,12 +206,6 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
 		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
 	}
-
-	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
-		doc.Content = CleanString(doc.Content, langCode)
-	}
-
-	return doc, nil
 }
 
 // detectLanguage asks tika for the language of content. Tika 4 moved the
