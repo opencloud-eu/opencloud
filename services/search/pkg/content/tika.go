@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"slices"
 	"strings"
@@ -71,11 +72,11 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 
 	if !t.Remote(ri) {
-		if ri.GetType() == provider.ResourceType_RESOURCE_TYPE_FILE && ri.GetSize() > t.ContentExtractionSizeLimit {
-			t.logger.Info().Interface("ResourceID", ri.GetId()).Str("Name", ri.GetName()).Msg("file exceeds content extraction size limit. skipping.")
-		}
 		return doc, nil
 	}
+	// the head of a file over the limit still holds its metadata (exif, image
+	// size), its content is left out and tika may fail on the cut
+	oversized := ri.GetSize() > t.ContentExtractionSizeLimit
 
 	// a tika that hangs instead of refusing connections would block the walk
 	attemptCtx := ctx
@@ -91,9 +92,25 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 	defer data.Close()
 
-	metas, err := t.tika.MetaRecursive(attemptCtx, data)
+	var input io.Reader = data
+	handler := "text"
+	if oversized {
+		input = io.LimitReader(data, int64(min(t.ContentExtractionSizeLimit, math.MaxInt64)))
+		handler = "ignore"
+	}
+	metas, err := t.tika.MetaRecursiveType(attemptCtx, input, handler)
 	if err != nil {
-		return doc, t.attemptError(ctx, attemptCtx, ri, unreachable(err))
+		err = t.attemptError(ctx, attemptCtx, ri, unreachable(err))
+		if oversized && !errors.Is(err, ErrUnreachable) {
+			// a failure on the cut says nothing about the file, a retry would fail the same way
+			t.logger.Info().Err(err).Interface("ResourceID", ri.GetId()).Str("Name", ri.GetName()).Msg("no metadata from the head of a file over the content extraction size limit")
+			return doc, nil
+		}
+		return doc, err
+	}
+	if oversized {
+		t.addFacets(&doc, metas)
+		return doc, nil
 	}
 	// a file with content always yields metadata, none means tika failed on it
 	if len(metas) == 0 {
@@ -128,20 +145,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		}
 	}
 
-	// facets describe the file itself, not its embedded parts (cover art, clips)
-	m0 := metas[0]
-	doc.Location = t.getLocation(m0)
-	doc.Image = t.getImage(m0)
-	doc.Photo = t.getPhoto(m0)
-	doc.Audio = t.getAudio(m0)
-	doc.LivePhoto = t.getLivePhoto(m0)
-	doc.Video = t.getVideo(m0)
-
-	// a motion photo is the file's own xmp plus the video tika extracted from
-	// it; the xmp alone proves nothing, a share can strip the appended clip
-	if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
-		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
-	}
+	t.addFacets(&doc, metas)
 
 	if langCode := t.detectLanguage(attemptCtx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
@@ -150,10 +154,9 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	return doc, nil
 }
 
-// Remote tells whether extracting ri goes to tika, only a file with content
-// within the size limit does
+// Remote tells whether extracting ri goes to tika, only a file with content does
 func (t Tika) Remote(ri *provider.ResourceInfo) bool {
-	return ri.GetType() == provider.ResourceType_RESOURCE_TYPE_FILE && ri.GetSize() > 0 && ri.GetSize() <= t.ContentExtractionSizeLimit
+	return ri.GetType() == provider.ResourceType_RESOURCE_TYPE_FILE && ri.GetSize() > 0
 }
 
 // Probe asks tika for its version, which tells a tika that is down or hangs
@@ -182,6 +185,27 @@ func (t Tika) attemptError(ctx, attemptCtx context.Context, ri *provider.Resourc
 		return fmt.Errorf("%w, %w", probeErr, err)
 	}
 	return err
+}
+
+// addFacets takes the facets of the file itself, not of its embedded parts
+// (cover art, clips)
+func (t Tika) addFacets(doc *Document, metas []map[string][]string) {
+	if len(metas) == 0 {
+		return
+	}
+	m0 := metas[0]
+	doc.Location = t.getLocation(m0)
+	doc.Image = t.getImage(m0)
+	doc.Photo = t.getPhoto(m0)
+	doc.Audio = t.getAudio(m0)
+	doc.LivePhoto = t.getLivePhoto(m0)
+	doc.Video = t.getVideo(m0)
+
+	// a motion photo is the file's own xmp plus the video tika extracted from
+	// it; the xmp alone proves nothing, a share can strip the appended clip
+	if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
+		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
+	}
 }
 
 // detectLanguage asks tika for the language of content. Tika 4 moved the
