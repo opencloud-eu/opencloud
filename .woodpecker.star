@@ -9,6 +9,7 @@ docker_repo_slug = "opencloudeu/opencloud"
 # images
 ALPINE_GIT = "alpine/git:latest"
 APACHE_TIKA = "apache/tika:4.2.1-SNAPSHOT"
+AXLLENT_MAILPIT = "axllent/mailpit:v1.32.0"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
@@ -17,7 +18,6 @@ OPEN_SEARCH = "opensearchproject/opensearch:2"
 # imagor for the thumbnail parity suite, keep equal to imagortest.Variants
 IMAGOR = "shumc/imagor:1.9.11"
 IMAGOR_MAGICK = "ghcr.io/cshum/imagor-magick:1.9.11"
-INBUCKET_INBUCKET = "inbucket/inbucket"
 MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
@@ -164,12 +164,12 @@ config = {
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
-                "EMAIL_PORT": "9000",
+                "EMAIL_PORT": "8025",
             },
             "extraServerEnvironment": {
                 "OC_ADD_RUN_SERVICES": "notifications",
                 "NOTIFICATIONS_SMTP_HOST": "email",
-                "NOTIFICATIONS_SMTP_PORT": "2500",
+                "NOTIFICATIONS_SMTP_PORT": "1025",
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
@@ -261,12 +261,12 @@ config = {
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
-                "EMAIL_PORT": "9000",
+                "EMAIL_PORT": "8025",
             },
             "extraServerEnvironment": {
                 "OC_ADD_RUN_SERVICES": "notifications",
                 "NOTIFICATIONS_SMTP_HOST": "email",
-                "NOTIFICATIONS_SMTP_PORT": "2500",
+                "NOTIFICATIONS_SMTP_PORT": "1025",
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
@@ -306,7 +306,7 @@ config = {
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
-                "EMAIL_PORT": "9000",
+                "EMAIL_PORT": "8025",
             },
             "extraServerEnvironment": {
                 "OC_ADD_RUN_SERVICES": "ocm,notifications",
@@ -317,7 +317,7 @@ config = {
                 "OCM_OCM_PROVIDER_AUTHORIZER_PROVIDERS_FILE": "%s" % dirs["ocmProviders"],
                 # mail notifications
                 "NOTIFICATIONS_SMTP_HOST": "email",
-                "NOTIFICATIONS_SMTP_PORT": "2500",
+                "NOTIFICATIONS_SMTP_PORT": "1025",
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
             },
@@ -3255,7 +3255,7 @@ def restoreBrowsersCache():
 def emailService():
     return [{
         "name": "email",
-        "image": INBUCKET_INBUCKET,
+        "image": AXLLENT_MAILPIT,
     }]
 
 def waitForEmailService():
@@ -3263,7 +3263,7 @@ def waitForEmailService():
         "name": "wait-for-email",
         "image": OC_CI_WAIT_FOR,
         "commands": [
-            "wait-for -host email -port 9000 -timeout 600",
+            "wait-for -host email -port 8025 -timeout 600",
         ],
     }]
 
