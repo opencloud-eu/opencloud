@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -246,6 +247,28 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 	}
 
 	return g.Wait()
+}
+
+// OptimizeIndex merges the segments of the index and answers once that is done
+func (s Service) OptimizeIndex(ctx context.Context, _ *searchsvc.OptimizeIndexRequest, out *searchsvc.OptimizeIndexResponse) error {
+	t := time.Now()
+	err := s.searcher.OptimizeIndex(ctx)
+	switch {
+	case errors.Is(err, context.Canceled):
+		// the client hung up, nobody waits for the answer
+		return err
+	case errors.Is(err, search.ErrOptimizeUnsupported):
+		// the wrapped error names the go type of the index, which stays in the log
+		s.log.Info().Err(err).Msg("refused to optimize the index")
+		return merrors.New(s.id, search.ErrOptimizeUnsupported.Error(), http.StatusNotImplemented)
+	case errors.Is(err, search.ErrOptimizeInProgress):
+		return merrors.New(s.id, err.Error(), http.StatusPreconditionFailed)
+	case err != nil:
+		s.log.Error().Err(err).Msg("failed to optimize the index")
+		return merrors.InternalServerError(s.id, "failed to optimize the index")
+	}
+	out.Duration = durationpb.New(time.Since(t))
+	return nil
 }
 
 // FromCache pulls a search result from cache

@@ -50,6 +50,14 @@ service SearchProvider {
         body: "*"
     };
   }
+  // OptimizeIndex merges the segments of the index into one, without indexing
+  // anything again. It answers once the merge is done.
+  rpc OptimizeIndex(OptimizeIndexRequest) returns (OptimizeIndexResponse) {
+    option (google.api.http) = {
+        post: "/api/v0/search/optimize-index",
+        body: "*"
+    };
+  }
 }
 
 service IndexProvider {
@@ -135,4 +143,11 @@ message IndexSpaceResponse {
   string error = 5;
   // The outcome of indexing this particular space.
   Status status = 6;
+}
+
+message OptimizeIndexRequest {}
+
+message OptimizeIndexResponse {
+  // The duration it took to optimize the index.
+  google.protobuf.Duration duration = 1;
 }

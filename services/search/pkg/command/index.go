@@ -17,6 +17,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
 // Index is the entrypoint for the server command.
@@ -32,8 +33,6 @@ func Index(cfg *config.Config) *cobra.Command {
 			allSpacesFlag, _ := cmd.Flags().GetBool("all-spaces")
 			spaceFlag, _ := cmd.Flags().GetString("space")
 			forceRescanFlag, _ := cmd.Flags().GetBool("force-rescan")
-			endpointFlag, _ := cmd.Flags().GetString("endpoint")
-			insecureFlag, _ := cmd.Flags().GetBool("insecure")
 			concurrencyFlag, _ := cmd.Flags().GetInt("concurrency")
 
 			if spaceFlag == "" && !allSpacesFlag {
@@ -43,29 +42,11 @@ func Index(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("concurrency %d exceeds max allowed %d", concurrencyFlag, cfg.ReindexMaxConcurrency)
 			}
 
-			if !cmd.Flags().Changed("endpoint") {
-				endpointFlag = cfg.GRPC.Addr
-			}
-
-			tlsMode := pool.TLSOff
-			if !insecureFlag {
-				mode, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
-				if err != nil {
-					return err
-				}
-				tlsMode = mode
-			}
-
-			conn, err := pool.NewConn(endpointFlag,
-				pool.WithTLSMode(tlsMode),
-				pool.WithTLSCACert(cfg.GRPCClientTLS.CACert),
-			)
+			c, conn, err := dialSearchProvider(cmd, cfg)
 			if err != nil {
-				return fmt.Errorf("failed to dial %s: %w", endpointFlag, err)
+				return err
 			}
 			defer conn.Close()
-
-			c := searchsvc.NewSearchProviderClient(conn)
 
 			// Cancel the operation when the user presses Ctrl+C (SIGINT) or the
 			// process receives SIGTERM. The cancellation propagates over the
@@ -118,16 +99,7 @@ func Index(cfg *config.Config) *cobra.Command {
 		false,
 		"force a rescan of all files, even if they are already indexed. This will make the indexing process much slower, but ensures that the index is up-to-date using the current search service configuration.",
 	)
-	indexCmd.Flags().String(
-		"endpoint",
-		"",
-		"the address of the search service gRPC endpoint. Defaults to the service's configured gRPC address (SEARCH_GRPC_ADDR). With OC_GRPC_CLIENT_TLS_MODE=on the server certificate must be valid for this address.",
-	)
-	indexCmd.Flags().Bool(
-		"insecure",
-		false,
-		"disable TLS for the gRPC connection.",
-	)
+	addConnFlags(indexCmd)
 	indexCmd.Flags().Int(
 		"concurrency",
 		3,
@@ -162,4 +134,47 @@ func printProgress(progress *searchsvc.IndexSpaceResponse) {
 
 	width := len(strconv.FormatInt(progress.GetTotalSpaces(), 10))
 	fmt.Printf("[%*d/%d %-7s] %s\n", width, progress.GetIndexedSpaces(), progress.GetTotalSpaces(), status, msg)
+}
+
+// addConnFlags adds the flags dialSearchProvider reads
+func addConnFlags(cmd *cobra.Command) {
+	cmd.Flags().String(
+		"endpoint",
+		"",
+		"the address of the search service gRPC endpoint. Defaults to the service's configured gRPC address (SEARCH_GRPC_ADDR). With OC_GRPC_CLIENT_TLS_MODE=on the server certificate must be valid for this address.",
+	)
+	cmd.Flags().Bool(
+		"insecure",
+		false,
+		"disable TLS for the gRPC connection.",
+	)
+}
+
+// dialSearchProvider connects to the running search service, the caller closes
+// the returned connection
+func dialSearchProvider(cmd *cobra.Command, cfg *config.Config) (searchsvc.SearchProviderClient, *grpc.ClientConn, error) {
+	endpointFlag, _ := cmd.Flags().GetString("endpoint")
+	insecureFlag, _ := cmd.Flags().GetBool("insecure")
+
+	if !cmd.Flags().Changed("endpoint") {
+		endpointFlag = cfg.GRPC.Addr
+	}
+
+	tlsMode := pool.TLSOff
+	if !insecureFlag {
+		mode, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
+		if err != nil {
+			return nil, nil, err
+		}
+		tlsMode = mode
+	}
+
+	conn, err := pool.NewConn(endpointFlag,
+		pool.WithTLSMode(tlsMode),
+		pool.WithTLSCACert(cfg.GRPCClientTLS.CACert),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to dial %s: %w", endpointFlag, err)
+	}
+	return searchsvc.NewSearchProviderClient(conn), conn, nil
 }

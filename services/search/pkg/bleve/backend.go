@@ -2,11 +2,13 @@ package bleve
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/index/scorch"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
@@ -32,6 +34,7 @@ type Backend struct {
 	index        *serialIndex
 	queryCreator searchQuery.Creator[query.Query]
 	log          log.Logger
+	optimizeMu   sync.Mutex
 }
 
 func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger) *Backend {
@@ -207,6 +210,32 @@ func (b *Backend) Update(_ context.Context, id string, u search.MetadataUpdate) 
 
 func (b *Backend) DocCount() (uint64, error) {
 	return b.index.DocCount()
+}
+
+// Optimize merges all segments into one while the index stays in use
+func (b *Backend) Optimize(ctx context.Context) error {
+	// scorch refuses a second merge with an error only its message tells apart
+	if !b.optimizeMu.TryLock() {
+		return search.ErrOptimizeInProgress
+	}
+	defer b.optimizeMu.Unlock()
+
+	advanced, err := b.index.Advanced()
+	if err != nil {
+		return err
+	}
+	s, ok := advanced.(*scorch.Scorch)
+	if !ok {
+		return fmt.Errorf("%w: %T", search.ErrOptimizeUnsupported, advanced)
+	}
+	// a nil plan merges into a single segment. a failing merge is retried by
+	// scorch without end and never returns, only cancelling ctx ends the wait
+	err = s.ForceMerge(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// scorch reports a cancelled merge as done, and so a closed index
+	return ctx.Err()
 }
 
 func (b *Backend) Upsert(id string, r search.Resource) error {
