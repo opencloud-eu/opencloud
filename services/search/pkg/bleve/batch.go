@@ -57,6 +57,10 @@ func (b *Batch) indexResource(id string, r search.Resource) error {
 	if err != nil {
 		return err
 	}
+	// vectors build: copy vector fields to their indexable _faiss sibling
+	// (the field itself is mapped stored-only, see VectorIndexSuffix);
+	// !vectors build: drop them
+	prepareVectorFields(doc, r.SearchFieldOverrides())
 	// push first if r would overflow the batch, so a batch holds at most
 	// maxBytes or a single larger document
 	if b.batch.Size() > 0 && b.batch.TotalDocsSize()+uint64(len(r.Content)) > b.maxBytes {

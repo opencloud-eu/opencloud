@@ -4,6 +4,12 @@ TAGS := disable_crypt
 GOARCH := $(shell go env GOARCH)
 CONFIG_DOCS_BASE_PATH := ../docs
 
+# bleve KNN support; needs libfaiss_c at build and run time (see the vectors
+# stage in docker/Dockerfile.multiarch)
+ifdef ENABLE_VECTORS
+	TAGS := ${TAGS},vectors
+endif
+
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
 include ../.bingo/Variables.mk
 endif

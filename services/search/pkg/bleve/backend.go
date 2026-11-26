@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -24,18 +26,50 @@ import (
 
 const defaultBatchSize = 50
 
+// semanticK picks the number of nearest neighbors for a semantic clause: at
+// least a fusion-friendly window, at most a sane cap (huge page sizes stand
+// for "everything", but a similarity ranking beyond 1000 hits carries no
+// signal, see the KNNRequest semantics: k results per clause, no threshold).
+func semanticK(size int) int64 {
+	const minK, maxK = 200, 1000
+	switch {
+	case size >= maxK:
+		return maxK
+	case size < minK:
+		return minK
+	default:
+		return int64(size)
+	}
+}
+
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
-	index *serialIndex
-	log   log.Logger
+	index      *serialIndex
+	vectorizer search.TextVectorizer
+	log        log.Logger
 }
 
-func NewBackend(index bleve.Index, log log.Logger) *Backend {
-	return &Backend{
+// Option configures a Backend.
+type Option func(*Backend)
+
+// WithTextVectorizer enables semantic queries (`semantic:"..."`); without it
+// they are rejected.
+func WithTextVectorizer(v search.TextVectorizer) Option {
+	return func(b *Backend) {
+		b.vectorizer = v
+	}
+}
+
+func NewBackend(index bleve.Index, log log.Logger, opts ...Option) *Backend {
+	b := &Backend{
 		index: &serialIndex{bleveIndex: index},
 		log:   log,
 	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
 }
 
 // bleveIndex lets serialIndex embed bleve.Index, whose Index method would clash
@@ -58,11 +92,14 @@ func (i *serialIndex) Batch(b *bleve.Batch) error {
 }
 
 // Search executes a search request operation within the index.
-func (b *Backend) Search(_ context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
+func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
 	createdQuery, err := bleveQuery.Compiler{}.Compile(searchQuery.Normalize(sir.Query, searchQuery.ResolveField))
 	if err != nil {
 		return nil, err
 	}
+	// the semantic clause ranks, the query filters: it scopes the vector
+	// search and stays the only source of totals
+	semanticText, pureSemantic := sir.Semantic, sir.Semantic != "" && sir.SemanticOnly
 
 	q := bleve.NewConjunctionQuery(
 		// Skip documents that have been marked as deleted
@@ -107,10 +144,40 @@ func (b *Backend) Search(_ context.Context, sir *search.IndexQuery) (*search.Ind
 		bleveReq.Size = int(sir.PageSize)
 	}
 
+	if semanticText != "" {
+		if b.vectorizer == nil {
+			return nil, errtypes.BadRequest("semantic search is not configured")
+		}
+		vector, err := b.vectorizer.VectorizeText(ctx, semanticText)
+		if err != nil {
+			return nil, fmt.Errorf("failed to vectorize the semantic query: %w", err)
+		}
+		// a purely semantic search has no result set, only a ranking: the
+		// hits come from the KNN clause alone and their number is the total
+		if pureSemantic {
+			bleveReq.Query = query.NewMatchNoneQuery()
+		}
+		if err := addSemanticKNN(bleveReq, vector, q, semanticK(bleveReq.Size), !pureSemantic); err != nil {
+			return nil, err
+		}
+	}
+
 	bleveReq.Fields = []string{"*"}
 	res, err := b.index.Search(bleveReq)
 	if err != nil {
 		return nil, err
+	}
+
+	// hybrid semantic: the fusion reports the fused-hit count as Total, so the
+	// filter-part total (the only meaningful one) needs its own cheap count
+	if semanticText != "" && !pureSemantic {
+		countReq := bleve.NewSearchRequest(q)
+		countReq.Size = 0
+		countRes, err := b.index.Search(countReq)
+		if err != nil {
+			return nil, err
+		}
+		res.Total = countRes.Total
 	}
 
 	matches := make([]*searchMessage.Match, 0, len(res.Hits))

@@ -840,6 +840,27 @@ var _ = Describe("Searchprovider", func() {
 				}))
 			})
 
+			It("takes a semantic clause out of the query before the template wraps it", func() {
+				s, err := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{
+					QueryTemplate: `({{.QUERY}}) AND (NOT path:"./.space")`,
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = s.Search(ctx, &searchsvc.SearchRequest{Query: `semantic:"dog on a beach"`})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
+					return req.Semantic == "dog on a beach" && req.SemanticOnly &&
+						render(req.Query.Nodes) == render(parse(`(*) AND (NOT path:"./.space")`).Nodes)
+				}))
+
+				_, err = s.Search(ctx, &searchsvc.SearchRequest{Query: `mediatype:image AND semantic:"dog on a beach"`})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
+					return req.Semantic == "dog on a beach" && !req.SemanticOnly &&
+						render(req.Query.Nodes) == render(parse(`(mediatype:image) AND (NOT path:"./.space")`).Nodes)
+				}))
+			})
+
 			It("continues with the remaining spaces when one fails", func() {
 				failingClient := &engineMocks.Engine{}
 				failingClient.On("Search", mock.Anything, mock.Anything).Run(func(mock.Arguments) {
