@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"path/filepath"
 	"slices"
@@ -23,10 +24,12 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/auth"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	sdk "github.com/opencloud-eu/reva/v3/pkg/sdk/common"
+	"github.com/opencloud-eu/reva/v3/pkg/share"
 	"github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3"
 	migration "github.com/opencloud-eu/reva/v3/pkg/share/manager/jsoncs3/migrations"
 	"github.com/opencloud-eu/reva/v3/pkg/share/manager/registry"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/walker"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -166,7 +169,18 @@ func cleanOrphanedGrantsCmd(cfg *config.Config) *cobra.Command {
 	cleanOrphanedCmd := &cobra.Command{
 		Use:   "clean-orphaned-grants",
 		Short: `Detect and clean orphaned share-manager grants.`,
+		Long: `Reports storage grants of users and groups that have no share in the share
+manager, and with --shares-without-grants also shares that have no storage grant
+for their grantee. With --dry-run=false they are removed.
+
+The dry run is not free of side effects: listing the shares of a resource makes
+the jsoncs3 share manager remove expired shares and send the ShareExpired and
+SpaceMembershipExpired events for them.`,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if force, _ := cmd.Flags().GetBool("force"); force && !cmd.Flags().Changed("resource-id") {
+				return errors.New("--force needs --resource-id")
+			}
+
 			// bound when this command runs, not when it is built: the cleanup command binds the same keys
 			_ = viper.BindPFlag(serviceAccountIDFlag, cmd.Flags().Lookup(serviceAccountIDFlag))
 			_ = viper.BindPFlag(serviceAccountSecretFlag, cmd.Flags().Lookup(serviceAccountSecretFlag))
@@ -190,9 +204,12 @@ func cleanOrphanedGrantsCmd(cfg *config.Config) *cobra.Command {
 	_ = cleanOrphanedCmd.MarkFlagRequired(serviceAccountSecretFlag)
 	_ = viper.BindEnv(serviceAccountSecretFlag, "OC_SERVICE_ACCOUNT_SECRET")
 
-	cleanOrphanedCmd.Flags().String("space-id", "", "Limit the scan to a specific storage space (opaque ID)")
+	cleanOrphanedCmd.Flags().String("space-id", "", "Limit the scan to one storage space, given as <storage-id>$<space-id>")
 	cleanOrphanedCmd.Flags().Bool("dry-run", true, "Dry run mode enabled")
-	cleanOrphanedCmd.Flags().Bool("force", false, "Force removal of suspected orphans even when listing shares fails")
+	cleanOrphanedCmd.Flags().String("resource-id", "", "Limit the scan to one resource, given as <storage-id>$<space-id>!<node-id>")
+	cleanOrphanedCmd.Flags().Bool("force", false, "Remove the grants of --resource-id that have no share even when its shares cannot be listed")
+	cleanOrphanedCmd.MarkFlagsMutuallyExclusive("space-id", "resource-id")
+	cleanOrphanedCmd.Flags().Bool("shares-without-grants", false, "Also report shares without a storage grant for their grantee, and remove them with --dry-run=false (jsoncs3 only)")
 	cleanOrphanedCmd.Flags().BoolP("verbose", "v", false, "Verbose logging enabled")
 
 	return cleanOrphanedCmd
@@ -202,7 +219,21 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	spaceID, _ := cmd.Flags().GetString("space-id")
+	resourceIDFlag, _ := cmd.Flags().GetString("resource-id")
 	force, _ := cmd.Flags().GetBool("force")
+	sharesWithoutGrants, _ := cmd.Flags().GetBool("shares-without-grants")
+	if sharesWithoutGrants && cfg.Sharing.UserSharingDriver != jsoncs3Driver {
+		return configlog.ReturnError(errors.New("--shares-without-grants is only implemented for the jsoncs3 share manager"))
+	}
+	var resourceID *provider.ResourceId
+	if resourceIDFlag != "" {
+		rid, err := parseResourceID(resourceIDFlag)
+		if err != nil {
+			return configlog.ReturnError(err)
+		}
+		resourceID = rid
+		spaceID = storagespace.FormatStorageID(rid.GetStorageId(), rid.GetSpaceId())
+	}
 	serviceAccountID := viper.GetString(serviceAccountIDFlag)
 	serviceAccountSecret := viper.GetString(serviceAccountSecretFlag)
 
@@ -214,11 +245,14 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 	} else {
 		fmt.Println("mode: dry run disabled: grants may be changed")
 	}
-	if spaceID != "" {
+	switch {
+	case resourceID != nil:
+		fmt.Printf("scope: limiting scan to resource %s\n", resourceIDFlag)
+	case spaceID != "":
 		fmt.Printf("scope: limiting scan to space %s\n", spaceID)
 	}
 	if force {
-		fmt.Println("flags: --force active (will remove grants even on share list errors)")
+		fmt.Println("flags: --force active (will remove grants of the resource even on share list errors)")
 	}
 
 	gatewaySelector, err := pool.GatewaySelector(cfg.Sharing.Reva.Address, revaOpts...)
@@ -236,8 +270,11 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 		return configlog.ReturnError(err)
 	}
 
-	// Stale cleanup: remove shares of deleted resources before scanning (not in a dry run)
-	preprocessCleanupStaleShares(serviceUserCtx, cfg, dryRun)
+	if !dryRun {
+		if err := cleanupStaleShares(serviceUserCtx, cfg); err != nil {
+			return configlog.ReturnError(err)
+		}
+	}
 
 	storageRegistrySelector, err := pool.StorageRegistrySelector(cfg.Sharing.Reva.Address, revaOpts...)
 	if err != nil {
@@ -261,42 +298,45 @@ func cleanOrphanedGrants(cmd *cobra.Command, cfg *config.Config) error {
 		StorageRegistrySelector: storageRegistrySelector,
 		RevaOpts:                revaOpts,
 		Spaces:                  spaces,
+		ResourceID:              resourceID,
 		DryRun:                  dryRun,
 		Verbose:                 verbose,
 		Force:                   force,
 	})
 	fmt.Printf("Summary: %d space(s), %d node(s) visited, %d nodes with grants, %d grants total\n", len(spaces), stats.TotalNodes, stats.TotalNodesWithGrants, stats.TotalGrants)
+	if stats.Unverified > 0 {
+		fmt.Printf("Unverified: %d grant(s) skipped because the shares of their resource could not be listed\n", stats.Unverified)
+	}
 	if dryRun {
 		fmt.Println("Dry run mode: no grants were modified")
 	} else {
 		fmt.Printf("Orphans: %d candidate(s), %d removed, %d errors\n", stats.OrphanCandidates, stats.OrphanDeleted, stats.OrphanDeleteErrors)
-		// Post-cleanup reconciliation: only run when orphans were removed
 		if stats.OrphanDeleted > 0 {
-			if cfg.Sharing.UserSharingDriver == jsoncs3Driver {
-				rcfg := revaShareConfig(cfg.Sharing)
-				if f, ok := registry.NewFuncs[jsoncs3Driver]; ok {
-					l := logger("clean-orphaned-grants")
-					if mgr, mErr := f(rcfg[jsoncs3Driver].(map[string]interface{}), &l); mErr == nil {
-						zerolog.SetGlobalLevel(zerolog.InfoLevel)
-						cleanCtx := l.WithContext(serviceUserCtx)
-						mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanCtx)
-					}
-				}
+			if err := cleanupStaleShares(serviceUserCtx, cfg); err != nil {
+				return configlog.ReturnError(err)
 			}
 		}
 	}
 
-	// Reverse-orphan cleanup (shares without corresponding storage grants)
-	// Always executed after the primary orphan-grant pass. Honors --dry-run/--force/--verbose.
+	if !sharesWithoutGrants {
+		return nil
+	}
+
 	fmt.Printf("\n== %s ==\n", "Reverse orphan scan")
+	l := logger("clean-orphaned-grants")
+	mgr, err := jsoncs3Manager(cfg, jsoncs3Driver, &l)
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
 	reverseStats := postprocessCleanReverseOrphans(serviceUserCtx, reverseOrphanArgs{
 		GatewaySelector:         gatewaySelector,
 		StorageRegistrySelector: storageRegistrySelector,
 		RevaOpts:                revaOpts,
 		Spaces:                  spaces,
+		ResourceID:              resourceID,
+		ListSpaceShares:         spaceShareLister(mgr),
 		DryRun:                  dryRun,
 		Verbose:                 verbose,
-		Force:                   force,
 	})
 	if !dryRun {
 		fmt.Printf("Reverse orphans: %d candidate(s), %d removed, %d errors\n", reverseStats.Candidates, reverseStats.Deleted, reverseStats.Errors)
@@ -313,6 +353,7 @@ type OrphanStats struct {
 	OrphanCandidates     int
 	OrphanDeleted        int
 	OrphanDeleteErrors   int
+	Unverified           int
 }
 
 // ReverseOrphanStats aggregates counters for the reverse orphan scan pass.
@@ -322,22 +363,22 @@ type ReverseOrphanStats struct {
 	Errors     int
 }
 
-// preprocessCleanupStaleShares runs CleanupStaleShares prior to scanning. It removes shares,
-// so it is skipped in a dry run.
-func preprocessCleanupStaleShares(ctx context.Context, cfg *config.Config, dryRun bool) {
-	if dryRun || cfg.Sharing.UserSharingDriver != jsoncs3Driver {
-		return
+// cleanupStaleShares removes the shares of deleted resources from the jsoncs3 share manager.
+func cleanupStaleShares(ctx context.Context, cfg *config.Config) error {
+	if cfg.Sharing.UserSharingDriver != jsoncs3Driver {
+		return nil
 	}
-
-	rcfg := revaShareConfig(cfg.Sharing)
-	if f, ok := registry.NewFuncs[jsoncs3Driver]; ok {
-		l := logger("clean-orphaned-grants")
-		if mgr, mErr := f(rcfg[jsoncs3Driver].(map[string]interface{}), &l); mErr == nil {
-			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			cleanCtx := l.WithContext(ctx)
-			mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanCtx)
-		}
+	l := logger("clean-orphaned-grants")
+	mgr, err := jsoncs3Manager(cfg, jsoncs3Driver, &l)
+	if err != nil {
+		return fmt.Errorf("stale share cleanup: %w", err)
 	}
+	cleanupCtx, cancel := context.WithTimeout(l.WithContext(ctx), cleanupTimeout)
+	defer cancel()
+	if err := mgr.CleanupStaleShares(cleanupCtx); err != nil {
+		return fmt.Errorf("stale share cleanup: %w", err)
+	}
+	return nil
 }
 
 type orphanScanArgs struct {
@@ -345,6 +386,7 @@ type orphanScanArgs struct {
 	StorageRegistrySelector pool.Selectable[storageregistry.RegistryAPIClient]
 	RevaOpts                []pool.Option
 	Spaces                  []*provider.StorageSpace
+	ResourceID              *provider.ResourceId
 	DryRun, Verbose, Force  bool
 }
 
@@ -354,7 +396,6 @@ func scanAndCleanOrphansForSpaces(
 	args orphanScanArgs,
 ) OrphanStats {
 	stats := OrphanStats{}
-	w := walker.NewWalker(args.GatewaySelector)
 	for idx, space := range args.Spaces {
 		rootResourceID := space.GetRoot()
 		identifier := describeSpace(space)
@@ -367,7 +408,7 @@ func scanAndCleanOrphansForSpaces(
 		nodesWithGrants := 0
 		grantCount := 0
 		spaceProvidersCache := make(map[string][]*storageregistry.ProviderInfo)
-		err := w.Walk(auth.NewStaticSession(ctx), space.GetRoot(), func(wd string, info *provider.ResourceInfo, walkErr error) error {
+		err := walkTarget(ctx, args.GatewaySelector, space.GetRoot(), args.ResourceID, func(wd string, info *provider.ResourceInfo, walkErr error) error {
 			pathLabel := renderWalkerPath(wd, info)
 			if walkErr != nil {
 				fmt.Printf("  Warning: failed to access %s: %v\n", pathLabel, walkErr)
@@ -395,7 +436,7 @@ func scanAndCleanOrphansForSpaces(
 			}
 
 			shares, shareErr := listSharesForResource(ctx, args.GatewaySelector, info.GetId())
-			if shareErr != nil && !args.DryRun && !args.Force {
+			if shareErr != nil {
 				fmt.Printf("  Warning: failed to list shares for %s: %v\n", pathLabel, shareErr)
 			}
 
@@ -423,17 +464,17 @@ func scanAndCleanOrphansForSpaces(
 					}
 					continue
 				}
+				if shareErr != nil && (!args.Force || args.ResourceID == nil) {
+					fmt.Printf("    UNVERIFIED: %s (shares could not be listed)\n", describeGrant(g))
+					stats.Unverified++
+					continue
+				}
 				if hasMatchingShareForGrant(shares, g) {
 					continue
 				}
 				stats.OrphanCandidates++
-				canModify := !args.DryRun && (shareErr == nil || args.Force)
-				if !canModify {
-					if shareErr != nil && !args.DryRun && !args.Force {
-						fmt.Printf("    ORPHAN: %s (not removed due to share list error; rerun with --force to remove)\n", describeGrant(g))
-					} else {
-						fmt.Printf("    ORPHAN: %s\n", describeGrant(g))
-					}
+				if args.DryRun {
+					fmt.Printf("    ORPHAN: %s\n", describeGrant(g))
 					continue
 				}
 				if err := removeGrantForResource(ctx, args.StorageRegistrySelector, info.GetId(), g, args.RevaOpts); err != nil {
@@ -464,65 +505,89 @@ type reverseOrphanArgs struct {
 	StorageRegistrySelector pool.Selectable[storageregistry.RegistryAPIClient]
 	RevaOpts                []pool.Option
 	Spaces                  []*provider.StorageSpace
-	DryRun, Verbose, Force  bool
+	ResourceID              *provider.ResourceId
+	ListSpaceShares         func(ctx context.Context, storageID, spaceID string) ([]*collaboration.Share, error)
+	DryRun, Verbose         bool
 }
 
-// postprocessCleanReverseOrphans removes shares without corresponding storage grants.
+// spaceShareLister lists all shares of a space from the share manager cache. Unlike
+// ListShares it does not expire shares on the way.
+func spaceShareLister(mgr *jsoncs3.Manager) func(ctx context.Context, storageID, spaceID string) ([]*collaboration.Share, error) {
+	return func(ctx context.Context, storageID, spaceID string) ([]*collaboration.Share, error) {
+		readyCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+		defer cancel()
+		select {
+		case <-mgr.Ready():
+		case <-readyCtx.Done():
+			return nil, fmt.Errorf("share manager not ready: %w", readyCtx.Err())
+		}
+		list, err := mgr.Cache.ListSpace(ctx, storageID, spaceID)
+		if err != nil {
+			return nil, err
+		}
+		shares := make([]*collaboration.Share, 0, len(list.Shares))
+		for _, s := range list.Shares {
+			shares = append(shares, s)
+		}
+		return shares, nil
+	}
+}
+
+// postprocessCleanReverseOrphans removes shares that have no storage grant for their grantee.
+// It lists the shares of each space once and checks the grants of their resources only.
 func postprocessCleanReverseOrphans(
 	ctx context.Context,
 	args reverseOrphanArgs,
 ) ReverseOrphanStats {
 	stats := ReverseOrphanStats{}
-	w := walker.NewWalker(args.GatewaySelector)
 	for idx, space := range args.Spaces {
-		rootResourceID := space.GetRoot()
+		root := space.GetRoot()
 		identifier := describeSpace(space)
-		if space.GetRoot() == nil {
+		if root == nil {
 			continue
 		}
+		shares, err := args.ListSpaceShares(ctx, root.GetStorageId(), root.GetSpaceId())
+		if err != nil {
+			fmt.Printf("[%d/%d] Warning: failed to list shares of space %s: %v\n", idx+1, len(args.Spaces), identifier, err)
+			continue
+		}
+
+		byResource := make(map[string][]*collaboration.Share)
+		for _, s := range shares {
+			rid := s.GetResourceId()
+			if rid == nil || rid.GetOpaqueId() == rid.GetSpaceId() || share.IsExpired(s) {
+				continue
+			}
+			if args.ResourceID != nil && !resourceIDEqual(rid, args.ResourceID) {
+				continue
+			}
+			key := storagespace.FormatResourceID(rid)
+			byResource[key] = append(byResource[key], s)
+		}
+
 		spaceProvidersCache := make(map[string][]*storageregistry.ProviderInfo)
-		err := w.Walk(auth.NewStaticSession(ctx), space.GetRoot(), func(wd string, info *provider.ResourceInfo, walkErr error) error {
-			pathLabel := renderWalkerPath(wd, info)
-			if walkErr != nil {
-				fmt.Printf("  Warning: failed to access %s: %v\n", pathLabel, walkErr)
-				return nil
-			}
-			if info == nil || info.GetId() == nil {
-				fmt.Printf("  Warning: missing resource identifier for %s\n", pathLabel)
-				return nil
-			}
-			if resourceIDEqual(info.GetId(), rootResourceID) {
-				return nil
-			}
-			shares, shareErr := listSharesForResource(ctx, args.GatewaySelector, info.GetId())
-			if shareErr != nil {
-				fmt.Printf("  Warning: failed to list shares for %s: %v\n", pathLabel, shareErr)
-				return nil
-			}
-			if len(shares) == 0 {
-				if args.Verbose {
-					fmt.Printf("  %s\n", pathLabel)
-				}
-				return nil
-			}
-			grants, grantsErr := listResourceGrants(ctx, args.StorageRegistrySelector, info.GetId(), args.RevaOpts, spaceProvidersCache)
+		for _, key := range slices.Sorted(maps.Keys(byResource)) {
+			resourceShares := byResource[key]
+			grants, grantsErr := listResourceGrants(ctx, args.StorageRegistrySelector, resourceShares[0].GetResourceId(), args.RevaOpts, spaceProvidersCache)
 			if grantsErr != nil {
-				fmt.Printf("  Warning: failed to list grants for %s: %v\n", pathLabel, grantsErr)
-				if !args.Force {
-					return nil
+				fmt.Printf("  Warning: failed to list grants for %s: %v\n", key, grantsErr)
+				continue
+			}
+			if args.Verbose {
+				fmt.Printf("  %s -> %d share(s), %d grant(s)\n", key, len(resourceShares), len(grants))
+			}
+			for _, s := range resourceShares {
+				granteeType := s.GetGrantee().GetType()
+				if granteeType != provider.GranteeType_GRANTEE_TYPE_USER && granteeType != provider.GranteeType_GRANTEE_TYPE_GROUP {
+					continue
 				}
-			}
-			if len(grants) > 0 {
-				return nil
-			}
-			for _, s := range shares {
+				if hasMatchingGrantForShare(grants, s) {
+					continue
+				}
 				stats.Candidates++
-				shareID := ""
-				if s.GetId() != nil {
-					shareID = s.GetId().GetOpaqueId()
-				}
+				shareID := s.GetId().GetOpaqueId()
 				granteeLabel := describeGrantee(s.GetGrantee())
-				fmt.Printf("  WARN REV-ORPHAN: %s -> share:%s %s (no storage grants)\n", pathLabel, shareID, granteeLabel)
+				fmt.Printf("  WARN REV-ORPHAN: %s -> share:%s %s (no matching storage grant)\n", key, shareID, granteeLabel)
 				if args.DryRun {
 					continue
 				}
@@ -534,14 +599,29 @@ func postprocessCleanReverseOrphans(
 					stats.Deleted++
 				}
 			}
-			return nil
-		})
-		if err != nil {
-			fmt.Printf("[%d/%d] Reverse pass failed to walk space %s: %v\n", idx+1, len(args.Spaces), identifier, err)
-			continue
 		}
+		fmt.Printf("[%d/%d] Space %s: %d shared resource(s) checked\n", idx+1, len(args.Spaces), identifier, len(byResource))
 	}
 	return stats
+}
+
+// walkTarget walks the tree below root, or visits only resourceID when it is set.
+func walkTarget(ctx context.Context, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], root, resourceID *provider.ResourceId, fn walker.WalkFunc) error {
+	if resourceID == nil {
+		return walker.NewWalker(gatewaySelector).Walk(auth.NewStaticSession(ctx), root, fn)
+	}
+	client, err := gatewaySelector.Next()
+	if err != nil {
+		return err
+	}
+	res, err := client.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{ResourceId: resourceID}})
+	if err != nil {
+		return err
+	}
+	if res.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		return fmt.Errorf("stat %s failed: %s", storagespace.FormatResourceID(resourceID), res.GetStatus().GetMessage())
+	}
+	return fn("", res.GetInfo(), nil)
 }
 
 // removeShare removes a collaboration share via the gateway, given its Share object.
@@ -581,8 +661,9 @@ func resourceIDEqual(a, b *provider.ResourceId) bool {
 }
 
 // listResourceGrants fetches grants for a resource, reusing storage provider
-// resolution per space via the provided cache (keyed by space_id).
-// Test locally with: simple-opencloud-blobs/test_clean_orphaned_grants.sh
+// resolution per space via the provided cache (keyed by space_id). It fails
+// when no storage provider answers, so that callers never mistake that for a
+// resource without grants.
 func listResourceGrants(ctx context.Context, registrySelector pool.Selectable[storageregistry.RegistryAPIClient], resourceID *provider.ResourceId, revaOpts []pool.Option, providerCache map[string][]*storageregistry.ProviderInfo) ([]*provider.Grant, error) {
 	if resourceID == nil {
 		return nil, errors.New("missing resource id")
@@ -611,21 +692,20 @@ func listResourceGrants(ctx context.Context, registrySelector pool.Selectable[st
 		if providersResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
 			return nil, fmt.Errorf("list storage providers failed: %s", providersResp.GetStatus().GetMessage())
 		}
-		if len(providersResp.GetProviders()) == 0 {
-			// Cache empty to avoid repeated lookups for this space in this run
-			providerCache[spaceID] = nil
-			return nil, nil
-		}
 		providerInfos = providersResp.GetProviders()
-		providerCache[spaceID] = providerInfos
+		if len(providerInfos) > 0 {
+			providerCache[spaceID] = providerInfos
+		}
 	}
 
 	ref := &provider.Reference{ResourceId: resourceID}
 	grants := make([]*provider.Grant, 0)
+	queried := 0
 	for _, info := range providerInfos {
 		if info.GetAddress() == "" {
 			continue
 		}
+		queried++
 		provClient, err := pool.GetStorageProviderServiceClient(info.GetAddress(), revaOpts...)
 		if err != nil {
 			return nil, err
@@ -639,6 +719,9 @@ func listResourceGrants(ctx context.Context, registrySelector pool.Selectable[st
 			return nil, fmt.Errorf("list grants failed: %s", resp.GetStatus().GetMessage())
 		}
 		grants = append(grants, resp.GetGrants()...)
+	}
+	if queried == 0 {
+		return nil, fmt.Errorf("no storage provider found for space %s", spaceID)
 	}
 
 	return grants, nil
@@ -735,27 +818,35 @@ func hasMatchingShareForGrant(shares []*collaboration.Share, g *provider.Grant) 
 	return false
 }
 
+func hasMatchingGrantForShare(grants []*provider.Grant, s *collaboration.Share) bool {
+	for _, g := range grants {
+		if hasMatchingShareForGrant([]*collaboration.Share{s}, g) {
+			return true
+		}
+	}
+	return false
+}
+
 func resolveTargetSpaces(ctx context.Context, selector pool.Selectable[gateway.GatewayAPIClient], spaceID string) ([]*provider.StorageSpace, error) {
 	client, err := selector.Next()
 	if err != nil {
 		return nil, err
 	}
 
-	req := &provider.ListStorageSpacesRequest{}
+	req := &provider.ListStorageSpacesRequest{
+		Opaque: utils.AppendPlainToOpaque(nil, "unrestricted", strconv.FormatBool(true)),
+	}
 	if spaceID != "" {
+		id, err := parseSpaceID(spaceID)
+		if err != nil {
+			return nil, err
+		}
 		req.Filters = []*provider.ListStorageSpacesRequest_Filter{
 			{
 				Type: provider.ListStorageSpacesRequest_Filter_TYPE_ID,
-				Term: &provider.ListStorageSpacesRequest_Filter_Id{Id: &provider.StorageSpaceId{OpaqueId: spaceID}},
+				Term: &provider.ListStorageSpacesRequest_Filter_Id{Id: &provider.StorageSpaceId{OpaqueId: id}},
 			},
 		}
-	} else {
-		req.Opaque = &types.Opaque{Map: map[string]*types.OpaqueEntry{
-			"unrestricted": {
-				Decoder: "plain",
-				Value:   []byte(strconv.FormatBool(true)),
-			},
-		}}
 	}
 
 	resp, err := client.ListStorageSpaces(ctx, req)
@@ -770,6 +861,22 @@ func resolveTargetSpaces(ctx context.Context, selector pool.Selectable[gateway.G
 	}
 
 	return resp.GetStorageSpaces(), nil
+}
+
+func parseSpaceID(spaceID string) (string, error) {
+	rid, err := storagespace.ParseID(spaceID)
+	if err != nil || rid.GetStorageId() == "" || rid.GetSpaceId() == "" || (rid.GetOpaqueId() != "" && rid.GetOpaqueId() != rid.GetSpaceId()) {
+		return "", fmt.Errorf("invalid space id %q, expected <storage-id>$<space-id>", spaceID)
+	}
+	return storagespace.FormatStorageID(rid.GetStorageId(), rid.GetSpaceId()), nil
+}
+
+func parseResourceID(resourceID string) (*provider.ResourceId, error) {
+	rid, err := storagespace.ParseID(resourceID)
+	if err != nil || rid.GetStorageId() == "" || rid.GetSpaceId() == "" || rid.GetOpaqueId() == "" {
+		return nil, fmt.Errorf("invalid resource id %q, expected <storage-id>$<space-id>!<node-id>", resourceID)
+	}
+	return &rid, nil
 }
 
 func describeSpace(space *provider.StorageSpace) string {
