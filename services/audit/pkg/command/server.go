@@ -50,8 +50,8 @@ func Server(cfg *config.Config) *cobra.Command {
 			defer svcCancel()
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			if cfg.Legacy.Enabled {
-				logger.Warn().Msg("the legacy audit log is deprecated, use the audit stream")
+			if !cfg.Stream.Enabled {
+				logger.Warn().Msg("the legacy audit log is deprecated and will be removed, set OC_AUDIT_ENABLED=true to switch to the audit stream")
 				if err := addLegacy(svcCtx, svcCancel, gr, cfg, connName, logger); err != nil {
 					return err
 				}

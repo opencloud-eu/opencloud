@@ -99,6 +99,32 @@ func TestNewLoginNeedsAudit(t *testing.T) {
 	}
 }
 
+// nats-js-kv only has a TTL per bucket: in the userinfo cache a login record
+// would expire with the cached tokens, after seconds instead of a day
+func TestNewLoginUsesTheLoginStore(t *testing.T) {
+	client := tokenClient(t, map[string][2]string{
+		"web-1": {"s-1", "web"},
+		"web-2": {"s-1", "web"},
+	})
+	cache, logins := store.NewMemoryStore(), store.NewMemoryStore()
+	a := NewOIDCAuthenticator(
+		Logger(log.NopLogger()), OIDCClient(client), UserInfoCache(cache), AuditLoginStore(logins),
+		SkipUserInfo(true), OIDCIss("https://idp.example.org"), AuditEmitter(newRecordingEmitter()),
+	)
+
+	_, first := authenticate(t, a, "web-1")
+	_, renewed := authenticate(t, a, "web-2")
+
+	assert.True(t, first)
+	assert.False(t, renewed)
+	records, err := logins.Read(loginKey("s-1", "web"))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, AuditLoginTTL, records[0].Expiry.Round(time.Hour))
+	_, err = cache.Read(loginKey("s-1", "web"))
+	assert.ErrorIs(t, err, store.ErrNotFound, "no login records in the userinfo cache")
+}
+
 func TestLoginKeyIsNotFoundByTheBackchannelLogout(t *testing.T) {
 	cache := store.NewMemoryStore()
 	sessionKey, err := bcl.NewKey("alice", "s-1")

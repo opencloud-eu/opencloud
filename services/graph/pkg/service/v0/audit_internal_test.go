@@ -4,14 +4,19 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-chi/chi/v5"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -168,4 +173,44 @@ func TestPersonalDataExportForAnotherUserIsDenied(t *testing.T) {
 	do("alan")
 	require.Len(t, rec.events, 2)
 	assert.Equal(t, audit.OutcomeFailure, rec.events[1].Outcome, "a bad request for oneself stays a failure")
+}
+
+func TestAuditRoutesUnescapeTheTargetID(t *testing.T) {
+	rec := &recordingEmitter{}
+	g := Graph{auditEmitter: rec}
+	router := chi.NewRouter()
+	router.With(g.auditOnError(audit.GroupDelete, "groupID")).Delete("/groups/{groupID}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodDelete, "/groups/a%2Fb", nil))
+
+	require.Len(t, rec.events, 1)
+	assert.Equal(t, "a/b", rec.events[0].Target.ID, "the same ID as in the records of the domain events")
+}
+
+func TestGroupRenameIsAudited(t *testing.T) {
+	rec := &recordingEmitter{}
+	backend := &identitymocks.Backend{}
+	backend.On("GetGroup", mock.Anything, "g-1", mock.Anything).Return(&libregraph.Group{DisplayName: libregraph.PtrString("old")}, nil)
+	backend.On("UpdateGroupName", mock.Anything, "g-1", "new").Return(nil)
+	logger := log.NopLogger()
+	g := Graph{BaseGraphService: BaseGraphService{logger: &logger}, auditEmitter: rec, identityBackend: backend}
+
+	r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/groups/g-1", strings.NewReader(`{"displayName":"new"}`))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("groupID", "g-1")
+	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	g.PatchGroup(w, r)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Len(t, rec.events, 1, "a rename publishes no domain event, PatchGroup records it")
+	ev := rec.events[0]
+	assert.Equal(t, audit.GroupUpdate, ev.Definition)
+	assert.Equal(t, "g-1", ev.Target.ID)
+	assert.Equal(t, "old", ev.Target.Name, "a rename keeps the old name in the target")
+	require.NotNil(t, ev.Change)
+	assert.Equal(t, map[string]any{"displayname": "old"}, ev.Change.Before)
+	assert.Equal(t, map[string]any{"displayname": "new"}, ev.Change.After)
 }

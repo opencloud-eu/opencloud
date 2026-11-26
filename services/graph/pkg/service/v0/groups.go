@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 )
@@ -176,10 +177,27 @@ func (g Graph) PatchGroup(w http.ResponseWriter, r *http.Request) {
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "Invalid displayName")
 			return
 		}
+		target := audit.Target{ID: groupID}
+		var before map[string]any
+		if audit.Enabled(g.auditEmitter) {
+			// a rename keeps the old name in the target
+			if group, err := g.identityBackend.GetGroup(r.Context(), groupID, nil); err == nil {
+				target.Name = group.GetDisplayName()
+				before = map[string]any{"displayname": target.Name}
+			}
+		}
 		if err := g.identityBackend.UpdateGroupName(r.Context(), groupID, displayName); err != nil {
 			logger.Debug().Err(err).Msg("could not update group displayName")
 			errorcode.RenderError(w, r, err)
 			return
+		}
+		// renames publish no domain event, so they are audited here
+		if err := g.emitAudit(r.Context(), audit.Event{
+			Definition: audit.GroupUpdate,
+			Target:     target,
+			Change:     &audit.Change{Before: before, After: map[string]any{"displayname": displayName}},
+		}); err != nil {
+			logger.Error().Err(err).Msg("could not emit audit event")
 		}
 	}
 

@@ -38,9 +38,3 @@ func New(ctx context.Context, service string, s Settings, nats raw.Config, logge
 	}
 	return e, nil
 }
-
-// Close flushes the records the emitter still holds. It does nothing for an
-// emitter that holds none.
-func Close(e audit.Emitter) {
-	audit.CloseEmitter(e)
-}

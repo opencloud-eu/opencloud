@@ -21,6 +21,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
 	evc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/events"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
@@ -138,7 +139,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				logger.Error().Err(err).Msg("Error initializing the audit emitter")
 				return err
 			}
-			defer auditemitter.Close(auditEmitter)
+			defer audit.CloseEmitter(auditEmitter)
 
 			gr := runner.NewGroup()
 
