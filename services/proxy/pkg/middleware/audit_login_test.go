@@ -11,6 +11,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/stretchr/testify/assert"
@@ -89,6 +90,8 @@ func TestLoginFailures(t *testing.T) {
 	}{
 		{name: "invalid OIDC token", method: AuthMethodOIDC, err: errors.New("signature is invalid"), audited: true, reason: "invalid_token", actor: audit.ActorAnonymous},
 		{name: "expired OIDC token", method: AuthMethodOIDC, err: jwt.ErrTokenExpired},
+		// A backchannel logout ended the session of this token. Unlike a token that only expired, its use is recorded.
+		{name: "OIDC token of a logged out session", method: AuthMethodOIDC, err: bcl.ErrLoggedOut, audited: true, reason: "invalid_token", actor: audit.ActorAnonymous},
 		{name: "public link", method: AuthMethodPublicLink},
 		{name: "signed URL", method: AuthMethodSignedURL, audited: true, reason: "invalid_signature", actor: audit.ActorAnonymous},
 		{name: "guest link", method: AuthMethodGuestLink, audited: true, reason: "invalid_credentials", actor: audit.ActorGuest},
