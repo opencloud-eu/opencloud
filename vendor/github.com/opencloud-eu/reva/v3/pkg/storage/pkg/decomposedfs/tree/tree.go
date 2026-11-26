@@ -913,6 +913,13 @@ var nodeIDRegep = regexp.MustCompile(`.*/nodes/([^.]*).*`)
 var nodeFullIDRegep = regexp.MustCompile(`.*/nodes/(.*)`)
 
 // TODO refactor the returned params into Node properties? would make all the path transformations go away...
+// RecycleItemOrigin returns the path in the space a trashed item had before
+// it was deleted.
+func (t *Tree) RecycleItemOrigin(ctx context.Context, spaceID, key, path string) (string, error) {
+	_, _, origin, err := t.readRecycleItem(ctx, spaceID, key, path)
+	return origin, err
+}
+
 func (t *Tree) readRecycleItem(ctx context.Context, spaceID, key, path string) (recycleNode *node.Node, trashItem string, origin string, err error) {
 	_, span := tracer.Start(ctx, "readRecycleItem")
 	defer span.End()
@@ -953,6 +960,8 @@ func (t *Tree) readRecycleItem(ctx context.Context, spaceID, key, path string) (
 
 	var attrBytes []byte
 	typeInt, err := attrs.Int64(prefixes.TypeAttr)
+	// the node is not at its usual path, so Type() can't read it later
+	recycleNode.SetType(provider.ResourceType(typeInt))
 	if provider.ResourceType(typeInt) == provider.ResourceType_RESOURCE_TYPE_FILE {
 		// lookup blobID in extended attributes
 		recycleNode.BlobID = attrs.String(prefixes.BlobIDAttr)

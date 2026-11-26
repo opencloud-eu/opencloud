@@ -28,6 +28,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/appctx"
+	"github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/auditctx"
 	"github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/auth"
 	"github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/log"
 	"github.com/opencloud-eu/reva/v3/internal/grpc/interceptors/recovery"
@@ -333,6 +334,7 @@ func (s *Server) getInterceptors(unprotected []string) ([]grpc.ServerOption, err
 		appctx.NewUnary(s.log, s.tracerProvider),
 		token.NewUnary(),
 		useragent.NewUnary(),
+		auditctx.NewUnary(),
 		log.NewUnary(),
 		recovery.NewUnary(),
 		authUnary,
@@ -375,6 +377,7 @@ func (s *Server) getInterceptors(unprotected []string) ([]grpc.ServerOption, err
 		appctx.NewStream(s.log, s.tracerProvider),
 		token.NewStream(),
 		useragent.NewStream(),
+		auditctx.NewStream(),
 		log.NewStream(),
 		recovery.NewStream(),
 		authStream,

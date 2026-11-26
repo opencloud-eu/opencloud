@@ -394,8 +394,8 @@ func (s *svc) updateGrant(ctx context.Context, id *provider.ResourceId, grant *p
 		return nil, errors.Wrap(err, "gateway: error calling UpdateGrant")
 	}
 	if grantRes.Status.Code != rpc.Code_CODE_OK {
-		return status.NewInternal(ctx,
-			"error committing share to storage grant"), nil
+		grantRes.Status.Message = "error committing share to storage grant"
+		return grantRes.GetStatus(), nil
 	}
 
 	return status.NewOK(ctx), nil

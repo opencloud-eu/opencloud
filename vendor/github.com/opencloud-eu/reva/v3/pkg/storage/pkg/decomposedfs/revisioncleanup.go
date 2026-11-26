@@ -21,6 +21,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/revisioncleanup"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 )
 
 var _ revisioncleanup.OnDemand = (*Decomposedfs)(nil)
@@ -87,15 +88,18 @@ func (fs *Decomposedfs) CleanupRevisionsUnchecked(ctx context.Context, req revis
 		report = func(revisioncleanup.Result) {}
 	}
 
-	strategy := req.Strategy
-	if strategy == "" {
-		strategy = fs.o.RevisionsCleanupStrategy
+	config := revisioncleanup.PolicyConfigFromOptions(fs.o)
+	for typ, strategy := range map[string]string{storagespace.TypePersonal: req.StrategyPersonal, storagespace.TypeProject: req.StrategyProject} {
+		if strings.TrimSpace(strategy) != "" {
+			config.SpaceTypes[typ] = strategy
+		}
 	}
-	cleaner, err := revisioncleanup.New(strategy)
+	config.Forced = req.Strategy
+	policy, err := revisioncleanup.NewPolicy(config)
 	if err != nil {
 		return errors.Wrap(err, "invalid revisions cleanup strategy")
 	}
-	if !cleaner.Enabled() {
+	if !policy.Enabled() {
 		return errors.New("no revisions cleanup strategy configured or given")
 	}
 	o := revisioncleanup.RunOptions{Async: revisioncleanup.AsyncOptionsFromOptions(fs.o), DryRun: req.DryRun, Shuffle: req.Shuffle}
@@ -110,7 +114,7 @@ func (fs *Decomposedfs) CleanupRevisionsUnchecked(ctx context.Context, req revis
 	if err != nil {
 		return err
 	}
-	return revisioncleanup.Run(ctx, fs.lu, w, roots, cleaner, o, report, fs.log)
+	return revisioncleanup.Run(ctx, fs.lu, w, roots, policy, o, report, fs.log)
 }
 
 // errSpaceDisabled is the error for a space that is disabled, i.e. in the trash

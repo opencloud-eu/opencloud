@@ -551,6 +551,8 @@ func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) 
 	if err = fs.tp.CreateDir(ctx, n); err != nil {
 		return nil, err
 	}
+	setAuditItem(ctx, n)
+	fs.setAuditPath(ctx, n, ref)
 
 	return &storage.CreateDirResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID, ResourceID: &provider.ResourceId{OpaqueId: n.ID, SpaceId: n.SpaceID}}, nil
 }
@@ -629,6 +631,8 @@ func (fs *Decomposedfs) Move(ctx context.Context, oldRef, newRef *provider.Refer
 	if !oldNode.Exists {
 		return nil, errtypes.NotFound(filepath.Join(oldNode.ParentID, oldNode.Name))
 	}
+	setAuditItem(ctx, oldNode)
+	fs.setAuditPath(ctx, oldNode, oldRef)
 
 	orp, err := fs.p.AssemblePermissions(ctx, oldNode)
 	switch {
@@ -916,6 +920,8 @@ func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (dr
 	if node.IsProcessing(ctx) {
 		return nil, errtypes.TooEarly("file is processing")
 	}
+	setAuditItem(ctx, node)
+	fs.setAuditPath(ctx, node, ref)
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
@@ -1086,6 +1092,9 @@ func (fs *Decomposedfs) SetLock(ctx context.Context, ref *provider.Reference, lo
 		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
 
+	setAuditItem(ctx, node)
+	fs.setAuditPath(ctx, node, ref)
+
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
@@ -1154,6 +1163,9 @@ func (fs *Decomposedfs) Unlock(ctx context.Context, ref *provider.Reference, loc
 	if !node.Exists {
 		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
+
+	setAuditItem(ctx, node)
+	fs.setAuditPath(ctx, node, ref)
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
@@ -1389,4 +1401,27 @@ func (fs *Decomposedfs) refFromNode(ctx context.Context, n *node.Node, storageId
 		},
 		Path: path,
 	}, nil
+}
+
+// setAuditPath tells the events middleware the path of n in its space when
+// the request does not start at the space root, e.g. a request through a
+// share, a link or by ID: its path is relative to another node. The permission
+// check walks the same parents, so their metadata is cached.
+func (fs *Decomposedfs) setAuditPath(ctx context.Context, n *node.Node, ref *provider.Reference) {
+	if !storagespace.ContextWantsItem(ctx) || utils.IsSpaceRootedReference(ref) {
+		return
+	}
+	if p, err := fs.lu.Path(ctx, n, node.NoCheck); err == nil {
+		storagespace.ContextSetItemPath(ctx, p)
+	}
+}
+
+// setAuditItem tells the events middleware which item a call acts on. A
+// trashed node keeps the ID it had before it was deleted.
+func setAuditItem(ctx context.Context, n *node.Node) {
+	if !storagespace.ContextWantsItem(ctx) {
+		return
+	}
+	id, _, _ := strings.Cut(n.ID, node.TrashIDDelimiter)
+	storagespace.ContextSetItem(ctx, n.Type(ctx), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: id}, n.Name)
 }

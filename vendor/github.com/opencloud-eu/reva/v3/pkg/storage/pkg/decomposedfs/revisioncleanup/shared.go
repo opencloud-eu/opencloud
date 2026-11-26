@@ -27,24 +27,24 @@ var shared = struct {
 
 // share is the bookkeeping of a Service shared by the instances of a storage, see shared.
 type share struct {
-	root     string
-	refs     int // the instances that haven't shut the Service down yet
-	strategy string
-	async    AsyncOptions
+	root   string
+	refs   int    // the instances that haven't shut the Service down yet
+	policy string // the settings of the Policy, see Policy.String
+	async  AsyncOptions
 }
 
 // sharedService returns the Service shared by the instances of the storage at root, creating it
-// with create for the first one. The instances must agree on the strategy and the AsyncOptions:
-// a storage set up twice with different settings would otherwise be cleaned up with the
-// settings of whichever instance happened to come first.
-func sharedService(root, strategy string, async AsyncOptions, create func() (*Service, error)) (*Service, error) {
+// with create for the first one. The instances must agree on the strategies (policy, see
+// Policy.String) and the AsyncOptions: a storage set up twice with different settings would
+// otherwise be cleaned up with the settings of whichever instance happened to come first.
+func sharedService(root, policy string, async AsyncOptions, create func() (*Service, error)) (*Service, error) {
 	root = filepath.Clean(root)
 	shared.Lock()
 	defer shared.Unlock()
 	if s, ok := shared.byRoot[root]; ok {
-		if s.share.strategy != strategy || s.share.async != async {
-			return nil, fmt.Errorf("the storage at %q is set up more than once in this process with different revision cleanup settings: strategy %q and %+v, then strategy %q and %+v",
-				root, s.share.strategy, s.share.async, strategy, async)
+		if s.share.policy != policy || s.share.async != async {
+			return nil, fmt.Errorf("the storage at %q is set up more than once in this process with different revision cleanup settings: strategies %q and %+v, then strategies %q and %+v",
+				root, s.share.policy, s.share.async, policy, async)
 		}
 		s.share.refs++
 		return s, nil
@@ -53,7 +53,7 @@ func sharedService(root, strategy string, async AsyncOptions, create func() (*Se
 	if err != nil {
 		return nil, err
 	}
-	s.share = &share{root: root, refs: 1, strategy: strategy, async: async}
+	s.share = &share{root: root, refs: 1, policy: policy, async: async}
 	shared.byRoot[root] = s
 	return s, nil
 }

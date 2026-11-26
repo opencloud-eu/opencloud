@@ -17,6 +17,7 @@ import (
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
@@ -179,6 +180,8 @@ func (c *coordinator) populateSession(ctx context.Context, session Session, t *u
 
 	// The ctx is gone by the time the bytes arrive, so record the actor now.
 	session.SetExecutant(ctxpkg.ContextMustGetUser(ctx))
+	rc, _ := audit.ContextGetRequest(ctx)
+	session.SetAuditOrigin(rc, audit.PublicShareID(ctx))
 	lockID, _ := ctxpkg.ContextGetLockID(ctx)
 	session.SetMetadata("lockid", lockID)
 	initiatorID, _ := ctxpkg.ContextGetInitiator(ctx)

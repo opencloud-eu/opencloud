@@ -101,9 +101,10 @@ func (o AsyncOptions) resolve() (workers int, queueSize int, policy QueueFullPol
 // Service is the revision cleanup of a storage driver. Callers report that a new revision
 // was created (HandleRevisionCreated), and the Service decides whether, when and how the
 // old revisions are cleaned up; callers don't need to know whether that happens right away
-// or in background workers (see AsyncOptions). It binds a Cleaner to the driver's lookup
-// and tree, so that callers only need to name the node.
-// A disabled Service, created without a strategy, never cleans up anything; see Enabled.
+// or in background workers (see AsyncOptions). It binds a Policy to the driver's lookup
+// and tree, so that callers only need to name the node; the Policy chooses the strategy of
+// each node by its space.
+// A disabled Service, created without any strategy, never cleans up anything; see Enabled.
 // A nil *Service behaves the same, as a safeguard, but NewService never returns one.
 //
 // In asynchronous mode, the cleanup runs in background workers fed by a bounded queue, so
@@ -119,10 +120,11 @@ func (o AsyncOptions) resolve() (workers int, queueSize int, policy QueueFullPol
 // A node therefore never occupies more than
 // one worker, and a single busy file can't keep the workers from the others.
 type Service struct {
-	cleaner *Cleaner
-	lu      node.PathLookup
-	rs      RevisionStore
-	log     *zerolog.Logger
+	// the strategies, see Policy; not to be confused with policy, the QueueFullPolicy
+	strategies *Policy
+	lu         node.PathLookup
+	rs         RevisionStore
+	log        *zerolog.Logger
 
 	// set for the Service of an on-demand Run: only decide, don't delete, and hand the Result
 	// of every cleanup to report
@@ -179,7 +181,8 @@ func (r *request) key() string {
 }
 
 // NewServiceFromOptions returns the Service of a storage driver from its options: the cleanup
-// strategy (RevisionsCleanupStrategy) and the RevisionsCleanupAsync* settings.
+// strategies (RevisionsCleanupStrategy*, see PolicyConfigFromOptions) and the
+// RevisionsCleanupAsync* settings.
 // It returns a disabled Service when no strategy is configured, and an error for invalid
 // settings.
 //
@@ -188,12 +191,12 @@ func (r *request) key() string {
 // see Service.Shutdown.
 func NewServiceFromOptions(o *options.Options, lu node.PathLookup, rs RevisionStore, log *zerolog.Logger) (*Service, error) {
 	async := AsyncOptionsFromOptions(o)
-	return sharedService(o.Root, o.RevisionsCleanupStrategy, async, func() (*Service, error) {
-		cleaner, err := New(o.RevisionsCleanupStrategy)
-		if err != nil {
-			return nil, err
-		}
-		return NewService(cleaner, lu, rs, async, log)
+	policy, err := NewPolicy(PolicyConfigFromOptions(o))
+	if err != nil {
+		return nil, err
+	}
+	return sharedService(o.Root, policy.String(), async, func() (*Service, error) {
+		return NewService(policy, lu, rs, async, log)
 	})
 }
 
@@ -209,19 +212,19 @@ func AsyncOptionsFromOptions(o *options.Options) AsyncOptions {
 	}
 }
 
-// NewService creates a Service that cleans up with the given Cleaner, and starts its
-// workers if opts.Enabled. With a disabled (or nil) Cleaner, it returns a disabled Service,
-// which starts no workers and never cleans up anything.
+// NewService creates a Service that cleans up with the given strategies, and
+// starts its workers if opts.Enabled. With a Policy that has no enabled strategy (or a nil
+// one), it returns a disabled Service, which starts no workers and never cleans up anything.
 // The options are validated in any case, so that invalid settings are reported even while
 // the cleanup is disabled.
-func NewService(cleaner *Cleaner, lu node.PathLookup, rs RevisionStore, opts AsyncOptions, log *zerolog.Logger) (*Service, error) {
-	return newService(cleaner, lu, rs, opts, log, false, false, nil)
+func NewService(strategies *Policy, lu node.PathLookup, rs RevisionStore, opts AsyncOptions, log *zerolog.Logger) (*Service, error) {
+	return newService(strategies, lu, rs, opts, log, false, false, nil)
 }
 
 // newService creates a Service, see NewService; onDemand creates the Service of an on-demand
 // Run, with dryRun it only decides without deleting, and report, if not nil, gets the Result
 // of every cleanup.
-func newService(cleaner *Cleaner, lu node.PathLookup, rs RevisionStore, opts AsyncOptions, log *zerolog.Logger, onDemand, dryRun bool, report func(Result)) (*Service, error) {
+func newService(strategies *Policy, lu node.PathLookup, rs RevisionStore, opts AsyncOptions, log *zerolog.Logger, onDemand, dryRun bool, report func(Result)) (*Service, error) {
 	workers, queueSize, policy, err := opts.resolve()
 	if err != nil {
 		return nil, err
@@ -229,10 +232,10 @@ func newService(cleaner *Cleaner, lu node.PathLookup, rs RevisionStore, opts Asy
 	if log == nil {
 		log = &zerolog.Logger{}
 	}
-	if !cleaner.Enabled() {
-		return &Service{cleaner: cleaner, log: log}, nil
+	if !strategies.Enabled() {
+		return &Service{strategies: strategies, log: log}, nil
 	}
-	s := &Service{cleaner: cleaner, lu: lu, rs: rs, log: log, onDemand: onDemand, dryRun: dryRun, report: report}
+	s := &Service{strategies: strategies, lu: lu, rs: rs, log: log, onDemand: onDemand, dryRun: dryRun, report: report}
 	if onDemand {
 		s.metrics = unregisteredMetrics()
 	}
@@ -240,17 +243,20 @@ func newService(cleaner *Cleaner, lu node.PathLookup, rs RevisionStore, opts Asy
 	if opts.Enabled {
 		s.queueFullTimeout = opts.QueueFullTimeout
 		s.startWorkers(workers, queueSize, policy, s.cleanupNode)
-		log.Info().Str("config", cleaner.config).Int("workers", workers).Int("queuesize", queueSize).
+		log.Info().Str("config", strategies.String()).Int("workers", workers).Int("queuesize", queueSize).
 			Str("queuefull", string(policy)).Dur("queuefulltimeout", opts.QueueFullTimeout).
 			Msg("revision cleanup: running in the background")
 	}
 	return s, nil
 }
 
-// Enabled tells whether s cleans up anything, i.e. whether its Cleaner has a strategy.
+// Enabled tells whether s cleans up anything, i.e. whether its Policy has an enabled strategy.
+// It may still clean up nothing in some spaces, e.g. in those whose type has the strategy
+// "disabled": their nodes are queued all the same, the strategy of a node is only chosen when
+// it is cleaned up, as that reads the node anyway.
 // It is false for a disabled Service, and for a nil one.
 func (s *Service) Enabled() bool {
-	return s != nil && s.cleaner.Enabled()
+	return s != nil && s.strategies.Enabled()
 }
 
 // startWorkers switches the Service to asynchronous mode. process does the work for one
@@ -566,10 +572,24 @@ func (s *Service) cleanupNode(ctx context.Context, spaceID, nodeID string) {
 	s.clean(ctx, n)
 }
 
-// clean runs the cleanup of n, or only decides about it in a dry run, and reports the Result.
+// clean runs the cleanup of n with the strategy the Policy chooses for its space, or only
+// decides about it in a dry run, and reports the Result.
 func (s *Service) clean(ctx context.Context, n *node.Node) {
+	cleaner, source, err := s.strategies.CleanerFor(ctx, n)
+	if err != nil {
+		// without knowing the strategy, nothing may be deleted
+		appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Msg("revision cleanup: could not choose the strategy")
+		s.reportResult(Result{SpaceID: n.SpaceID, NodeID: n.ID, DryRun: s.dryRun, Err: fmt.Errorf("could not choose the strategy: %w", err)})
+		return
+	}
+	if !cleaner.Enabled() {
+		s.reportResult(Result{SpaceID: n.SpaceID, NodeID: n.ID, DryRun: s.dryRun, Strategy: "disabled", StrategySource: source,
+			Skipped: "the revision cleanup is disabled for this space"})
+		return
+	}
 	// the details of the revisions only for someone who reads them
-	result := s.cleaner.run(ctx, s.lu, s.rs, n, s.dryRun, s.report != nil)
+	result := cleaner.run(ctx, s.lu, s.rs, n, s.dryRun, s.report != nil)
+	result.Strategy, result.StrategySource = cleaner.config, source
 	s.reportResult(result)
 }
 

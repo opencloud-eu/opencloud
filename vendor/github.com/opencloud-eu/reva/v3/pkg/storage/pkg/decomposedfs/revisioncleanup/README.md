@@ -15,6 +15,8 @@ The options are part of the decomposedfs options and therefore apply to all thre
 | Option | Default | Meaning |
 |---|---|---|
 | `revisions_cleanup_strategy` | `""` (disabled) | Which revisions to delete, see below. Empty or `disabled` keeps all revisions. |
+| `revisions_cleanup_strategy_personal` | `""` (the default applies) | The strategy for personal spaces. Empty applies `revisions_cleanup_strategy` to them, `disabled` keeps all their revisions, whatever `revisions_cleanup_strategy` says. |
+| `revisions_cleanup_strategy_project` | `""` (the default applies) | The strategy for project spaces, like `revisions_cleanup_strategy_personal`. |
 | `revisions_cleanup_async` | `true` | Run the cleanup in background workers, so that it doesn't slow down the upload, restore or change that created the new revision. `false` runs it right away. |
 | `revisions_cleanup_async_workers` | `0` (automatic) | Number of background workers. Automatic: half the available CPUs (respecting container CPU limits), at least 2. |
 | `revisions_cleanup_async_queue_size` | `0` (automatic) | Number of files that can wait for a background cleanup. Automatic: 64 per worker. |
@@ -22,6 +24,10 @@ The options are part of the decomposedfs options and therefore apply to all thre
 | `revisions_cleanup_async_queue_full_timeout` | `5s` | How long `block` waits for room at most, after which the cleanup of that file is skipped as with `drop`. `0` waits as long as it takes, so that no cleanup is ever skipped, but then writes can slow down without bound under heavy load. |
 
 An invalid value in any of these options makes the storage driver fail at startup.
+
+Which strategy applies to a file depends on its space (see `Policy` in `policy.go`): the strategy of the space's type if it has one, otherwise `revisions_cleanup_strategy`.
+Spaces of any other type than `personal` and `project` always get `revisions_cleanup_strategy`.
+A cleanup on demand can replace the strategy of a type for its run, or force one strategy on all spaces instead (see `Request` in `ondemand.go`).
 
 ## Strategies
 
@@ -103,9 +109,9 @@ The cleanup exports Prometheus metrics, all named `reva_revision_cleanup_*`.
 | Metric | Type | Meaning |
 |---|---|---|
 | `reva_revision_cleanup_enabled` | gauge | 1 if a strategy is configured, 0 otherwise |
-| `reva_revision_cleanup_revisions_deleted_total` | counter | Deleted revisions |
-| `reva_revision_cleanup_bytes_deleted_total` | counter | Total size of the deleted revisions |
-| `reva_revision_cleanup_purge_failures_total` | counter | Revisions that could not be deleted, which are retried with the file's next revision, and revisions whose blob could not be deleted afterwards, which is left behind (logged with its blob id) |
+| `reva_revision_cleanup_revisions_deleted_total{space_type}` | counter | Deleted revisions |
+| `reva_revision_cleanup_bytes_deleted_total{space_type}` | counter | Total size of the deleted revisions |
+| `reva_revision_cleanup_purge_failures_total{space_type}` | counter | Revisions that could not be deleted, which are retried with the file's next revision, and revisions whose blob could not be deleted afterwards, which is left behind (logged with its blob id) |
 | `reva_revision_cleanup_queue_full_total{outcome}` | counter | Requests that found the queue full, by `outcome`: `blocked` (the writer waited) or `dropped` (cleanup skipped); a writer that waited until the timeout of `block` counts as both |
 | `reva_revision_cleanup_queue_length` | gauge | Files waiting for a background cleanup, including writers waiting for room in a full queue |
 | `reva_revision_cleanup_queue_capacity` | gauge | Size of the queue |
@@ -114,6 +120,7 @@ The cleanup exports Prometheus metrics, all named `reva_revision_cleanup_*`.
 
 Things to keep in mind:
 
+- **The counters of deleted revisions are by `space_type`**: `personal`, `project`, or `other` for any other type of space (and when the type can't be read), so that the strategies of the space types can be compared, with at most three series each.
 - **The queue holds files, not revisions.** A file waits at most once, however many revisions it got in the meantime, and how many of its revisions get deleted is only decided when a worker processes it.
 - **One process can have several queues.** The storageprovider and the dataprovider each create their own storage driver, and with it their own cleanup. The queue and worker gauges are the sum over all of them.
   Because a sum can hide one queue being full while another one is empty, `queue_full_total` counts every request that found its queue full.
@@ -123,9 +130,9 @@ Things to keep in mind:
 Example queries:
 
 ```promql
-# revisions deleted per second, and storage freed per second
-rate(reva_revision_cleanup_revisions_deleted_total[5m])
-rate(reva_revision_cleanup_bytes_deleted_total[5m])
+# revisions deleted per second, and storage freed per second, by space type
+sum by (space_type) (rate(reva_revision_cleanup_revisions_deleted_total[5m]))
+sum by (space_type) (rate(reva_revision_cleanup_bytes_deleted_total[5m]))
 
 # how full the queues are (0..1, can exceed 1 while writers wait for room)
 reva_revision_cleanup_queue_length / reva_revision_cleanup_queue_capacity
@@ -137,7 +144,7 @@ sum by (outcome) (rate(reva_revision_cleanup_queue_full_total[5m]))
 reva_revision_cleanup_running / reva_revision_cleanup_workers
 
 # failed deletions, worth an alert
-increase(reva_revision_cleanup_purge_failures_total[1h]) > 0
+sum(increase(reva_revision_cleanup_purge_failures_total[1h])) > 0
 ```
 
 ## Logging

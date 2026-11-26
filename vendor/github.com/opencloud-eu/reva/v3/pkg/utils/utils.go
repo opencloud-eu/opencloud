@@ -321,6 +321,13 @@ func IsRelativeReference(ref *provider.Reference) bool {
 	return ref.ResourceId != nil && strings.HasPrefix(ref.Path, ".")
 }
 
+// IsSpaceRootedReference returns true if the given reference is a path relative
+// to the root of its space, so its path is the path in the space.
+func IsSpaceRootedReference(ref *provider.Reference) bool {
+	rid := ref.GetResourceId()
+	return IsRelativeReference(ref) && rid.GetSpaceId() != "" && rid.GetOpaqueId() == rid.GetSpaceId()
+}
+
 // IsAbsoluteReference returns true if the given reference qualifies as absolute
 // when either only the resource id is set or only the path is set and starts with /
 //

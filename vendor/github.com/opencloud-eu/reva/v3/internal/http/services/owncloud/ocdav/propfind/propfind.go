@@ -1415,12 +1415,16 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 					}
 				case "public-link-item-type": // only on a share root node
 					if ls != nil {
+						itemType := "file"
 						if md.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
-							appendToOK(prop.Raw("oc:public-link-item-type", "folder"))
-						} else {
-							appendToOK(prop.Raw("oc:public-link-item-type", "file"))
-							// redirectref is another option
+							itemType = "folder"
 						}
+						// the synthetic collection of a single file link carries the type of the shared resource
+						if t := utils.ReadPlainFromOpaque(md.Opaque, "public-link-item-type"); t != "" {
+							itemType = t
+						}
+						appendToOK(prop.Raw("oc:public-link-item-type", itemType))
+						// redirectref is another option
 					} else {
 						appendToNotFound(prop.NotFound("oc:public-link-item-type"))
 					}
