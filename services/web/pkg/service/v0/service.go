@@ -211,7 +211,7 @@ func (p Web) Static(f fs.FS, root string, ttl int) http.HandlerFunc {
 
 	static := http.StripPrefix(
 		rootWithSlash,
-		assets.FileServer(f),
+		assets.FileServer(p.logger, f),
 	)
 
 	lastModified := time.Now().UTC().Format(http.TimeFormat)
