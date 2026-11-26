@@ -734,6 +734,16 @@
           }
         }
       },
+      "imageVector": {
+        "enabled": true,
+        "dynamic": true,
+        "fields": [
+          {
+            "type": "number",
+            "store": true
+          }
+        ]
+      },
       "livePhoto": {
         "enabled": true,
         "dynamic": true,

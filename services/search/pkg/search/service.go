@@ -167,6 +167,13 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, errtypes.BadRequest(err.Error())
 	}
 	queryAst.Nodes = nodes
+	// before the template wraps the query: whatever the template adds is a
+	// filter and must not turn a purely semantic search into a hybrid one
+	semantic := ExtractSemantic(queryAst)
+	semanticOnly := semantic != "" && len(queryAst.Nodes) == 0
+	if semanticOnly {
+		queryAst.Nodes = []ast.Node{&ast.StringNode{Value: "*"}}
+	}
 	if len(queryAst.Nodes) == 0 {
 		return nil, errtypes.BadRequest("empty query provided")
 	}
@@ -290,7 +297,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	for i := 0; i < numWorkers; i++ {
 		errg.Go(func() error {
 			for space := range work {
-				res, err := s.searchIndex(ctx, req, queryAst, space, mountpointMap[space.Id.OpaqueId])
+				res, err := s.searchIndex(ctx, req, queryAst, semantic, semanticOnly, space, mountpointMap[space.Id.OpaqueId])
 				if err != nil && err != errSkipSpace {
 					return err
 				}
@@ -349,7 +356,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}, nil
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, query *ast.Ast, space *provider.StorageSpace, mountpointID string) (res *IndexResult, err error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, query *ast.Ast, semantic string, semanticOnly bool, space *provider.StorageSpace, mountpointID string) (res *IndexResult, err error) {
 	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
 	defer func() {
 		if r := recover(); r != nil {
@@ -454,7 +461,9 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &IndexQuery{
-		Query: s.queryTemplate.Expand(query, space),
+		Query:        s.queryTemplate.Expand(query, space),
+		Semantic:     semantic,
+		SemanticOnly: semanticOnly,
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

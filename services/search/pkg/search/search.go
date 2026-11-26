@@ -40,6 +40,11 @@ type IndexQuery struct {
 	Query    *ast.Ast
 	Ref      *searchmsg.Reference
 	PageSize int32
+	// Semantic is the text of the semantic clause, taken out of Query: it
+	// ranks image vectors, Query filters them. SemanticOnly says the search
+	// asked for nothing else, so the ranking is the answer.
+	Semantic     string
+	SemanticOnly bool
 }
 
 // IndexResult is what the engine answers: the matches of one space and how
@@ -73,6 +78,13 @@ type Engine interface {
 type MetadataUpdate struct {
 	Tags      []string
 	Favorites []string
+}
+
+// TextVectorizer embeds a query text into the image vector space, so the
+// backends can rank image vectors against it. nil means semantic search is not
+// configured.
+type TextVectorizer interface {
+	VectorizeText(ctx context.Context, text string) ([]float32, error)
 }
 
 type BatchOperator interface {
@@ -131,6 +143,7 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
 		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                       // opaque pairing uuid
 		"location":            {Type: mapping.TypeGeopoint},
+		"imageVector":         {Type: mapping.TypeVector, Dims: content.ImageVectorDims},
 	}
 })
 

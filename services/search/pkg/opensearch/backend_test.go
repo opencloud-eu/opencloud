@@ -2,6 +2,8 @@ package opensearch_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
@@ -240,4 +243,99 @@ var _ = Describe("Backend", func() {
 			Expect(err).To(MatchError(search.ErrResourceNotFound))
 		})
 	})
+
+	Describe("Semantic search", func() {
+		const indexName = "opencloud-test-engine-semantic"
+
+		var (
+			tc      *opensearchtest.TestClient
+			backend *opensearch.Backend
+		)
+
+		parse := func(kqlQuery string) *ast.Ast {
+			a, err := search.ParseQuery(kqlQuery)
+			Expect(err).ToNot(HaveOccurred())
+			return a
+		}
+
+		BeforeEach(func() {
+			physical := opensearch.VersionedIndexName(indexName)
+
+			tc = opensearchtest.NewDefaultTestClient(GinkgoTB(), defaultConfig.Engine.OpenSearch.Client)
+			tc.Require.IndicesReset([]string{physical})
+			deleteIndexOnCleanup(tc, physical)
+
+			var err error
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger(), opensearch.WithTextVectorizer(fakeVectorizer{
+				byText: map[string][]float32{
+					"cat": axisVector(0),
+					"dog": axisVector(1),
+				},
+			}))
+			Expect(err).ToNot(HaveOccurred())
+
+			upsert := func(id, path, name string, vector []float32) {
+				r := opensearchtest.Testdata.Resources.File
+				r.ID = id
+				r.Path = path
+				r.Name = name
+				r.ImageVector = vector
+				Expect(backend.Upsert(id, r)).To(Succeed())
+			}
+			upsert("1$1!10", "./cat.jpg", "cat.jpg", axisVector(0))
+			upsert("1$1!11", "./dog.jpg", "dog.jpg", axisVector(1))
+			upsert("1$1!12", "./note.txt", "note.txt", nil)
+			tc.Require.IndicesRefresh([]string{physical}, nil)
+		})
+
+		It("ranks the nearest image first for a purely semantic query", func() {
+			resp, err := backend.Search(context.Background(), &search.IndexQuery{Query: parse(`*`), Semantic: "cat", SemanticOnly: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Matches).ToNot(BeEmpty())
+			Expect(resp.Matches[0].Entity.Name).To(Equal("cat.jpg"))
+			// the only honest total is the number of semantic hits
+			Expect(resp.TotalMatches).To(Equal(int32(2)))
+		})
+
+		It("keeps a filter around a purely semantic query a filter", func() {
+			resp, err := backend.Search(context.Background(), &search.IndexQuery{Query: parse(`(*) AND (NOT Name:cat*)`), Semantic: "cat", SemanticOnly: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Matches).To(HaveLen(1))
+			Expect(resp.Matches[0].Entity.Name).To(Equal("dog.jpg"))
+		})
+
+		It("combines a semantic clause with a filter part", func() {
+			resp, err := backend.Search(context.Background(), &search.IndexQuery{Query: parse(`Name:dog*`), Semantic: "cat"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Matches).To(HaveLen(1))
+			Expect(resp.Matches[0].Entity.Name).To(Equal("dog.jpg"))
+			Expect(resp.TotalMatches).To(Equal(int32(1)))
+		})
+
+		It("rejects semantic queries without a vectorizer", func() {
+			bare, err := opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+			_, err = bare.Search(context.Background(), &search.IndexQuery{Query: parse(`*`), Semantic: "cat", SemanticOnly: true})
+			Expect(err).To(MatchError(ContainSubstring("not configured")))
+		})
+	})
 })
+
+// axisVector returns a one-hot vector of the schema dimensionality: distinct
+// axes are orthogonal (cosine 0), same axes identical (cosine 1).
+func axisVector(axis int) []float32 {
+	v := make([]float32, content.ImageVectorDims)
+	v[axis] = 1
+	return v
+}
+
+// fakeVectorizer maps query texts to fixed vectors.
+type fakeVectorizer struct{ byText map[string][]float32 }
+
+func (f fakeVectorizer) VectorizeText(_ context.Context, text string) ([]float32, error) {
+	v, ok := f.byText[strings.ToLower(text)]
+	if !ok {
+		return nil, fmt.Errorf("no vector for %q", text)
+	}
+	return v, nil
+}
