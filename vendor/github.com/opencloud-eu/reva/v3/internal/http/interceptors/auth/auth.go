@@ -36,6 +36,7 @@ import (
 	tokenregistry "github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/token/registry"
 	tokenwriterregistry "github.com/opencloud-eu/reva/v3/internal/http/interceptors/auth/tokenwriter/registry"
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/auth"
 	"github.com/opencloud-eu/reva/v3/pkg/auth/scope"
 	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
@@ -194,6 +195,12 @@ func New(m map[string]interface{}, unprotected []string, tp trace.TracerProvider
 			if utils.Skip(r.URL.Path, unprotected) {
 				log.Info().Msg("skipping auth check for: " + r.URL.Path)
 				isUnprotectedEndpoint = true
+			}
+
+			// unprotected endpoints need the audit context as well, e.g.
+			// public-files authenticates the public link itself
+			if v := r.Header.Get(audit.Header); v != "" {
+				r = r.WithContext(audit.ContextSetRequest(r.Context(), audit.ParseRequestContext(v)))
 			}
 
 			ctx, err := authenticateUser(w, r, conf, tokenStrategyChain, tokenManager, tokenWriter, credChain, isUnprotectedEndpoint)

@@ -4,8 +4,14 @@
 package revisioncleanup
 
 import (
+	"context"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 )
 
 // Prometheus metrics of the revision cleanup, e.g. for Grafana dashboards.
@@ -19,24 +25,27 @@ import (
 // request that found its queue full, which is the most direct sign that the number of workers
 // or the queue size is too small.
 var (
-	// RevisionsDeleted counts the revisions deleted by the cleanup.
-	RevisionsDeleted = promauto.NewCounter(prometheus.CounterOpts{
+	// RevisionsDeleted counts the revisions deleted by the cleanup, by the type of their space,
+	// see spaceTypeLabel.
+	RevisionsDeleted = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "reva_revision_cleanup_revisions_deleted_total",
-		Help: "Number of old file revisions deleted by the revision cleanup",
-	})
+		Help: "Number of old file revisions deleted by the revision cleanup, by space type (personal, project or other)",
+	}, []string{spaceTypeLabelName})
 
-	// BytesDeleted counts the size of the revisions deleted by the cleanup.
-	BytesDeleted = promauto.NewCounter(prometheus.CounterOpts{
+	// BytesDeleted counts the size of the revisions deleted by the cleanup, by the type of their
+	// space, see spaceTypeLabel.
+	BytesDeleted = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "reva_revision_cleanup_bytes_deleted_total",
-		Help: "Total size in bytes of the old file revisions deleted by the revision cleanup",
-	})
+		Help: "Total size in bytes of the old file revisions deleted by the revision cleanup, by space type (personal, project or other)",
+	}, []string{spaceTypeLabelName})
 
-	// PurgeFailures counts the revisions that could not be deleted. They are retried by the
-	// next cleanup of their node, i.e. when the node gets its next revision.
-	PurgeFailures = promauto.NewCounter(prometheus.CounterOpts{
+	// PurgeFailures counts the revisions that could not be deleted, by the type of their space,
+	// see spaceTypeLabel. They are retried by the next cleanup of their node, i.e. when the
+	// node gets its next revision.
+	PurgeFailures = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "reva_revision_cleanup_purge_failures_total",
-		Help: "Number of old file revisions the revision cleanup failed to delete, completely or only their blob",
-	})
+		Help: "Number of old file revisions the revision cleanup failed to delete, completely or only their blob, by space type (personal, project or other)",
+	}, []string{spaceTypeLabelName})
 
 	// QueueFull counts the cleanup requests that found the queue full, by outcome: "blocked"
 	// (the caller waited for room, queue full policy "block") or "dropped" (the cleanup was
@@ -87,6 +96,32 @@ const (
 	queueFullBlocked = "blocked"
 	queueFullDropped = "dropped"
 )
+
+const (
+	// the label of the counters of deleted revisions, see spaceTypeLabel
+	spaceTypeLabelName = "space_type"
+	// the value of that label for the spaces of any other type than personal and project
+	spaceTypeOther = "other"
+)
+
+// spaceTypeLabel returns the value of the space_type label for the revisions of n: the type of
+// its space if that is personal or project, otherwise "other", also when the type can't be
+// read. So the counters have at most three series each, whatever types of spaces there are.
+func spaceTypeLabel(ctx context.Context, n *node.Node) string {
+	if n.SpaceRoot == nil {
+		return spaceTypeOther
+	}
+	// It is called once per cleanup of a file, and reads nothing from disk then: the space root
+	// of a node read with node.ReadNode has all its attributes cached already, as ReadNode reads
+	// its name.
+	switch typ, err := n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr); {
+	case err != nil:
+		return spaceTypeOther
+	case typ == storagespace.TypePersonal, typ == storagespace.TypeProject:
+		return typ
+	}
+	return spaceTypeOther
+}
 
 // serviceMetrics are the metrics a Service updates about itself: its configuration, its queue
 // and its workers.

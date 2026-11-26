@@ -322,6 +322,8 @@ func (c *Cleaner) run(ctx context.Context, lu node.PathLookup, rs RevisionStore,
 		return result
 	}
 	defer func() { _ = unscope() }()
+	// for the counters of the deleted revisions, read in the group of the space like everything else
+	spaceType := spaceTypeLabel(ctx, n)
 
 	// The blobs of the purged revisions are deleted once the node lock is released (this defer
 	// runs after the one releasing it): their revisions are gone by then, so nothing refers to
@@ -343,12 +345,12 @@ func (c *Cleaner) run(ctx context.Context, lu node.PathLookup, rs RevisionStore,
 				// left alone (as CommitUpload does for the revisions it removes).
 				log.Warn().Str("revision", b.key).Str("blobid", b.blobID).Msg("revision cleanup: not deleting the blob of a purged revision, the file still uses it")
 				// the revision is deleted all the same, but it freed no space
-				RevisionsDeleted.Inc()
+				RevisionsDeleted.WithLabelValues(spaceType).Inc()
 				continue
 			}
 			if err := deleteBlob(rs, n.SpaceID, b.blobID); err != nil {
 				// the revision is gone, but not its blob: that's a failure, not a deletion
-				PurgeFailures.Inc()
+				PurgeFailures.WithLabelValues(spaceType).Inc()
 				log.Error().Err(err).Str("revision", b.key).Str("blobid", b.blobID).Msg("revision cleanup: could not delete the blob of a purged revision")
 				for i := range result.Revisions {
 					if result.Revisions[i].Key == b.key {
@@ -357,8 +359,8 @@ func (c *Cleaner) run(ctx context.Context, lu node.PathLookup, rs RevisionStore,
 				}
 				continue
 			}
-			RevisionsDeleted.Inc()
-			BytesDeleted.Add(float64(b.size))
+			RevisionsDeleted.WithLabelValues(spaceType).Inc()
+			BytesDeleted.WithLabelValues(spaceType).Add(float64(b.size))
 		}
 	}()
 
@@ -449,7 +451,7 @@ func (c *Cleaner) run(ctx context.Context, lu node.PathLookup, rs RevisionStore,
 		}
 		blobID, err := removeRevisionUnchecked(ctx, n, rev.Key())
 		if err != nil {
-			PurgeFailures.Inc()
+			PurgeFailures.WithLabelValues(spaceType).Inc()
 			purgeErrs[rev.Key()] = err
 			return fmt.Errorf("could not purge revision %q: %w", rev.Key(), err)
 		}

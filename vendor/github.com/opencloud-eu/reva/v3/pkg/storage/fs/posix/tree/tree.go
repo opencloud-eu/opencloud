@@ -26,6 +26,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -649,7 +650,17 @@ func (t *Tree) listFolder(ctx context.Context, n *node.Node, forUser bool) ([]*n
 
 	// Spawn workers that'll concurrently work the queue
 	for i := 0; i < numWorkers; i++ {
-		g.Go(func() error {
+		g.Go(func() (err error) {
+			// The workers run in goroutines of their own, out of reach of the recovery of the
+			// gRPC interceptors: a panic here would end the whole process, as it did in
+			// https://github.com/opencloud-eu/reva/issues/1073. Fail the listing instead.
+			defer func() {
+				if r := recover(); r != nil {
+					t.log.Error().Str("dir", dir).Interface("panic", r).Str("stack", string(debug.Stack())).Msg("panic while listing a directory")
+					err = fmt.Errorf("tree: panic while listing %s: %v", dir, r)
+				}
+			}()
+
 			// switch user if necessary
 			spaceGID, ok := ctx.Value(decomposedfs.CtxKeySpaceGID).(uint32)
 			if ok {

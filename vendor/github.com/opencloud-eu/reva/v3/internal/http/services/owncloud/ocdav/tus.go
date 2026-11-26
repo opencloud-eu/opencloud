@@ -35,6 +35,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/net"
 	"github.com/opencloud-eu/reva/v3/internal/http/services/owncloud/ocdav/spacelookup"
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/opencloud-eu/reva/v3/pkg/rhttp"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
@@ -304,6 +305,10 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 			Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
 
 			httpReq.Header.Set(net.HeaderContentType, r.Header.Get(net.HeaderContentType))
+			// marks the transfer as an upload the client sent, the data provider audits it
+			if v := r.Header.Get(audit.Header); v != "" {
+				httpReq.Header.Set(audit.Header, v)
+			}
 			httpReq.Header.Set(net.HeaderContentLength, r.Header.Get(net.HeaderContentLength))
 			if r.Header.Get(net.HeaderUploadOffset) != "" {
 				httpReq.Header.Set(net.HeaderUploadOffset, r.Header.Get(net.HeaderUploadOffset))

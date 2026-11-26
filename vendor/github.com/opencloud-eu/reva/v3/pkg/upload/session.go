@@ -25,6 +25,7 @@ import (
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/storage"
@@ -68,6 +69,7 @@ type Session interface {
 	Chunk() string
 	BinPath() string
 	ExecutantUser() *userpb.User
+	AuditOrigin() (audit.RequestContext, string)
 	ProviderID() string
 	SpaceID() string
 	NodeID() string
@@ -97,6 +99,7 @@ type Session interface {
 	SetSize(size int64)
 	SetSizeIsDeferred(value bool)
 	SetExecutant(u *userpb.User)
+	SetAuditOrigin(rc audit.RequestContext, publicShareID string)
 	TouchBin() error
 }
 
@@ -379,6 +382,23 @@ func (s *FileSession) SetExecutant(u *userpb.User) {
 	s.info.Storage["UserOpaque"] = string(b)
 	g, _ := json.Marshal(u.GetGroups())
 	s.info.Storage["UserGroups"] = string(g)
+}
+
+// SetAuditOrigin stores the audit request context of the request that created
+// the upload and the public link it came through, if any. The requests that
+// send the data later carry a transfer token, which tells neither.
+func (s *FileSession) SetAuditOrigin(rc audit.RequestContext, publicShareID string) {
+	if !rc.IsZero() {
+		s.info.Storage["AuditRequest"] = rc.Encode()
+	}
+	if publicShareID != "" {
+		s.info.Storage["AuditPublicShareID"] = publicShareID
+	}
+}
+
+// AuditOrigin returns what SetAuditOrigin stored.
+func (s *FileSession) AuditOrigin() (audit.RequestContext, string) {
+	return audit.ParseRequestContext(s.info.Storage["AuditRequest"]), s.info.Storage["AuditPublicShareID"]
 }
 
 // TouchBin creates the empty staging file.

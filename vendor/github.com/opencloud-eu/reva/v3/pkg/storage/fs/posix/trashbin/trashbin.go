@@ -44,6 +44,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/storage/internal/goroutinelock"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
@@ -321,6 +322,7 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 
 	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir)
 	trashPath := filepath.Clean(filepath.Join(trashRoot, "files", key+".trashitem", relativePath))
+	tb.setAuditItem(ctx, spaceID, trashRoot, key, relativePath, trashPath)
 
 	restorePath := ""
 	// TODO why can we not use NodeFromResource here? It will use walk path. Do trashed items have a problem with that?
@@ -397,6 +399,7 @@ func (tb *Trashbin) PurgeRecycleItem(ctx context.Context, spaceID, key, relative
 
 	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir)
 	trashPath := filepath.Clean(filepath.Join(trashRoot, "files", key+".trashitem", relativePath))
+	tb.setAuditItem(ctx, spaceID, trashRoot, key, relativePath, trashPath)
 
 	type item struct {
 		path  string
@@ -622,4 +625,40 @@ func (tb *Trashbin) IsEmpty(ctx context.Context, spaceID string) bool {
 	}
 	// if we cannot read the trash, we assume there are no trashed items
 	return true
+}
+
+// setAuditItem tells the events middleware which trashed item a call acts
+// on: file or folder, its ID and its name.
+func (tb *Trashbin) setAuditItem(ctx context.Context, spaceID, trashRoot, key, relativePath, trashPath string) {
+	if !storagespace.ContextWantsItem(ctx) {
+		return
+	}
+	fi, err := os.Lstat(trashPath)
+	if err != nil {
+		return
+	}
+	t := provider.ResourceType_RESOURCE_TYPE_FILE
+	if fi.IsDir() {
+		t = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+	}
+	var id *provider.ResourceId
+	if _, nodeID, _, _, err := tb.lu.MetadataBackend().IdentifyPath(ctx, trashPath); err == nil && nodeID != "" {
+		id = &provider.ResourceId{SpaceId: spaceID, OpaqueId: nodeID}
+	}
+	// the info file has the path in the space, without a leading slash
+	origin, _, err := tb.readInfoFile(trashRoot, key)
+	if err == nil {
+		origin = filepath.Join("/", origin, relativePath)
+	}
+	name := filepath.Base(relativePath)
+	if relativePath == "" || relativePath == "." || relativePath == "/" {
+		name = ""
+		if origin != "" {
+			name = filepath.Base(origin)
+		}
+	}
+	storagespace.ContextSetItem(ctx, t, id, name)
+	if origin != "" {
+		storagespace.ContextSetItemPath(ctx, origin)
+	}
 }
