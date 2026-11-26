@@ -271,6 +271,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					// matches the leaf route. Must sit here, on the
 					// /drives/{driveID} sub-router, so it can rewrite the
 					// remaining RoutePath. See graphm.ResolveGraphPath.
+					r.Use(svc.publicLinkGate)
 					r.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
 					r.Get("/", svc.GetSingleDriveV1Beta1)
 					r.Patch("/", svc.UpdateDriveV1Beta1)
@@ -395,6 +396,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					// matches the leaf route. Must sit here, on the
 					// /drives/{driveID} sub-router, so it can rewrite the
 					// remaining RoutePath. See graphm.ResolveGraphPath.
+					r.Use(svc.publicLinkGate)
 					r.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
 					r.Patch("/", svc.UpdateDrive)
 					r.Get("/", svc.GetSingleDrive)
