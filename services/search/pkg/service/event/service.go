@@ -8,9 +8,9 @@ import (
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
@@ -205,15 +205,18 @@ func (s Service) processEvent(e raw.Event) error {
 	case events.FileVersionRestored:
 		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsAdded:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsRemoved:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 		debounce(getSpaceID(ev.Ref), false)
 	case events.FileUploaded:
 		debounce(getSpaceID(ev.Ref), false)
 	case events.UploadReady:
-		debounce(getSpaceID(ev.FileRef), false)
+		// a failed upload left nothing new to index
+		if !ev.Failed {
+			debounce(getSpaceID(ev.FileRef), false)
+		}
 	case events.SpaceRenamed:
 		debounce(ev.ID, false)
 	case events.SpaceEnabled:
@@ -237,9 +240,9 @@ func (s Service) processEvent(e raw.Event) error {
 			s.log.Error().Err(err).Interface("spaceID", ev.ID).Msg("failed to remove space from the skipped spaces bucket")
 		}
 	case events.LabelAdded:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 	case events.LabelRemoved:
-		s.index.UpsertItem(ev.Ref)
+		s.index.UpdateMetadata(ev.Ref)
 	default:
 		s.log.Error().Interface("event", e).Msg("unhandled event type, acknowledged without indexing")
 	}

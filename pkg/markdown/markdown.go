@@ -73,12 +73,15 @@ func (md MD) WriteContent(w io.Writer) (int64, error) {
 // WriteToc writes the table of contents to the given writer
 func (md MD) WriteToc(w io.Writer) (int64, error) {
 	var written int64
+	anchors := anchorSet{}
 	for _, h := range md.Headings {
+		// register every heading, so duplicates get the same suffix as on the rendered page
+		anchor := anchors.add(toAnchor(h.Header))
 		if h.Level == 1 {
 			// main title not in toc
 			continue
 		}
-		link := fmt.Sprintf("#%s", toAnchor(h.Header))
+		link := fmt.Sprintf("#%s", anchor)
 		s := fmt.Sprintf("%s* [%s](%s)\n", strings.Repeat("  ", h.Level-2), h.Header, link)
 		n, err := w.Write([]byte(s))
 		if err != nil {
@@ -139,11 +142,31 @@ func headingFromString(s string) Heading {
 	}
 }
 
+// _anchorRemove matches everything that is not kept in a heading anchor:
+// letters, marks, numbers, connector punctuation (e.g. "_"), spaces and hyphens.
+var _anchorRemove = regexp.MustCompile(`[^\p{L}\p{M}\p{N}\p{Pc} -]`)
+
+// toAnchor returns the anchor of a heading the same way github-slugger does,
+// which is used by GitHub and Docusaurus.
 func toAnchor(header string) string {
-	// Remove everything except letters, numbers, and spaces
-	reg := regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
-	anchor := reg.ReplaceAllString(header, "")
-	// Replace spaces with hyphens and convert to lowercase
-	anchor = strings.ReplaceAll(anchor, " ", "-")
-	return strings.ToLower(anchor)
+	anchor := strings.ToLower(header)
+	anchor = _anchorRemove.ReplaceAllString(anchor, "")
+	return strings.ReplaceAll(anchor, " ", "-")
+}
+
+// anchorSet keeps track of used anchors and adds a "-1", "-2", ... suffix
+// to duplicates, like github-slugger does.
+type anchorSet map[string]int
+
+func (a anchorSet) add(anchor string) string {
+	unique := anchor
+	for {
+		if _, ok := a[unique]; !ok {
+			break
+		}
+		a[anchor]++
+		unique = fmt.Sprintf("%s-%d", anchor, a[anchor])
+	}
+	a[unique] = 0
+	return unique
 }

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/pkg/xattr"
 	"github.com/shamaton/msgpack/v2"
 )

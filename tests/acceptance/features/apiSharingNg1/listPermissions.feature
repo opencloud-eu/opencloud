@@ -2926,3 +2926,158 @@ Feature: List a sharing permissions
         }
       }
       """
+
+
+  Scenario: user lists permissions of a folder with select and filter together with top 0
+    Given user "Brian" has been created with default attributes
+    And user "Alice" has created folder "folder"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | folder   |
+      | space           | Personal |
+      | sharee          | Brian    |
+      | shareType       | user     |
+      | permissionsRole | Viewer   |
+    When user "Alice" gets the permittion list of folder "folder" from the space "Personal" using the Graph API with query "$top=0"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+      | @libre.graph.permissions.roles.allowedValues   |
+      | value                                          |
+    When user "Alice" gets the permittion list of folder "folder" from the space "Personal" using the Graph API with query "$select=@libre.graph.permissions.actions.allowedValues&$top=0"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.roles.allowedValues |
+      | value                                        |
+    When user "Alice" gets the permittion list of folder "folder" from the space "Personal" using the Graph API with query "$filter=@libre.graph.permissions.roles.allowedValues/rolePermissions/any(p:contains(p/condition,+'@Subject.UserType==%22Federated%22'))&$select=@libre.graph.permissions.roles.allowedValues&$top=0"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+      | value                                          |
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": [
+          "@libre.graph.permissions.roles.allowedValues"
+        ],
+        "properties": {
+          "@libre.graph.permissions.roles.allowedValues": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["id"],
+                  "properties": {
+                    "id": {
+                      "const": "b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["id"],
+                  "properties": {
+                    "id": {
+                      "const": "fb6c3e19-e378-47e5-b277-9732f9de6e21"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+      """
+
+
+  Scenario: user lists the allowed actions of a project space with top 0
+    Given using spaces DAV path
+    And user "Brian" has been created with default attributes
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Alice" has sent the following space share invitation:
+      | space           | new-space    |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Space Viewer |
+    When user "Alice" gets the drive permittion list of the space "new-space" using the Graph API with query "$select=@libre.graph.permissions.actions.allowedValues&$top=0"
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should contain the following keys:
+      | @libre.graph.permissions.actions.allowedValues |
+    And the JSON data of the response should not contain the following keys:
+      | @libre.graph.permissions.roles.allowedValues |
+      | value                                        |
+
+
+  Scenario Outline: user tries to list permissions of a folder with a top other than 0
+    Given user "Alice" has created folder "folder"
+    When user "Alice" gets the permittion list of folder "folder" from the space "Personal" using the Graph API with query "<query>"
+    Then the HTTP status code should be "400"
+    Examples:
+      | query               |
+      | $top=5              |
+      | $top=5&$count=true  |
+      | $top=-1             |
+
+
+  Scenario: user gets a single link permission of a project space using root endpoint
+    Given using spaces DAV path
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Alice" has created the following space link share:
+      | space           | new-space |
+      | permissionsRole | view      |
+      | password        | %public%  |
+    When user "Alice" gets the last link permission of space "new-space" using root endpoint of the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["createdDateTime", "hasPassword", "id", "link"],
+        "properties": {
+          "createdDateTime": {
+            "format": "date-time"
+          },
+          "hasPassword": {
+            "const": true
+          },
+          "id": {
+            "pattern": "^[a-zA-Z]{15}$"
+          },
+          "link": {
+            "type": "object",
+            "required": [
+              "@libre.graph.displayName",
+              "@libre.graph.quickLink",
+              "preventsDownload",
+              "type",
+              "webUrl"
+            ],
+            "properties": {
+              "@libre.graph.displayName": {
+                "const": ""
+              },
+              "@libre.graph.quickLink": {
+                "const": false
+              },
+              "preventsDownload": {
+                "const": false
+              },
+              "type": {
+                "const": "view"
+              },
+              "webUrl": {
+                "pattern": "^%base_url%/s/[a-zA-Z]{15}$"
+              }
+            }
+          }
+        }
+      }
+      """

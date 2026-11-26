@@ -26,11 +26,11 @@ FROM quay.io/opencloudeu/golang-ci:1.26 AS build
 COPY --from=generate /opencloud /opencloud
 
 WORKDIR /opencloud/opencloud
-RUN make go-generate build ENABLE_VIPS=true
+RUN make go-generate build
 
 FROM alpine:3.24
 
-RUN apk add --no-cache attr ca-certificates curl mailcap tree vips && \
+RUN apk add --no-cache attr ca-certificates curl mailcap tree && \
 	echo 'hosts: files dns' >| /etc/nsswitch.conf
 
 LABEL maintainer="OpenCloud GmbH <devops@opencloud.eu>" \

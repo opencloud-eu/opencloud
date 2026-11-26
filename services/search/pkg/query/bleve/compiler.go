@@ -2,12 +2,12 @@ package bleve
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/blevesearch/bleve/v2"
 	bleveQuery "github.com/blevesearch/bleve/v2/search/query"
+
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
@@ -98,16 +98,8 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 	for i := offset; i < len(nodes); i++ {
 		switch n := nodes[i].(type) {
 		case *ast.StringNode:
-			// hidden takes bool words only; anything else matches nothing
-			if n.Key == "Hidden" {
-				var q bleveQuery.Query
-				if b, err := strconv.ParseBool(n.Value); err == nil {
-					bq := bleveQuery.NewBoolFieldQuery(b)
-					bq.SetField(n.Key)
-					q = bq
-				} else {
-					q = bleveQuery.NewMatchNoneQuery()
-				}
+			// a field that is not text takes values of its own type only
+			if q := typedFieldQuery(n); q != nil {
 				if prev == nil {
 					prev = q
 				} else {
@@ -201,11 +193,11 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			}
 		case *ast.NumberNode:
 			var q bleveQuery.Query
-			if field := n.Key; slices.Contains([]string{"Size", "Type"}, field) {
+			if field := n.Key; searchQuery.FieldIsNumeric(field) {
 				q = numberRange(field, n.Operator, n.Value)
 			} else {
-				// same answer as the OpenSearch backend: unknown numeric keys
-				// match nothing instead of querying an arbitrary field
+				// same answer as the OpenSearch backend: a range on a non-numeric key
+				// matches nothing instead of querying an arbitrary field
 				q = bleveQuery.NewMatchNoneQuery()
 			}
 			if q == nil {
@@ -276,6 +268,10 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 }
 
 func nextNode(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
+	if offset >= len(nodes) {
+		return nil, 0, fmt.Errorf("operator without an operand")
+	}
+
 	if n, ok := nodes[offset].(*ast.GroupNode); ok {
 		// keys are resolved and group keys propagated by normalize
 		gq, _, err := walk(0, n.Nodes)
@@ -337,6 +333,37 @@ func mapBinary(operator *ast.OperatorNode, ln, rn bleveQuery.Query, leftIsGroup 
 		ln,
 		rn,
 	})
+}
+
+// typedFieldQuery answers a text restriction on a field that is not text; nil
+// for every other field. Hidden takes bool words and a numeric field takes a
+// number, which : and = both match as a whole. A date arrives as a date node,
+// so text on a date field is none. Anything else matches nothing, the same
+// answer the OpenSearch backend gives: size:>100 is the value ">100" on a
+// numeric field and not the range size>100.
+func typedFieldQuery(n *ast.StringNode) bleveQuery.Query {
+	switch {
+	case n.Key == "Hidden":
+		b, err := strconv.ParseBool(n.Value)
+		if err != nil {
+			return bleveQuery.NewMatchNoneQuery()
+		}
+		q := bleveQuery.NewBoolFieldQuery(b)
+		q.SetField(n.Key)
+		return q
+	case searchQuery.FieldIsNumeric(n.Key):
+		v, ok := searchQuery.ParseNumber(n.Value)
+		if !ok {
+			return bleveQuery.NewMatchNoneQuery()
+		}
+		inclusive := true
+		q := bleveQuery.NewNumericRangeInclusiveQuery(&v, &v, &inclusive, &inclusive)
+		q.SetField(n.Key)
+		return q
+	case searchQuery.FieldIsDatetime(n.Key):
+		return bleveQuery.NewMatchNoneQuery()
+	}
+	return nil
 }
 
 func numberRange(field string, operator *ast.OperatorNode, value float64) bleveQuery.Query {

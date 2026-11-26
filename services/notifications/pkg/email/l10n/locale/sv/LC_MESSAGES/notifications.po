@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-27 12:20+0000\n"
+"POT-Creation-Date: 2026-11-12 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Daniel Nylander <po@danielnylander.se>, 2026\n"
 "Language-Team: Swedish (https://app.transifex.com/opencloud-eu/teams/204053/sv/)\n"
@@ -60,7 +60,7 @@ msgstr ""
 #. UnsharedSpace email template, label of the button in the html email
 #: pkg/email/templates.go:162
 msgid "Check access"
-msgstr ""
+msgstr "Kontrollera åtkomst"
 
 #. UnsharedSpace email template, resolves via {{ .CallToAction }}
 #: pkg/email/templates.go:160
@@ -142,13 +142,13 @@ msgstr "Öppna länk"
 #. SharedSpace email template, label of the button in the html email
 #: pkg/email/templates.go:143
 msgid "Open space"
-msgstr ""
+msgstr "Öppna arbetsyta"
 
 #. fallbackLinkLabel introduces the plain link below the button of the html
 #. email
 #: pkg/email/templates.go:234
 msgid "Or open this link:"
-msgstr ""
+msgstr "Eller öppna den här länken:"
 
 #. ScienceMeshInviteTokenGenerated email template, Subject field (resolves
 #. directly)
@@ -166,12 +166,12 @@ msgstr "Delning till '{ShareFolder}' löpte ut {ExpiredAt}"
 #. Mention email template, label of the button in the html email
 #: pkg/email/templates.go:244
 msgid "View mention"
-msgstr ""
+msgstr "Visa omnämnande"
 
 #. ShareCreated email template, label of the button in the html email
 #: pkg/email/templates.go:31
 msgid "View shares"
-msgstr ""
+msgstr "Visa delningar"
 
 #: pkg/email/templates.go:242
 msgid "You can view the mention here: {ResourceLink}"
@@ -184,7 +184,7 @@ msgstr "Du nämndes i ”{ResourceName}”"
 #. GroupedDaily email template, Subject field (resolves directly)
 #: pkg/email/templates.go:217
 msgid "Your daily notifications"
-msgstr ""
+msgstr "Dina dagliga notiser"
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:176
@@ -218,7 +218,7 @@ msgstr ""
 #. GroupedWeekly email template, Subject field (resolves directly)
 #: pkg/email/templates.go:227
 msgid "Your weekly notifications"
-msgstr ""
+msgstr "Dina veckovisa notiser"
 
 #: pkg/email/templates.go:241
 msgid "{AuthorName} mentioned you in \"{ResourceName}\"."

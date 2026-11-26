@@ -1,23 +1,60 @@
 package svc
 
 import (
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/render"
+	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	revaCtx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/tags"
+	revaCtx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/tags"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"go-micro.dev/v4/metadata"
 )
 
-// GetTags returns all available tags
+// maxListedTags is the maximum number of tags that GetTags returns. It keeps
+// the response small when many distinct tags are in use. Since the tags are
+// sorted before the list is cut, the same tags are always the ones returned.
+const maxListedTags = 100
+
+// listedTags returns the distinct tags of the given search matches, sorted in
+// byte order, and cut at maxListedTags.
+//
+// Byte order means that upper case comes before lower case ("Banana" before
+// "apple"). It is used on purpose instead of a case-insensitive order, which
+// would be nicer to read, because it is the order in which search engines sort
+// keyword values, e.g. an OpenSearch terms aggregation ordered by key. With the
+// same order here, the search can return just the first maxListedTags tags of
+// every space, and merging those lists still gives exactly the first
+// maxListedTags tags overall. With a case-insensitive order, that only works by
+// aggregating on a lowercased copy of the field, which needs a mapping change
+// and a reindex, and loses the original casing of the tags. Clients that want
+// another order for display can sort the list themselves.
+func listedTags(matches []*searchmsg.Match) []string {
+	distinct := make(map[string]struct{})
+	for _, match := range matches {
+		for _, tag := range match.GetEntity().GetTags() {
+			if tag != "" {
+				distinct[tag] = struct{}{}
+			}
+		}
+	}
+
+	// never nil: an empty list is rendered as "value": [], not left out
+	list := slices.AppendSeq(make([]string, 0, len(distinct)), maps.Keys(distinct))
+	slices.Sort(list)
+	return list[:min(len(list), maxListedTags)]
+}
+
+// GetTags returns the tags in use, see listedTags
 func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 	th := r.Header.Get(revaCtx.TokenHeader)
 	ctx := revaCtx.ContextSetToken(r.Context(), th)
@@ -32,15 +69,8 @@ func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagList := tags.New("")
-	for _, match := range sr.Matches {
-		for _, tag := range match.Entity.Tags {
-			tagList.Add(tag)
-		}
-	}
-
 	tagCollection := libregraph.NewCollectionOfTags()
-	tagCollection.Value = tagList.AsSlice()
+	tagCollection.Value = listedTags(sr.GetMatches())
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, tagCollection)
@@ -109,7 +139,10 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allTags := tags.New(currentTags)
-	if !allTags.Add(assignment.Tags...) {
+	if added, err := allTags.AddValidated(tags.MaxLengthValidator(g.config.Validation.MaxTagLength), assignment.Tags...); err != nil {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
+		return
+	} else if !added {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no new tags in createtagsrequest or maximum reached")
 		return
 	}
@@ -161,16 +194,34 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The requested tags, split and cleaned up the same way as the stored ones,
+	// so that e.g. [""] or [","] count as no tags at all.
+	requested := tags.New(unassignment.Tags...).AsSlice()
+
+	// A request without any tags is treated as malformed. That is a choice:
+	// as it asks to remove nothing, succeeding with 200 or 204 would be
+	// defensible too, but an empty list is more likely a client bug than
+	// intended.
+	if len(requested) == 0 {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no tags in tag unassignment request")
+		return
+	}
+
+	logger := g.logger.SubloggerWithRequestID(ctx).With().
+		Str("resourceID", unassignment.ResourceId).
+		Strs("tags", unassignment.Tags).
+		Logger()
+
 	rid, err := storagespace.ParseID(unassignment.ResourceId)
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("could not parse resourceId")
+		logger.Debug().Err(err).Msg("could not parse resourceId")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid resourceId")
 		return
 	}
 
 	client, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("error selecting next gateway client")
+		logger.Error().Err(err).Msg("error selecting next gateway client")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -178,7 +229,7 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		Ref: &provider.Reference{ResourceId: &rid},
 	})
 	if err != nil {
-		g.logger.Error().Err(err).Msg("error stating file")
+		logger.Error().Err(err).Msg("error stating file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -193,14 +244,14 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 
 	pm := sres.GetInfo().GetPermissionSet()
 	if pm == nil {
-		g.logger.Error().Err(err).Msg("no permissionset on file")
+		logger.Error().Msg("no permissionset on file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// it says we need "write access" to set tags. One of those should do
 	if !pm.InitiateFileUpload && !pm.CreateContainer {
-		g.logger.Info().Msg("no permission to create a tag")
+		logger.Info().Msg("no permission to remove a tag")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -210,29 +261,42 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		currentTags = m["tags"]
 	}
 
+	// Removing tags that the resource doesn't have is not an error: the result
+	// is the same, and the event below still goes out, so that the search
+	// index drops tags it may have although the resource doesn't.
 	allTags := tags.New(currentTags)
-	if !allTags.Remove(unassignment.Tags...) {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no new tags in createtagsrequest or maximum reached")
-		return
+	removed := make([]string, 0, len(requested))
+	for _, tag := range requested {
+		if allTags.Remove(tag) {
+			removed = append(removed, tag)
+		}
 	}
-
-	resp, err := client.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
-		Ref: &provider.Reference{ResourceId: &rid},
-		ArbitraryMetadata: &provider.ArbitraryMetadata{
-			Metadata: map[string]string{
-				"tags": allTags.AsList(),
+	if len(removed) > 0 {
+		resp, err := client.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
+			Ref: &provider.Reference{ResourceId: &rid},
+			ArbitraryMetadata: &provider.ArbitraryMetadata{
+				Metadata: map[string]string{
+					"tags": allTags.AsList(),
+				},
 			},
-		},
-	})
-	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		g.logger.Error().Err(err).Msg("error setting tags")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			logger.Error().Err(err).Interface("status", resp.GetStatus()).Msg("error setting tags")
+			if resp.GetStatus().GetCode() == rpc.Code_CODE_LOCKED {
+				errorcode.InvalidRequest.Render(w, r, http.StatusLocked, "file is locked")
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if g.eventsPublisher != nil {
+		// Tags lists only the tags that were actually removed, and is empty
+		// when the resource had none of them. The event is sent in that case
+		// too, so that consumers such as search read the resource again.
 		ev := events.TagsRemoved{
-			Tags: strings.Join(unassignment.Tags, ","),
+			Tags: strings.Join(removed, ","),
 			Ref: &provider.Reference{
 				ResourceId: &rid,
 				Path:       ".",
@@ -241,7 +305,7 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 			Executant:  revaCtx.ContextMustGetUser(r.Context()).Id,
 		}
 		if err := events.Publish(ctx, g.eventsPublisher, ev); err != nil {
-			g.logger.Error().Err(err).Msg("Failed to publish TagsAdded event")
+			logger.Error().Err(err).Msg("Failed to publish TagsRemoved event")
 		}
 	}
 }

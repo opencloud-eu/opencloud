@@ -181,7 +181,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -428,7 +428,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -693,7 +693,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -944,7 +944,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -1173,7 +1173,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -1395,7 +1395,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -1631,7 +1631,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -1843,7 +1843,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                       "properties": {
                         "driveId": {
                           "type": "string",
-                          "pattern": "^%file_id_pattern%$"
+                          "pattern": "^%space_id_pattern%$"
                         },
                         "driveType": {
                           "type": "string",
@@ -3264,7 +3264,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                           "properties": {
                             "driveId": {
                               "type": "string",
-                              "pattern": "^%file_id_pattern%$"
+                              "pattern": "^%space_id_pattern%$"
                             },
                             "driveType": {
                               "const": "project"
@@ -3401,7 +3401,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                           "properties": {
                             "driveId": {
                               "type": "string",
-                              "pattern": "^%file_id_pattern%$"
+                              "pattern": "^%space_id_pattern%$"
                             },
                             "driveType": {
                               "const": "project"
@@ -3582,7 +3582,7 @@ Feature: listing sharedWithMe when auto-sync is disabled
                           "properties": {
                             "driveId": {
                               "type": "string",
-                              "pattern": "^%file_id_pattern%$"
+                              "pattern": "^%space_id_pattern%$"
                             },
                             "driveType": {
                               "const": "project"

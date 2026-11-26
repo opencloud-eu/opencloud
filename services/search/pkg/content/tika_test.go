@@ -2,11 +2,14 @@ package content_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +31,11 @@ var _ = Describe("Tika", func() {
 			language      string
 			tika4Language bool
 			version       string
+			rmetaStatus   int
+			rmetaHangs    bool
+			versionHangs  bool
+			rmetaPath     string
+			rmetaBytes    int
 			srv           *httptest.Server
 			tika          *content.Tika
 		)
@@ -38,10 +46,17 @@ var _ = Describe("Tika", func() {
 			tika4Language = false
 			version = ""
 			fullResponse = ""
+			rmetaStatus = 0
+			rmetaHangs = false
+			versionHangs = false
 			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				out := ""
 				switch req.URL.Path {
 				case "/version":
+					if versionHangs {
+						<-req.Context().Done()
+						return
+					}
 					out = version
 				case "/language":
 					if tika4Language {
@@ -52,7 +67,20 @@ var _ = Describe("Tika", func() {
 					}
 				case "/language/string":
 					out = language
-				case "/rmeta/text":
+				case "/rmeta/text", "/rmeta/ignore":
+					rmetaPath = req.URL.Path
+					if rmetaHangs {
+						// the server notices the client leaving only once the body is read
+						_, _ = io.Copy(io.Discard, req.Body)
+						<-req.Context().Done()
+						return
+					}
+					received, _ := io.ReadAll(req.Body)
+					rmetaBytes = len(received)
+					if rmetaStatus != 0 {
+						w.WriteHeader(rmetaStatus)
+						return
+					}
 					if fullResponse != "" {
 						out = fullResponse
 					} else {
@@ -97,6 +125,144 @@ var _ = Describe("Tika", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(doc.Content).To(Equal(body))
+		})
+
+		It("fails when tika returns no metadata for a file with content", func() {
+			fullResponse = "[]"
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Name: "report.pdf",
+				Size: 1,
+			})
+			Expect(err).To(MatchError(content.ErrUnparsable))
+			Expect(err).To(MatchError(ContainSubstring("report.pdf")))
+		})
+
+		DescribeTable("fails when tika could not parse the file",
+			func(response string) {
+				fullResponse = response
+
+				doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+					Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+					Name: "scan.png",
+					Size: 1,
+				})
+				Expect(err).To(MatchError(content.ErrUnparsable))
+				Expect(err).To(MatchError(And(ContainSubstring("scan.png"), ContainSubstring("bad exit value 1"))))
+				Expect(err.Error()).ToNot(ContainSubstring("at org.apache"))
+				Expect(doc.Name).To(Equal("scan.png"))
+			},
+			Entry("tika 4", `[{"tk:content": "", "tk:exception:container-exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1\n\tat org.apache.tika.parser.ocr.TesseractOCRParser.doOCR"}]`),
+			Entry("tika 3", `[{"X-TIKA:content": "", "X-TIKA:EXCEPTION:container_exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1\n\tat org.apache.tika.parser.ocr.TesseractOCRParser.doOCR"}]`),
+		)
+
+		DescribeTable("tells an unreachable tika from a request it rejects",
+			func(status int, unreachable bool) {
+				rmetaStatus = status
+
+				_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+					Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+					Size: 1,
+				})
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, content.ErrUnreachable)).To(Equal(unreachable))
+			},
+			Entry("server error", http.StatusServiceUnavailable, true),
+			Entry("too many requests", http.StatusTooManyRequests, true),
+			Entry("unprocessable file", http.StatusUnprocessableEntity, false),
+		)
+
+		It("counts a tika that does not answer in time as a failure of the file", func() {
+			rmetaHangs = true
+			tika.Timeout = 10 * time.Millisecond
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 1,
+			})
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(errors.Is(err, content.ErrUnreachable)).To(BeFalse())
+		})
+
+		It("counts a tika that does not even answer its version as unreachable", func() {
+			DeferCleanup(content.SetProbeTimeout(10 * time.Millisecond))
+			rmetaHangs, versionHangs = true, true
+			tika.Timeout = 10 * time.Millisecond
+
+			_, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 1,
+			})
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(errors.Is(err, content.ErrUnreachable)).To(BeTrue())
+		})
+
+		Context("with a file over the content extraction size limit", func() {
+			oversized := &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: 8_000_000}
+
+			BeforeEach(func() {
+				body = strings.Repeat("x", 100)
+				tika.ContentExtractionSizeLimit = 10
+				retriever := &contentMocks.Retriever{}
+				retriever.On("Retrieve", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader(body)), nil)
+				tika.Retriever = retriever
+			})
+
+			It("extracts the metadata from the head of the file, without the content", func() {
+				fullResponse = `[{"Content-Type": "image/jpeg", "tiff:Make": "Google", "tiff:ImageWidth": "4080", "tiff:ImageLength": "3072", "tk:content": "not asked for"}]`
+
+				doc, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(rmetaPath).To(Equal("/rmeta/ignore"))
+				Expect(rmetaBytes).To(Equal(10))
+				Expect(doc.Photo.CameraMake).To(Equal(libregraph.PtrString("Google")))
+				Expect(doc.Image.Width).To(Equal(libregraph.PtrInt32(4080)))
+				Expect(doc.Content).To(BeEmpty())
+			})
+
+			It("keeps the metadata when tika fails on the cut", func() {
+				fullResponse = `[{"Content-Type": "image/jpeg", "tiff:ImageWidth": "4080", "tk:exception:container-exception": "org.apache.tika.exception.TikaException: TesseractOCRParser bad exit value 1 err msg: Premature end of JPEG file"}]`
+
+				doc, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(doc.Image.Width).To(Equal(libregraph.PtrInt32(4080)))
+			})
+
+			It("does not count a head tika rejects as a failure of the file", func() {
+				rmetaStatus = http.StatusUnprocessableEntity
+
+				_, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("still reports an unreachable tika", func() {
+				rmetaStatus = http.StatusServiceUnavailable
+
+				_, err := tika.Extract(context.TODO(), oversized)
+				Expect(err).To(MatchError(content.ErrUnreachable))
+			})
+		})
+
+		DescribeTable("sends only files with content to tika",
+			func(info *provider.ResourceInfo, remote bool) {
+				Expect(tika.Remote(info)).To(Equal(remote))
+			},
+			Entry("file", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: 1}, true),
+			Entry("empty file", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE}, false),
+			Entry("file over the limit", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Size: math.MaxInt64}, true),
+			Entry("folder", &provider.ResourceInfo{Type: provider.ResourceType_RESOURCE_TYPE_CONTAINER, Size: 1}, false),
+		)
+
+		It("probes a tika that answers its version", func() {
+			Expect(tika.Probe(context.TODO())).To(Succeed())
+		})
+
+		It("probes a tika that hangs as unreachable", func() {
+			DeferCleanup(content.SetProbeTimeout(10 * time.Millisecond))
+			versionHangs = true
+
+			Expect(tika.Probe(context.TODO())).To(MatchError(content.ErrUnreachable))
 		})
 
 		It("adds the title", func() {

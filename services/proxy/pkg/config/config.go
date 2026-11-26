@@ -51,6 +51,7 @@ type Config struct {
 	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
 	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
+	Audit                         Audit               `yaml:"audit"`
 	GuestLinkAuth                 GuestLinkAuth       `yaml:"guest_link_auth"`
 
 	Context context.Context `json:"-" yaml:"-"`
@@ -100,8 +101,8 @@ var (
 
 // ClientIP configures how the proxy determines the address of the client.
 type ClientIP struct {
-	TrustedProxies []string `yaml:"trusted_proxies" env:"OC_TRUSTED_PROXIES;PROXY_TRUSTED_PROXIES" desc:"IP addresses and CIDR ranges of the reverse proxies in front of OpenCloud. The client address is only taken from the header set in PROXY_CLIENT_IP_HEADER if the request comes from one of these. Defaults to the loopback and private network ranges. Set it to the addresses of your reverse proxies if clients can reach OpenCloud from a private network. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
-	Header         string   `yaml:"header" env:"OC_CLIENT_IP_HEADER;PROXY_CLIENT_IP_HEADER" desc:"The header a trusted reverse proxy sends the client address in, e.g. X-Real-IP or CF-Connecting-IP. X-Forwarded-For is read from the right, the first address that is not a trusted proxy is the client." introductionVersion:"%%NEXT%%"`
+	TrustedProxies []string `yaml:"trusted_proxies" env:"OC_TRUSTED_PROXIES;PROXY_TRUSTED_PROXIES" desc:"IP addresses and CIDR ranges of the reverse proxies in front of OpenCloud. The client address is only taken from the header set in PROXY_CLIENT_IP_HEADER if the request comes from one of these. Defaults to the loopback and private network ranges. Set it to the addresses of your reverse proxies if clients can reach OpenCloud from a private network. See the Environment Variable Types description for more details." introductionVersion:"9.1.0"`
+	Header         string   `yaml:"header" env:"OC_CLIENT_IP_HEADER;PROXY_CLIENT_IP_HEADER" desc:"The header a trusted reverse proxy sends the client address in, e.g. X-Real-IP or CF-Connecting-IP. X-Forwarded-For is read from the right, the first address that is not a trusted proxy is the client." introductionVersion:"9.1.0"`
 }
 
 // AuthMiddleware configures the proxy http auth middleware.
@@ -145,7 +146,7 @@ type JWKS struct {
 
 // Cache is a TTL cache configuration.
 type Cache struct {
-	Store                string        `yaml:"store" env:"OC_CACHE_STORE;PROXY_OIDC_USERINFO_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'redis-sentinel', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_CACHE_STORE;PROXY_OIDC_USERINFO_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"addresses" env:"OC_CACHE_STORE_NODES;PROXY_OIDC_USERINFO_CACHE_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	Database             string        `yaml:"database" env:"OC_CACHE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	Table                string        `yaml:"table" env:"PROXY_OIDC_USERINFO_CACHE_TABLE" desc:"The database table the store should use." introductionVersion:"1.0.0"`
@@ -205,7 +206,7 @@ type PreSignedURL struct {
 
 // SigningKeys is a store configuration.
 type SigningKeys struct {
-	Store                string        `yaml:"store" env:"OC_CACHE_STORE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE" desc:"The type of the signing key store. Supported values are: 'redis-sentinel', 'nats-js-kv' and 'opencloudstoreservice' (deprecated). See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_CACHE_STORE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE" desc:"The type of the signing key store. Supported values are: 'nats-js-kv' and 'opencloudstoreservice' (deprecated). See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"addresses" env:"OC_CACHE_STORE_NODES;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_NODES" desc:"A list of nodes to access the configured store. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TTL" desc:"Default time to live for signing keys. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_DISABLE_PERSISTENCE" desc:"Disables persistence of the store. Only applies when store type 'nats-js-kv' is configured. Defaults to true." introductionVersion:"1.0.0"`
@@ -245,6 +246,12 @@ type ServiceAccount struct {
 }
 
 // Events combines the configuration options for the event bus.
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;PROXY_AUDIT_ENABLED" desc:"Emit audit events for logins and failed logins to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;PROXY_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort', the only mode for now, never blocks a request and counts dropped events." introductionVersion:"%%NEXT%%"`
+}
+
 type Events struct {
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;PROXY_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Set to a empty string to disable emitting events." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;PROXY_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`

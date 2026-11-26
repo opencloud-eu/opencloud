@@ -13,7 +13,6 @@ use GuzzleHttp\Exception\GuzzleException;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\EmailHelper;
 use TestHelpers\OcsApiHelper;
-use TestHelpers\GraphHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\BehatHelper;
 use Behat\Step\Given;
@@ -397,7 +396,6 @@ class NotificationContext implements Context {
 			if ($count > 0) {
 				\sleep(1);
 			}
-			$this->featureContext->setResponse(null);
 			$response = $this->listAllNotifications($user);
 			$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
 			++$count;
@@ -571,15 +569,6 @@ class NotificationContext implements Context {
 		PyStringNode $content
 	): void {
 		$rawExpectedEmailBodyContent = \str_replace("\r\n", "\n", $content->getRaw());
-		$this->featureContext->setResponse(
-			GraphHelper::getMySpaces(
-				$this->featureContext->getBaseUrl(),
-				$user,
-				$this->featureContext->getPasswordForUser($user),
-				'',
-				$this->featureContext->getStepLineRef()
-			)
-		);
 		$expectedEmailBodyContent = $this->featureContext->substituteInLineCodes(
 			$rawExpectedEmailBodyContent,
 			$sender,
@@ -723,7 +712,7 @@ class NotificationContext implements Context {
 			}
 		} catch (Exception $e) {
 			echo __METHOD__ .
-				" could not delete inbucket messages, is inbucket set up?\n" .
+				" could not delete emails, is mailpit set up?\n" .
 				$e->getMessage();
 		}
 	}

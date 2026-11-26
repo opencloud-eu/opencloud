@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve/v2/search/query"
+	tAssert "github.com/stretchr/testify/assert"
+
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	searchquery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
-	tAssert "github.com/stretchr/testify/assert"
 )
 
 var timeMustParse = func(t *testing.T, ts string) time.Time {
@@ -27,6 +28,14 @@ var timeMustParse = func(t *testing.T, ts string) time.Time {
 // cases.
 func boolFieldQuery(field string, value bool) query.Query {
 	q := query.NewBoolFieldQuery(value)
+	q.SetField(field)
+
+	return q
+}
+
+func numberQuery(field string, value float64) query.Query {
+	inclusive := true
+	q := query.NewNumericRangeInclusiveQuery(&value, &value, &inclusive, &inclusive)
 	q.SetField(field)
 
 	return q
@@ -329,6 +338,30 @@ func Test_compile(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: `a numeric field takes a number, anything else matches nothing`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "size", Value: "50"},
+					&ast.OperatorNode{Value: "OR"},
+					&ast.StringNode{Key: "size", Value: "50", Exact: true},
+					&ast.OperatorNode{Value: "OR"},
+					&ast.StringNode{Key: "size", Value: ">100"},
+					&ast.OperatorNode{Value: "OR"},
+					&ast.StringNode{Key: "size", Value: "50..500"},
+					&ast.OperatorNode{Value: "OR"},
+					&ast.StringNode{Key: "mtime", Value: ">2021-01-01"},
+				},
+			},
+			want: query.NewDisjunctionQuery([]query.Query{
+				numberQuery("Size", 50),
+				numberQuery("Size", 50),
+				query.NewMatchNoneQuery(),
+				query.NewMatchNoneQuery(),
+				query.NewMatchNoneQuery(),
+			}),
+			wantErr: false,
+		},
+		{
 			name: `NOT tag:physik`,
 			args: &ast.Ast{
 				Nodes: []ast.Node{
@@ -622,6 +655,25 @@ func Test_compile(t *testing.T) {
 				}(),
 			}),
 			wantErr: false,
+		},
+		{
+			name: `missing right operand`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: "foo"},
+					&ast.OperatorNode{Value: "NOT"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: `no operands`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.OperatorNode{Value: "NOT"},
+				},
+			},
+			wantErr: true,
 		},
 	}
 

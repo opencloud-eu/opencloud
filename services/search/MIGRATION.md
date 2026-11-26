@@ -5,7 +5,12 @@ leaves the old one untouched. The service starts normally, but the new index is
 empty: search finds nothing until it is filled. The old index stays around
 until you remove it.
 
-## v7.x.x to v8.0.0
+## v7.x.x to v8.x.x
+
+> [!IMPORTANT]
+> On 8.0.x and 8.1.x, `opencloud search index` needs `--insecure` in the
+> default setup, where the search service runs gRPC without TLS: add it to the
+> commands below. Later releases don't need it.
 
 ### OpenSearch
 
@@ -13,7 +18,7 @@ Fill the new index by indexing all spaces again:
 
 ```shell
 # the service keeps running while it happens
-opencloud search index --all-spaces --insecure
+opencloud search index --all-spaces
 ```
 
 Once the new index is filled, every index but the one with the highest
@@ -31,7 +36,7 @@ The new index is a directory next to the old `bleve` one, both in
 bleve index cannot be copied, index all spaces again:
 
 ```shell
-opencloud search index --all-spaces --insecure
+opencloud search index --all-spaces
 ```
 
 Once the new index is filled, every directory but the one with the highest

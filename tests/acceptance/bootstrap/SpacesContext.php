@@ -779,6 +779,125 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 * @param string $query
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user looks up the single space :spaceName using the Graph API version :apiVersion')]
+	#[When('user :user looks up the single space :spaceName using the Graph API version :apiVersion with query :query')]
+	public function theUserLooksUpTheSingleSpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $apiVersion,
+		string $query = ''
+	): void {
+		$space = $this->getSpaceByName($user, $spaceName);
+		Assert::assertNotEmpty($space["id"]);
+		$this->featureContext->setResponse(
+			GraphHelper::getSingleSpace(
+				$this->featureContext->getBaseUrl(),
+				$user,
+				$this->featureContext->getPasswordForUser($user),
+				$space["id"],
+				$query !== '' ? '?' . $query : '',
+				$this->featureContext->getStepLineRef(),
+				[],
+				[],
+				$apiVersion
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $spaceType
+	 * @param string $quota
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('user :user creates a space :spaceName of type :spaceType with quota :quota using the Graph API version :apiVersion')]
+	public function theUserCreatesASpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $spaceType,
+		string $quota,
+		string $apiVersion
+	): void {
+		$space = ["name" => $spaceName, "driveType" => $spaceType, "quota" => ["total" => (int)$quota]];
+		$this->featureContext->setResponse(
+			$this->createSpace($user, $space, '', $apiVersion)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $newName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('user :user changes the name of the :spaceName space to :newName using the Graph API version :apiVersion')]
+	public function updateSpaceNameUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $newName,
+		string $apiVersion
+	): void {
+		$this->featureContext->setResponse(
+			$this->updateSpace($user, $spaceName, ["Name" => $newName], '', $apiVersion)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user disables a space :spaceName using the Graph API version :apiVersion')]
+	public function userDisablesSpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$this->featureContext->setResponse(
+			$this->disableSpace($user, $spaceName, '', $apiVersion)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user deletes a space :spaceName using the Graph API version :apiVersion')]
+	public function userDeletesSpaceUsingTheGraphApiVersion(
+		string $user,
+		string $spaceName,
+		string $apiVersion
+	): void {
+		$this->featureContext->setResponse(
+			$this->deleteSpace($user, $spaceName, '', $apiVersion)
+		);
+	}
+
+	/**
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -802,6 +921,30 @@ class SpacesContext implements Context {
 		$body = json_encode($space);
 		$this->featureContext->setResponse(
 			$this->createSpace($user, $space, $body)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $spaceType
+	 * @param string $spaceId
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	#[When('/^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with id "([^"]*)" using the Graph API$/')]
+	public function theUserCreatesASpaceWithIdUsingTheGraphApi(
+		string $user,
+		string $spaceName,
+		string $spaceType,
+		string $spaceId
+	): void {
+		$space = ["name" => $spaceName, "driveType" => $spaceType, "id" => $spaceId];
+		$this->featureContext->setResponse(
+			$this->createSpace($user, $space)
 		);
 	}
 
@@ -930,14 +1073,14 @@ class SpacesContext implements Context {
 		TableNode $expectedFiles
 	): void {
 		$space = $this->getSpaceByName($user, $spaceName);
-		$this->featureContext->setResponse($this->propfindSpace($user, $spaceName));
 		$this->featureContext->propfindResultShouldContainEntries(
 			$shouldOrNot,
 			$expectedFiles,
 			$user,
 			'PROPFIND',
 			'',
-			$space['id']
+			$space['id'],
+			$this->propfindSpace($user, $spaceName)
 		);
 	}
 
@@ -962,14 +1105,14 @@ class SpacesContext implements Context {
 		TableNode $expectedFiles
 	): void {
 		$space = $this->getSpaceByName($user, $spaceName);
-		$this->featureContext->setResponse($this->propfindSpace($user, $spaceName, $folderPath));
 		$this->featureContext->propfindResultShouldContainEntries(
 			$shouldOrNot,
 			$expectedFiles,
 			$this->featureContext->getActualUsername($user),
 			'PROPFIND',
 			$folderPath,
-			$space['id']
+			$space['id'],
+			$this->propfindSpace($user, $spaceName, $folderPath)
 		);
 	}
 
@@ -1554,6 +1697,7 @@ class SpacesContext implements Context {
 	 * @param string $spaceName
 	 * @param array $bodyData
 	 * @param string $owner
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1563,7 +1707,8 @@ class SpacesContext implements Context {
 		string $user,
 		string $spaceName,
 		array $bodyData,
-		string $owner = ''
+		string $owner = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		if ($spaceName === "non-existing") {
 			// check sending invalid data
@@ -1581,7 +1726,9 @@ class SpacesContext implements Context {
 			$this->featureContext->getPasswordForUser($user),
 			$body,
 			$spaceId,
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			[],
+			$apiVersion
 		);
 	}
 
@@ -1634,6 +1781,30 @@ class SpacesContext implements Context {
 		$this->featureContext->setResponse(
 			$this->updateSpace($user, $spaceName, $bodyData, $owner)
 		);
+	}
+
+	/**
+	 * Like updateSpaceName, but the new name is written with JSON escape sequences,
+	 * e.g. "\u200b" for a zero-width space. Characters such as invisible or unusual
+	 * spaces can't be told apart from ordinary spaces, or can't be seen at all, when
+	 * written directly into a feature file.
+	 *
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $escapedNewName
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to the escaped name "([^"]*)"$/')]
+	public function updateSpaceNameEscaped(
+		string $user,
+		string $spaceName,
+		string $escapedNewName
+	): void {
+		$newName = json_decode('"' . $escapedNewName . '"', false, 512, JSON_THROW_ON_ERROR);
+		$this->updateSpaceName($user, $spaceName, $newName);
 	}
 
 	/**
@@ -1904,6 +2075,7 @@ class SpacesContext implements Context {
 	 * @param string $user
 	 * @param array $space
 	 * @param string $body
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1912,7 +2084,8 @@ class SpacesContext implements Context {
 	public function createSpace(
 		string $user,
 		array $space,
-		string $body = ''
+		string $body = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		$body = $body !== '' ? $body : json_encode($space, JSON_THROW_ON_ERROR);
 		$response = GraphHelper::createSpace(
@@ -1920,7 +2093,9 @@ class SpacesContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$body,
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			[],
+			$apiVersion
 		);
 		if ($response->getStatusCode() === 201) {
 			$this->addCreatedSpace($user, $response);
@@ -2350,7 +2525,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
-	#[Given('user :user renames file with id :fileId to :destinationFile inside space :spaceName')]
+	#[When('user :user renames file with id :fileId to :destinationFile inside space :spaceName')]
 	public function userRenamesFileWithIdToInsideSpace(
 		string $user,
 		string $fileId,
@@ -2965,6 +3140,7 @@ class SpacesContext implements Context {
 	 * @param  string $user
 	 * @param  string $spaceName
 	 * @param  string $owner
+	 * @param  string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -2972,7 +3148,8 @@ class SpacesContext implements Context {
 	public function disableSpace(
 		string $user,
 		string $spaceName,
-		string $owner = ''
+		string $owner = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		$space = $this->getSpaceByName(($owner !== "") ? $owner : $user, $spaceName);
 		return GraphHelper::disableSpace(
@@ -2980,7 +3157,8 @@ class SpacesContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$space["id"],
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			$apiVersion
 		);
 	}
 
@@ -3055,6 +3233,7 @@ class SpacesContext implements Context {
 	 * @param  string $user
 	 * @param  string $spaceName
 	 * @param string $owner
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -3062,7 +3241,8 @@ class SpacesContext implements Context {
 	public function deleteSpace(
 		string $user,
 		string $spaceName,
-		string $owner = ''
+		string $owner = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
 		$space = $this->getSpaceByName(($owner !== "") ? $owner : $user, $spaceName);
 
@@ -3071,7 +3251,8 @@ class SpacesContext implements Context {
 			$user,
 			$this->featureContext->getPasswordForUser($user),
 			$space["id"],
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getStepLineRef(),
+			$apiVersion
 		);
 	}
 
@@ -4673,6 +4854,223 @@ class SpacesContext implements Context {
 		$this->featureContext->assertJsonDocumentMatchesSchema(
 			$this->featureContext->getJsonDecodedResponseBodyContent($response),
 			$schema
+		);
+	}
+
+	/**
+	 * Sends a WebDAV request to the space of the owner of a received share,
+	 * using the drive id that the sharee gets from the sharedWithMe list
+	 *
+	 * @param string $user
+	 * @param string $method
+	 * @param string $share
+	 * @param string $path
+	 * @param array $headers
+	 * @param string|null $body
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	private function sendRequestToSpaceOfShareOwner(
+		string $user,
+		string $method,
+		string $share,
+		string $path,
+		array $headers = [],
+		?string $body = null
+	): ResponseInterface {
+		return WebDavHelper::makeDavRequest(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getActualUsername($user),
+			$this->featureContext->getPasswordForUser($user),
+			$method,
+			$path,
+			$headers,
+			$this->getSharesRemoteItemParentDriveId($user, $share),
+			$this->featureContext->getStepLineRef(),
+			$body,
+			WebDavHelper::DAV_VERSION_SPACES
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user lists the content of the space of the owner of share :share using the WebDAV API')]
+	public function userListsTheContentOfTheSpaceOfTheOwnerOfShare(string $user, string $share): void {
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'PROPFIND', $share, '', ['Depth' => '1']));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user downloads file :file from the space of the owner of share :share using the WebDAV API')]
+	public function userDownloadsFileFromTheSpaceOfTheOwnerOfShare(string $user, string $file, string $share): void {
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'GET', $share, $file));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $content
+	 * @param string $file
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user uploads content :content to file :file in the space of the owner of share :share using the WebDAV API')]
+	public function userUploadsContentToFileInTheSpaceOfTheOwnerOfShare(
+		string $user,
+		string $content,
+		string $file,
+		string $share
+	): void {
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'PUT', $share, $file, [], $content));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $folder
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user creates folder :folder in the space of the owner of share :share using the WebDAV API')]
+	public function userCreatesFolderInTheSpaceOfTheOwnerOfShare(string $user, string $folder, string $share): void {
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'MKCOL', $share, $folder));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user deletes file :file from the space of the owner of share :share using the WebDAV API')]
+	public function userDeletesFileFromTheSpaceOfTheOwnerOfShare(string $user, string $file, string $share): void {
+		$this->featureContext->setResponse($this->sendRequestToSpaceOfShareOwner($user, 'DELETE', $share, $file));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $method COPY or MOVE
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	private function copyOrMoveOutOfShareToSpaceOfShareOwner(
+		string $user,
+		string $method,
+		string $file,
+		string $share,
+		string $destination
+	): ResponseInterface {
+		$driveId = $this->getSharesRemoteItemParentDriveId($user, $share);
+		$destinationUrl = $this->featureContext->getBaseUrl() . '/'
+			. WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $driveId) . '/' . $destination;
+		return WebDavHelper::makeDavRequest(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getActualUsername($user),
+			$this->featureContext->getPasswordForUser($user),
+			$method,
+			$file,
+			['Destination' => $destinationUrl],
+			$this->getSharesRemoteItemId($user, $share),
+			$this->featureContext->getStepLineRef(),
+			null,
+			WebDavHelper::DAV_VERSION_SPACES
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to copy file :file from share :share to :destination in the space of the owner using the WebDAV API')]
+	public function userTriesToCopyFileFromShareToTheSpaceOfTheOwner(
+		string $user,
+		string $file,
+		string $share,
+		string $destination
+	): void {
+		$this->featureContext->setResponse($this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'COPY', $file, $share, $destination));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to move file :file from share :share to :destination in the space of the owner using the WebDAV API')]
+	public function userTriesToMoveFileFromShareToTheSpaceOfTheOwner(
+		string $user,
+		string $file,
+		string $share,
+		string $destination
+	): void {
+		$this->featureContext->setResponse($this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'MOVE', $file, $share, $destination));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 * @param string $destinationShare
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user moves file :file from share :share to :destination in share :destinationShare using the WebDAV API')]
+	public function userMovesFileFromShareToShare(
+		string $user,
+		string $file,
+		string $share,
+		string $destination,
+		string $destinationShare
+	): void {
+		$destinationUrl = $this->featureContext->getBaseUrl() . '/'
+			. WebDavHelper::getDavPath(
+				WebDavHelper::DAV_VERSION_SPACES,
+				$this->getSharesRemoteItemId($user, $destinationShare)
+			) . '/' . $destination;
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getActualUsername($user),
+				$this->featureContext->getPasswordForUser($user),
+				'MOVE',
+				$file,
+				['Destination' => $destinationUrl],
+				$this->getSharesRemoteItemId($user, $share),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
 		);
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 )
 
 const (
@@ -42,6 +43,7 @@ func NewOIDCAuthenticator(opts ...Option) *OIDCAuthenticator {
 		skipUserInfo:            options.SkipUserInfo,
 		logoutMarkers:           options.LogoutMarkers,
 		maxAccessTokenLifetime:  options.MaxAccessTokenLifetime,
+		auditLogins:             auditEnabled(options.AuditEmitter),
 		TimeFunc:                time.Now,
 	}
 }
@@ -58,7 +60,9 @@ type OIDCAuthenticator struct {
 	skipUserInfo            bool
 	logoutMarkers           *bcl.LogoutMarkers
 	maxAccessTokenLifetime  time.Duration
-	TimeFunc                func() time.Time
+	// auditLogins makes the authenticator tell new logins from renewed tokens
+	auditLogins bool
+	TimeFunc    func() time.Time
 }
 
 func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[string]any, bool, error) {
@@ -261,12 +265,19 @@ func verifyExpiresAt(claims map[string]any, cmp time.Time) bool {
 	return cmp.Before(expiry)
 }
 
+// isExpectedTokenTimeError reports whether the error is caused by a token that
+// failed its expiry (or not-before) validation. These are expected as part of
+// the normal token renewal cycle and should not be logged at error level.
+func isExpectedTokenTimeError(err error) bool {
+	return errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet)
+}
+
 // isExpectedTokenError reports whether the error is caused by a token that
-// failed its expiry (or not-before) validation or was issued before a backchannel
-// logout. These are expected as part of the normal token renewal cycle and
-// should not be logged at error level.
+// failed its time validation or was issued before a backchannel logout. A
+// client that has not renewed its token yet runs into both, so they should not
+// be logged at error level.
 func isExpectedTokenError(err error) bool {
-	return errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) || errors.Is(err, bcl.ErrLoggedOut)
+	return isExpectedTokenTimeError(err) || errors.Is(err, bcl.ErrLoggedOut)
 }
 
 func (m OIDCAuthenticator) shouldServe(req *http.Request) bool {
@@ -324,7 +335,66 @@ func (m *OIDCAuthenticator) Authenticate(r *http.Request) AuthenticationResult {
 	ctx := r.Context()
 	if newSession {
 		ctx = oidc.NewContextSessionFlag(ctx, true)
+		if m.auditLogins && m.newLogin(claims) {
+			ctx = contextSetNewLogin(ctx)
+		}
 	}
 
 	return Succeeded(r.WithContext(oidc.NewContext(ctx, claims)))
+}
+
+// loginTTL is how long a session counts as logged in for the audit log. It
+// only has to outlive the session at the identity provider; a session that
+// lasts longer is recorded as a new login once a day.
+const loginTTL = 24 * time.Hour
+
+// newLogin reports whether a new access token starts a login for the audit
+// log. A token with a session ID, as Keycloak issues them, renews the session
+// of its client: only the first token of a session and client is a login.
+// Without a session ID every new token counts, as before.
+func (m *OIDCAuthenticator) newLogin(claims map[string]any) bool {
+	sid := stringClaim(claims, "sid")
+	if sid == "" {
+		return true
+	}
+	key := loginKey(sid, oidcClientID(claims))
+	records, err := m.userInfoCache.Read(key)
+	switch {
+	case err == nil && len(records) > 0:
+		return false
+	case err != nil && !errors.Is(err, store.ErrNotFound):
+		m.Logger.Error().Err(err).Msg("could not read the login record, recording a login")
+	}
+	if err := m.userInfoCache.Write(&store.Record{Key: key, Value: []byte{1}, Expiry: loginTTL}); err != nil {
+		m.Logger.Error().Err(err).Msg("could not write the login record")
+	}
+	return true
+}
+
+// loginKey is the cache key of a session and client. It has no dot, so the
+// backchannel logout, which looks up "subject.session" keys, never finds it.
+func loginKey(sid, client string) string {
+	hash := make([]byte, 32)
+	sha3.ShakeSum256(hash, []byte(sid+"\x00"+client))
+	return "auditlogin-" + base64.RawURLEncoding.EncodeToString(hash)
+}
+
+type newLoginKey struct{}
+
+func contextSetNewLogin(ctx context.Context) context.Context {
+	return context.WithValue(ctx, newLoginKey{}, true)
+}
+
+// newLoginFromContext reports whether the request starts a login for the audit log.
+func newLoginFromContext(ctx context.Context) bool {
+	v, _ := ctx.Value(newLoginKey{}).(bool)
+	return v
+}
+
+func auditEnabled(e audit.Emitter) bool {
+	if e == nil {
+		return false
+	}
+	_, off := e.(audit.Discard)
+	return !off
 }

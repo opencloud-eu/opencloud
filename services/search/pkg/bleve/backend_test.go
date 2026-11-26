@@ -1,7 +1,9 @@
 package bleve_test
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -9,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
@@ -105,6 +108,83 @@ var _ = Describe("Bleve", func() {
 			count, err := idx.DocCount()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(uint64(1)), "only the record of the other space is left")
+		})
+	})
+
+	Describe("Get", func() {
+		It("returns the indexed resource with its exact mtime", func() {
+			mtime := time.Unix(1700000000, 123456789).UTC()
+			childResource.Mtime = &mtime
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			r, err := eng.Get(context.Background(), childResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.ID).To(Equal(childResource.ID))
+			Expect(r.Mtime).ToNot(BeNil())
+			Expect(r.Mtime.Equal(mtime)).To(BeTrue(), "got %s", r.Mtime)
+		})
+
+		It("returns a trashed resource", func() {
+			childResource.Deleted = true
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			r, err := eng.Get(context.Background(), childResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Deleted).To(BeTrue())
+		})
+
+		It("fails with ErrResourceNotFound for an unknown id", func() {
+			_, err := eng.Get(context.Background(), "1$2!unknown")
+			Expect(err).To(MatchError(search.ErrResourceNotFound))
+		})
+	})
+
+	Describe("Update", func() {
+		tagHits := func(tag string) []string {
+			res, err := eng.Search(context.Background(), &searchService.SearchIndexRequest{Query: `tag:("` + tag + `")`})
+			Expect(err).ToNot(HaveOccurred())
+			var ids []string
+			for _, match := range res.GetMatches() {
+				ids = append(ids, match.GetEntity().GetId().GetOpaqueId())
+			}
+			return ids
+		}
+
+		It("rewrites tags and favorites and keeps the extracted fields", func() {
+			childResource.Content = "quarterly report"
+			childResource.Tags = []string{"alpha"}
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			Expect(eng.Update(context.Background(), childResource.ID, search.MetadataUpdate{
+				Tags:      []string{"Beta"},
+				Favorites: []string{"user-1"},
+			})).To(Succeed())
+
+			r, err := eng.Get(context.Background(), childResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Tags).To(Equal([]string{"Beta"}))
+			Expect(r.Favorites).To(Equal([]string{"user-1"}))
+			Expect(r.Content).To(Equal("quarterly report"))
+
+			Expect(tagHits("beta")).To(ConsistOf("4"), "the lowercase sibling follows the new tag")
+			Expect(tagHits("alpha")).To(BeEmpty())
+		})
+
+		It("clears the tags", func() {
+			childResource.Tags = []string{"alpha"}
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			Expect(eng.Update(context.Background(), childResource.ID, search.MetadataUpdate{})).To(Succeed())
+
+			r, err := eng.Get(context.Background(), childResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r.Tags).To(BeEmpty())
+			Expect(tagHits("alpha")).To(BeEmpty())
+		})
+
+		It("fails with ErrResourceNotFound for an unknown id", func() {
+			err := eng.Update(context.Background(), "1$2!unknown", search.MetadataUpdate{Tags: []string{"alpha"}})
+			Expect(err).To(MatchError(search.ErrResourceNotFound))
 		})
 	})
 

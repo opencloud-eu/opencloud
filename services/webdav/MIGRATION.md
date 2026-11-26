@@ -30,7 +30,7 @@ Nothing has to be set in the single binary. The URL may also point at a real
 | Old name | Now | |
 | --- | --- | --- |
 | `THUMBNAILS_RESOLUTIONS` | `WEBDAV_THUMBNAILS_RESOLUTIONS` | a ladder of edge lengths, not a list of boxes |
-| `THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` | `OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` | read by webdav and the generator, which have to agree; the old name still wins over the new one in both, so drop it when setting the new one |
+| `THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` | `OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` | read by webdav, the generator and graph (for space images), which have to agree; the old name still wins over the new one in all three, so drop it when setting the new one |
 | `THUMBNAILS_TXT_FONTMAP_FILE` | `WEBDAV_THUMBNAILS_TXT_FONTMAP_FILE` | webdav renders text before it posts |
 | `THUMBNAILS_FILESYSTEMSTORAGE_ROOT` | `WEBDAV_THUMBNAILS_CACHE_DIR` | the old name is the directory that holds `files/`, and the cache goes into `cache/` next to it; the new one is the directory itself |
 

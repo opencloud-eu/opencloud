@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storage"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
 	"github.com/test-go/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
 
@@ -68,6 +68,26 @@ func TestBuildInfo(t *testing.T) {
 			alias:        "processing, not expired, virus infected and with id (note: this makes no sense)",
 			filter:       storage.UploadSessionFilter{Processing: boolPtr(true), Expired: boolPtr(false), HasVirus: boolPtr(true), ID: strPtr("123")},
 			expectedInfo: "Processing, not expired, virusinfected session with id '123':",
+		},
+		{
+			alias:        "orphaned",
+			filter:       storage.UploadSessionFilter{Orphaned: boolPtr(true)},
+			expectedInfo: "Orphaned sessions:",
+		},
+		{
+			alias:        "not orphaned",
+			filter:       storage.UploadSessionFilter{Orphaned: boolPtr(false)},
+			expectedInfo: "Not orphaned sessions:",
+		},
+		{
+			alias:        "processing and orphaned",
+			filter:       storage.UploadSessionFilter{Processing: boolPtr(true), Orphaned: boolPtr(true)},
+			expectedInfo: "Processing, orphaned sessions:",
+		},
+		{
+			alias:        "expired, not virus infected and orphaned",
+			filter:       storage.UploadSessionFilter{Expired: boolPtr(true), HasVirus: boolPtr(false), Orphaned: boolPtr(true)},
+			expectedInfo: "Expired, not virusinfected, orphaned sessions:",
 		},
 	}
 

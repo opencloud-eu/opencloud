@@ -5,7 +5,7 @@
 package mocks
 
 import (
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	mock "github.com/stretchr/testify/mock"
 )
 

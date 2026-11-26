@@ -3,15 +3,13 @@ package chi
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 )
 
 // URLParam returns the url parameter from a http.Request object.
 func URLParam(r *http.Request, key string) string {
-	if rctx := RouteContext(r.Context()); rctx != nil {
-		return rctx.URLParam(key)
-	}
-	return ""
+	return URLParamFromCtx(r.Context(), key)
 }
 
 // URLParamFromCtx returns the url parameter from a http.Request Context.
@@ -42,6 +40,8 @@ var (
 // Context is the default routing context set on the root node of a
 // request context to track route patterns, URL parameters and
 // an optional routing path.
+//
+// NOTE: New reference fields (slices, maps, pointers) must be deep-copied in Clone.
 type Context struct {
 	Routes Routes
 
@@ -95,12 +95,36 @@ func (x *Context) Reset() {
 	x.parentCtx = nil
 }
 
+// Clone a routing context so that it may be used outside of the request/response
+// lifecycle, e.g. in a goroutine that outlives the request handler.
+//
+// Clone must be called before the request handler returns; after that, the
+// original context is reset and put back into the pool for reuse by another
+// request, racing with the copy.
+func (x *Context) Clone() *Context {
+	clone := *x
+
+	// Detach from the request's context, which is canceled once the request finishes.
+	clone.parentCtx = nil
+
+	clone.URLParams.Keys = slices.Clone(x.URLParams.Keys)
+	clone.URLParams.Values = slices.Clone(x.URLParams.Values)
+
+	clone.routeParams.Keys = slices.Clone(x.routeParams.Keys)
+	clone.routeParams.Values = slices.Clone(x.routeParams.Values)
+
+	clone.RoutePatterns = slices.Clone(x.RoutePatterns)
+	clone.methodsAllowed = slices.Clone(x.methodsAllowed)
+
+	return &clone
+}
+
 // URLParam returns the corresponding URL parameter value from the request
 // routing context.
 func (x *Context) URLParam(key string) string {
-	for k := len(x.URLParams.Keys) - 1; k >= 0; k-- {
-		if x.URLParams.Keys[k] == key {
-			return x.URLParams.Values[k]
+	for i, k := range slices.Backward(x.URLParams.Keys) {
+		if k == key {
+			return x.URLParams.Values[i]
 		}
 	}
 	return ""

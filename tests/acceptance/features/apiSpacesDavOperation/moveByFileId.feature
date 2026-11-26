@@ -467,6 +467,35 @@ Feature: moving/renaming file using file id
       | Viewer           | Editor         |
       | Viewer           | Viewer         |
 
+  @issue-3767
+  Scenario: move a file from a shared folder into a shared folder of another user over an existing file
+    Given these users have been created with default attributes:
+      | username |
+      | Brian    |
+      | Carol    |
+    And user "Alice" has created folder "aliceShare"
+    And user "Alice" has uploaded file with content "from Alice" to "aliceShare/aliceFile.txt"
+    And user "Carol" has created folder "carolShare"
+    And user "Carol" has uploaded file with content "from Carol" to "carolShare/carolFile.txt"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | aliceShare |
+      | space           | Personal   |
+      | sharee          | Brian      |
+      | shareType       | user       |
+      | permissionsRole | Editor     |
+    And user "Brian" has a share "aliceShare" synced
+    And user "Carol" has sent the following resource share invitation:
+      | resource        | carolShare |
+      | space           | Personal   |
+      | sharee          | Brian      |
+      | shareType       | user       |
+      | permissionsRole | Editor     |
+    And user "Brian" has a share "carolShare" synced
+    When user "Brian" moves file "aliceFile.txt" from share "aliceShare" to "carolFile.txt" in share "carolShare" using the WebDAV API
+    Then the HTTP status code should be "502"
+    And for user "Carol" the content of the file "carolShare/carolFile.txt" of the space "Personal" should be "from Carol"
+    And for user "Alice" the content of the file "aliceShare/aliceFile.txt" of the space "Personal" should be "from Alice"
+
   @issue-8124
   Scenario Outline: move a file from share to personal space
     Given user "Brian" has been created with default attributes

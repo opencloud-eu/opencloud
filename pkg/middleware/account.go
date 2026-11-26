@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
+	"github.com/opencloud-eu/reva/v3/pkg/auth/scope"
 
 	"github.com/opencloud-eu/opencloud/pkg/account"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/token/manager/jwt"
 	"go-micro.dev/v4/metadata"
 )
 

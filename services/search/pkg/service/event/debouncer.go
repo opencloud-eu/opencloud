@@ -61,17 +61,19 @@ func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc, forc
 
 	wi := &workItem{force: force}
 	wi.work = func() {
+		d.mutex.Lock()
+		if d.pending[id.OpaqueId] != wi {
+			// the debounce timer and the timeout can both fire for the same item
+			d.mutex.Unlock()
+			return
+		}
 		if _, ok := d.inProgress.Load(id.OpaqueId); ok {
 			// Reschedule this run for when the previous run has finished
-			d.mutex.Lock()
-			if wi := d.pending[id.OpaqueId]; wi != nil {
-				wi.t.Reset(d.after)
-			}
+			wi.t.Reset(d.after)
 			d.mutex.Unlock()
 			return
 		}
 
-		d.mutex.Lock()
 		wi.timeout.Stop() // stop the timeout timer if it is running
 		delete(d.pending, id.OpaqueId)
 		force := wi.force

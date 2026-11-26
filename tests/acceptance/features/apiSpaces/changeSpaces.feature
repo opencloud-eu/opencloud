@@ -58,6 +58,41 @@ Feature: Change data of space
       | Bob   |
 
 
+  Scenario: user with space manager role can't change the name of a space to an empty name via the Graph API
+    When user "Alice" tries to change the name of the "Project Jupiter" space to ""
+    Then the HTTP status code should be "400"
+    And the user "Alice" should have a space called "Project Jupiter"
+
+
+  Scenario: user with space manager role can't change the name of a space to a name of only spaces via the Graph API
+    When user "Alice" tries to change the name of the "Project Jupiter" space to "   "
+    Then the HTTP status code should be "400"
+    And the user "Alice" should have a space called "Project Jupiter"
+
+
+  Scenario: user with space manager role can't change the name of a space to a name of only invisible or unusual spaces via the Graph API
+    # \u00a0 no-break space, \u202f narrow no-break space
+    When user "Alice" tries to change the name of the "Project Jupiter" space to the escaped name "\u00a0\u202f"
+    Then the HTTP status code should be "400"
+    # \u2003 em space, \u2009 thin space, \u3000 ideographic space
+    When user "Alice" tries to change the name of the "Project Jupiter" space to the escaped name "\u2003\u2009\u3000"
+    Then the HTTP status code should be "400"
+    # \u200b zero-width space, \u200c zero-width non-joiner, \u200d zero-width joiner
+    When user "Alice" tries to change the name of the "Project Jupiter" space to the escaped name "\u200b\u200c\u200d"
+    Then the HTTP status code should be "400"
+    # \u2060 word joiner, \ufeff byte order mark, mixed with a tab and ordinary spaces
+    When user "Alice" tries to change the name of the "Project Jupiter" space to the escaped name " \u2060\t\ufeff "
+    Then the HTTP status code should be "400"
+    And the user "Alice" should have a space called "Project Jupiter"
+
+
+  Scenario: user with space manager role can change the name of a space to a name with invisible characters around it via the Graph API
+    # \u200b zero-width space, \ufeff byte order mark
+    When user "Alice" changes the name of the "Project Jupiter" space to the escaped name "\u200bProject Saturn\ufeff"
+    Then the HTTP status code should be "200"
+    And the user "Alice" should have a space called "Project Saturn"
+
+
   Scenario: user with space manager role can change the description(subtitle) of a space via the Graph API
     When user "Alice" changes the description of the "Project Jupiter" space to "The Death Star is a fictional mobile space station"
     Then the HTTP status code should be "200"
@@ -336,6 +371,14 @@ Feature: Change data of space
     And user "Alice" has uploaded a file inside space "Project Jupiter" with content "" to ".space/someImageFile.jpg"
     When user "Bob" sets the file ".space/someImageFile.jpg" as a space image in a special section of the "Project Jupiter" space
     Then the HTTP status code should be "404"
+
+  @env-config
+  Scenario: user cannot set an image file larger than the maximum size as space image of the space via the Graph API
+    Given the config "OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" has been set to "10"
+    And user "Alice" has created a folder ".space" in space "Project Jupiter"
+    And user "Alice" has uploaded a file inside space "Project Jupiter" with content "nineteen bytes long" to ".space/spaceImage.jpg"
+    When user "Alice" sets the file ".space/spaceImage.jpg" as a space image in a special section of the "Project Jupiter" space
+    Then the HTTP status code should be "413"
 
 
   Scenario Outline: user set new readme file as description of the space via the graph API

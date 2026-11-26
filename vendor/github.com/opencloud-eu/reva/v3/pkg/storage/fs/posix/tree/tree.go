@@ -1,0 +1,1028 @@
+// Copyright 2018-2021 CERN
+// Copyright 2025 OpenCloud GmbH <mail@opencloud.eu>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// In applying this license, CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
+package tree
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"runtime/debug"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/errgroup"
+
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+
+	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/idcache"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/trashbin"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/tree/assimilation"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/watcher/natswatcher"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/permissions"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/revisioncleanup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/tree/propagator"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/usermapper"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/templates"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
+)
+
+var (
+	tracer trace.Tracer
+
+	// ErrRootReached is returned when the root of the tree is reached
+	ErrRootReached = errors.New("root of the tree reached")
+)
+
+func init() {
+	tracer = otel.Tracer("github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/tree")
+}
+
+// Blobstore defines an interface for storing blobs in a blobstore
+type Blobstore interface {
+	Upload(node *node.Node, source, copyTarget string) error
+	UploadFromReader(node *node.Node, r io.Reader, size int64) error
+	Download(node *node.Node) (io.ReadCloser, error)
+	Delete(node *node.Node) error
+}
+
+type Watcher interface {
+	Watch(path string)
+}
+
+type IDResolver interface {
+	IDsForPath(ctx context.Context, path string) (spaceID string, nodeID string, err error)
+}
+
+type scanItem struct {
+	Path          string
+	Recurse       bool
+	RefreshParent bool
+}
+
+// Tree manages a hierarchical tree
+type Tree struct {
+	blobstore   node.Blobstore
+	trashbin    *trashbin.Trashbin
+	propagator  propagator.Propagator
+	permissions permissions.Permissions
+
+	lookup         *lookup.Lookup
+	idResolver     IDResolver                // points at the lookup but can be overridden for testing
+	assimilateFunc func(item scanItem) error // function to call to assimilate a node, can be overridden for testing
+
+	options *options.Options
+	Ignorer *ignore.Ignorer
+
+	userMapper    usermapper.Mapper
+	idCache       *idcache.IDCache
+	watcher       Watcher
+	scanQueue     chan scanItem
+	scanDebouncer *ScanDebouncer
+	// files that failed to assimilate, keyed by path, see updateFile()
+	assimilationFailures *assimilation.Failures
+
+	// deletes old revisions after a change on disk created a new one, disabled without a strategy
+	revisionsCleanup *revisioncleanup.Service
+
+	es  events.Stream
+	log *zerolog.Logger
+}
+
+// PermissionCheckFunc defined a function used to check resource permissions
+type PermissionCheckFunc func(rp *provider.ResourcePermissions) bool
+
+// New returns a new instance of Tree
+func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *trashbin.Trashbin, permissions permissions.Permissions, o *options.Options, es events.Stream, cache *idcache.IDCache, log *zerolog.Logger) (*Tree, error) {
+	scanQueue := make(chan scanItem)
+
+	t := &Tree{
+		lookup:     lu.(*lookup.Lookup),
+		blobstore:  bs,
+		userMapper: um,
+		// idResolver and assimilateFunc are wired below once t exists.
+		trashbin:    trashbin,
+		permissions: permissions,
+		options:     o,
+		idCache:     cache,
+		propagator:  propagator.New(lu, &o.Options, log),
+		scanQueue:   scanQueue,
+		scanDebouncer: NewScanDebouncer(o.ScanDebounceDelay, func(item scanItem) {
+			scanQueue <- item
+		}),
+		assimilationFailures: assimilation.NewFailures(),
+		es:                   es,
+		log:                  log,
+		Ignorer:              ignore.NewIgnorer(o, log),
+	}
+	t.idResolver = t.lookup
+	t.assimilateFunc = t.assimilate
+	// The tree creates the revision cleanup itself, as assimilation needs it for
+	// revisions created from changes on disk, and the watcher started below may
+	// assimilate right away. posix.New passes the same instance (with the same background
+	// workers) on to Decomposedfs through the aspects (see RevisionsCleanup), which also
+	// stops the workers on Shutdown. An invalid strategy or invalid async settings fail
+	// startup rather than silently keeping or deleting revisions the admin did not expect.
+	revisionsCleanup, err := revisioncleanup.NewServiceFromOptions(&o.Options, t.lookup, t, log)
+	if err != nil {
+		return nil, errors.Wrap(err, "tree: invalid revisions cleanup configuration")
+	}
+	t.revisionsCleanup = revisionsCleanup
+	// stop its workers again if the tree can't be set up after all
+	started := false
+	defer func() {
+		if !started {
+			_ = revisionsCleanup.Shutdown(context.Background())
+		}
+	}()
+	if err := t.checkStorage(); err != nil {
+		return nil, errors.Wrap(err, "tree: unfit storage '"+o.Root+"'")
+	}
+
+	// Start watching for fs events and put them into the queue
+	if o.WatchFS {
+		watchPath := o.WatchPath
+		var err error
+
+		t.log.Info().Str("watch type", o.WatchType).Str("path", o.WatchPath).Str("root", o.WatchRoot).
+			Str("brokers", o.WatchNotificationBrokers).Msg("Watching fs")
+		switch o.WatchType {
+		case "gpfswatchfolder":
+			t.watcher, err = NewGpfsWatchFolderWatcher(t, strings.Split(o.WatchNotificationBrokers, ","), log)
+			if err != nil {
+				return nil, err
+			}
+		case "gpfsfileauditlogging":
+			t.watcher, err = NewGpfsFileAuditLoggingWatcher(t, o.WatchPath, log)
+			if err != nil {
+				return nil, err
+			}
+		case "cephfs":
+			t.watcher, err = NewCephfsWatcher(t, strings.Split(o.WatchNotificationBrokers, ","), log)
+			if err != nil {
+				return nil, err
+			}
+		case "natswatcher":
+			t.watcher, err = natswatcher.New(context.TODO(), t, o.NatsWatcher, o.WatchRoot, log)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			t.watcher, err = NewWatcher(t, o, log)
+			if err != nil {
+				return nil, err
+			}
+			watchPath = o.Root
+		}
+
+		if o.ScanDebounceDelay == 0 {
+			log.Warn().Msg("'scan_debounce_delay' is set to 0. This is not recommended for production setups.")
+		}
+		go t.watcher.Watch(watchPath)
+		go t.workScanQueue()
+	}
+	if o.ScanFS {
+		// warmup the cache for all space roots right away so clients and migrations don't get confused when starting with a cold cache
+		err := t.warmupSpaceRootCache(o)
+		if err != nil {
+			return nil, errors.Wrap(err, "error warming up space root cache")
+		}
+
+		// scan the whole tree asynchronously to pick up new nodes
+		go func() {
+			start := time.Now()
+			err := t.WarmupIDCache(o.Root, true, false)
+			if err != nil {
+				t.log.Error().Err(err).Msg("error during initial fs scan")
+			}
+			duration := time.Since(start)
+
+			scanDurationGauge := promauto.NewGauge(prometheus.GaugeOpts{
+				Name: "reva_fs_scan_duration_seconds",
+				Help: "Duration of the initial filesystem scan in seconds",
+			})
+			scanDurationGauge.Set(duration.Seconds())
+			t.log.Info().Dur("duration", duration).Msg("initial fs scan finished")
+		}()
+	}
+
+	started = true
+	return t, nil
+}
+
+func (t *Tree) warmupSpaceRootCache(options *options.Options) error {
+	personalRoot := filepath.Clean(filepath.Join(options.Root, templates.Base(options.PersonalSpacePathTemplate)))
+	projectRoot := filepath.Clean(filepath.Join(options.Root, templates.Base(options.GeneralSpacePathTemplate)))
+
+	var paths []string
+	personalEntries, err := os.ReadDir(personalRoot)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return errors.Wrap(err, "could not read personal space root directory")
+	}
+	for _, entry := range personalEntries {
+		paths = append(paths, filepath.Join(personalRoot, entry.Name()))
+	}
+	projectEntries, err := os.ReadDir(projectRoot)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return errors.Wrap(err, "could not read project space root directory")
+	}
+	for _, entry := range projectEntries {
+		paths = append(paths, filepath.Join(projectRoot, entry.Name()))
+	}
+
+	for _, path := range paths {
+		spaceID, _, _, _, err := t.lookup.MetadataBackend().IdentifyPath(context.TODO(), path)
+		if err != nil {
+			t.log.Error().Err(err).Str("path", path).Msg("could not identify space root path")
+			continue
+		}
+		err = t.idCache.Set(context.TODO(), spaceID, spaceID, path)
+		if err != nil {
+			return errors.Wrap(err, "could not cache space root path")
+		}
+	}
+	return nil
+}
+
+func (t *Tree) checkStorage() error {
+	// check if the root path is a directory
+	err := os.MkdirAll(t.options.Root, 0700)
+	if err != nil {
+		return errors.Wrap(err, "could not create root path")
+	}
+	fi, err := os.Stat(t.options.Root)
+	if err != nil {
+		return errors.Wrap(err, "root path does not exist")
+	}
+	if !fi.IsDir() {
+		return errors.New("root path is not a directory")
+	}
+
+	// check if extended attributes are supported
+	f, err := os.CreateTemp(t.options.Root, "posixfs-xattr-check-")
+	if err != nil {
+		return errors.Wrap(err, "could not create file in root path")
+	}
+	err = f.Close()
+	if err != nil {
+		return errors.Wrap(err, "could not close temp file")
+	}
+	defer func() {
+		if err := os.Remove(f.Name()); err != nil {
+			t.log.Error().Err(err).Str("path", f.Name()).Msg("could not remove temp file")
+		}
+	}()
+
+	attrKey := "user.posixfs.test"
+	attrVal := []byte("test")
+	if err := xattr.Set(f.Name(), attrKey, attrVal); err != nil {
+		return errors.Wrap(err, "extended attributes not supported")
+	}
+
+	val, err := xattr.Get(f.Name(), attrKey)
+	if err != nil {
+		return errors.Wrap(err, "extended attributes not supported")
+	}
+	if string(val) != string(attrVal) {
+		return errors.New("extended attribute mismatch")
+	}
+	return nil
+}
+
+func (t *Tree) PublishEvent(ev interface{}) {
+	if t.es == nil {
+		return
+	}
+
+	if err := events.Publish(context.Background(), t.es, ev); err != nil {
+		t.log.Error().Err(err).Interface("event", ev).Msg("failed to publish event")
+	}
+}
+
+// Setup prepares the tree structure
+func (t *Tree) Setup() error {
+	err := os.MkdirAll(t.options.Root, 0700)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(t.options.UploadDirectory, 0700)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetMD returns the metadata of a node in the tree
+func (t *Tree) GetMD(_ context.Context, n *node.Node) (os.FileInfo, error) {
+	md, err := os.Stat(n.InternalPath())
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, errtypes.NotFound(n.ID)
+		}
+		return nil, errors.Wrap(err, "tree: error stating "+n.ID)
+	}
+
+	return md, nil
+}
+
+// TouchFile creates a new empty file
+func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool, mtime string) error {
+	if t.Ignorer.IsIgnored(filepath.Join(n.ParentPath(), n.Name)) {
+		return errtypes.PermissionDenied(n.ID)
+	}
+
+	if n.Exists {
+		if markprocessing {
+			return n.SetXattr(ctx, prefixes.StatusPrefix, []byte(node.ProcessingStatus))
+		}
+
+		return errtypes.AlreadyExists(n.ID)
+	}
+
+	parentPath := n.ParentPath()
+	nodePath := filepath.Join(parentPath, n.Name)
+
+	// lock the meta file
+	unlock, err := t.lookup.MetadataBackend().Lock(n)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = unlock()
+	}()
+
+	if n.ID == "" {
+		n.ID = uuid.New().String()
+	}
+	n.SetType(provider.ResourceType_RESOURCE_TYPE_FILE)
+
+	// Set id in cache
+	if err := t.lookup.CacheID(context.Background(), n.SpaceID, n.ID, nodePath); err != nil {
+		t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Str("path", nodePath).Msg("could not cache id")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(nodePath), 0700); err != nil {
+		return errors.Wrap(err, "posixfs: error creating node")
+	}
+	f, err := os.Create(nodePath)
+	if err != nil {
+		return errors.Wrap(err, "posixfs: error creating node")
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	attributes := n.NodeMetadata(ctx)
+	attributes[prefixes.IDAttr] = []byte(n.ID)
+	if markprocessing {
+		attributes[prefixes.StatusPrefix] = []byte(node.ProcessingStatus)
+	}
+	if mtime != "" {
+		nodeMTime, err := utils.MTimeToTime(mtime)
+		if err != nil {
+			return err
+		}
+		err = t.lookup.TimeManager().OverrideMtime(ctx, n, &attributes, nodeMTime)
+		if err != nil {
+			return err
+		}
+	} else {
+		fi, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		mtime := fi.ModTime()
+		attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
+	}
+
+	err = n.SetXattrsWithContext(ctx, attributes)
+	if err != nil {
+		return err
+	}
+
+	if storage.SkipTouchPropagation(ctx) {
+		return nil
+	}
+	return t.Propagate(ctx, n, 0)
+}
+
+// CreateDir creates a new directory entry in the tree
+func (t *Tree) CreateDir(ctx context.Context, n *node.Node) (err error) {
+	ctx, span := tracer.Start(ctx, "CreateDir")
+	defer span.End()
+	if n.Exists {
+		return errtypes.AlreadyExists(n.ID) // path?
+	}
+
+	// create a directory node
+	n.SetType(provider.ResourceType_RESOURCE_TYPE_CONTAINER)
+	if n.ID == "" {
+		n.ID = uuid.New().String()
+	}
+
+	err = t.createDirNode(ctx, n)
+	if err != nil {
+		return
+	}
+
+	return t.Propagate(ctx, n, 0)
+}
+
+// Move replaces the target with the source
+func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node) (err error) {
+	ctx, span := tracer.Start(ctx, "Move")
+	defer span.End()
+
+	if oldNode.SpaceID != newNode.SpaceID {
+		// WebDAV RFC https://www.rfc-editor.org/rfc/rfc4918#section-9.9.4 says to use
+		// > 502 (Bad Gateway) - This may occur when the destination is on another
+		// > server and the destination server refuses to accept the resource.
+		// > This could also occur when the destination is on another sub-section
+		// > of the same server namespace.
+		// but we only have a not supported error
+		return errtypes.NotSupported("cannot move across spaces")
+	}
+	// if target exists delete it without trashing it
+	if newNode.Exists {
+		// TODO make sure all children are deleted
+		if err := os.RemoveAll(newNode.InternalPath()); err != nil {
+			return errors.Wrap(err, "posixfs: Move: error deleting target node "+newNode.ID)
+		}
+	}
+	oldParent := oldNode.ParentPath()
+	newParent := newNode.ParentPath()
+	if newNode.ID == "" {
+		newNode.ID = oldNode.ID
+	}
+
+	_, subspan := tracer.Start(ctx, "os.Rename")
+	// rename node
+	err = os.Rename(
+		filepath.Join(oldParent, oldNode.Name),
+		filepath.Join(newParent, newNode.Name),
+	)
+	if err != nil {
+		return errors.Wrap(err, "posixfs: could not move child")
+	}
+	subspan.End()
+
+	_, subspan = tracer.Start(ctx, "update id cache and attributes")
+	// update the id cache
+	// invalidate old tree
+	err = t.lookup.IDCache.DeleteByPath(ctx, filepath.Join(oldNode.ParentPath(), oldNode.Name))
+	if err != nil {
+		return err
+	}
+	if err := t.lookup.CacheID(ctx, newNode.SpaceID, newNode.ID, filepath.Join(newNode.ParentPath(), newNode.Name)); err != nil {
+		t.log.Error().Err(err).Str("spaceID", newNode.SpaceID).Str("id", newNode.ID).Str("path", filepath.Join(newNode.ParentPath(), newNode.Name)).Msg("could not cache id")
+	}
+
+	// update target parentid and name
+	attribs := node.Attributes{}
+	attribs.SetString(prefixes.ParentidAttr, newNode.ParentID)
+	attribs.SetString(prefixes.NameAttr, newNode.Name)
+	if err := newNode.SetXattrsWithContext(ctx, attribs); err != nil {
+		return errors.Wrap(err, "posixfs: could not update node attributes")
+	}
+
+	subspan.End()
+
+	// A pure rename within the same parent must not change treesize accounting.
+	if oldNode.ParentID == newNode.ParentID {
+		err = t.Propagate(ctx, newNode, 0)
+		if err != nil {
+			t.log.Error().Err(err).Str("path", newNode.InternalPath()).Msg("could not propagate size changes for renamed node")
+		}
+	} else {
+		// the size diff is the current treesize or blobsize of the old/source node
+		var sizeDiff int64
+		if oldNode.IsDir(ctx) {
+			treeSize, err := oldNode.GetTreeSize(ctx)
+			if err != nil {
+				return err
+			}
+			sizeDiff = int64(treeSize)
+		} else {
+			sizeDiff = oldNode.Blobsize
+		}
+
+		_, subspan = tracer.Start(ctx, "propagate size changes")
+		err = t.Propagate(ctx, oldNode, -sizeDiff)
+		if err != nil {
+			// log error but continue anyway. The move itself was successful and the treesize will self-heal during the next fs scan
+			t.log.Error().Err(err).Str("path", oldNode.InternalPath()).Msg("could not propagate size changes for old node")
+		}
+		err = t.Propagate(ctx, newNode, sizeDiff)
+		if err != nil {
+			// log error but continue anyway. The move itself was successful and the treesize will self-heal during the next fs scan
+			t.log.Error().Err(err).Str("path", newNode.InternalPath()).Msg("could not propagate size changes for new node")
+		}
+		subspan.End()
+	}
+
+	if oldNode.IsDir(ctx) {
+		go func() {
+			_, subspan = tracer.Start(ctx, "warmup id cache for moved subtree")
+			// update id cache for the moved subtree.
+			err = t.WarmupIDCache(filepath.Join(newNode.ParentPath(), newNode.Name), false, false)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", filepath.Join(newNode.ParentPath(), newNode.Name)).Msg("failed to warmup id cache for moved subtree")
+			}
+			subspan.End()
+		}()
+	}
+
+	return nil
+}
+
+// ListFolder lists the content of a folder node
+func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, error) {
+	return t.listFolder(ctx, n, true)
+}
+
+var _ revisioncleanup.Walker = (*Tree)(nil)
+
+// ListFolderKnownUnchecked lists the children of n that are known to the storage, for
+// maintenance, see revisioncleanup.Walker. Known children are the files and folders the storage
+// has registered (assimilated), i.e. whose path resolves to a node id in the id cache. Unknown
+// ones exist on disk but are not registered yet, e.g. files just created on disk directly.
+// Unlike ListFolder, it checks no permissions, and it skips the unknown children instead of
+// assimilating them, so that it changes nothing: they are missing from its result until they
+// are assimilated, e.g. by the watcher or the next ListFolder.
+func (t *Tree) ListFolderKnownUnchecked(ctx context.Context, n *node.Node) ([]*node.Node, error) {
+	return t.listFolder(ctx, n, false)
+}
+
+// listFolder lists the children of n. For users, it leaves out the ones denied to the user
+// in ctx and assimilates the ones not known yet; otherwise, for maintenance, it lists all
+// known children, see ListFolderKnownUnchecked.
+func (t *Tree) listFolder(ctx context.Context, n *node.Node, forUser bool) ([]*node.Node, error) {
+	ctx, span := tracer.Start(ctx, "ListFolder")
+	defer span.End()
+	dir := n.InternalPath()
+
+	_, subspan := tracer.Start(ctx, "os.Open")
+	f, err := os.Open(dir)
+	subspan.End()
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, errtypes.NotFound(dir)
+		}
+		return nil, errors.Wrap(err, "tree: error listing "+dir)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	_, subspan = tracer.Start(ctx, "f.Readdirnames")
+	names, err := f.Readdirnames(0)
+	subspan.End()
+	if err != nil {
+		return nil, err
+	}
+
+	numWorkers := t.options.MaxConcurrency
+	if len(names) < numWorkers {
+		numWorkers = len(names)
+	}
+	work := make(chan string)
+	results := make(chan *node.Node)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	// Distribute work
+	g.Go(func() error {
+		defer close(work)
+		for _, name := range names {
+			if t.Ignorer.IsIgnored(filepath.Join(dir, name)) {
+				continue
+			}
+
+			select {
+			case work <- name:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		return nil
+	})
+
+	// Spawn workers that'll concurrently work the queue
+	for i := 0; i < numWorkers; i++ {
+		g.Go(func() (err error) {
+			// The workers run in goroutines of their own, out of reach of the recovery of the
+			// gRPC interceptors: a panic here would end the whole process, as it did in
+			// https://github.com/opencloud-eu/reva/issues/1073. Fail the listing instead.
+			defer func() {
+				if r := recover(); r != nil {
+					t.log.Error().Str("dir", dir).Interface("panic", r).Str("stack", string(debug.Stack())).Msg("panic while listing a directory")
+					err = fmt.Errorf("tree: panic while listing %s: %v", dir, r)
+				}
+			}()
+
+			// switch user if necessary
+			spaceGID, ok := ctx.Value(decomposedfs.CtxKeySpaceGID).(uint32)
+			if ok {
+				unscope, err := t.userMapper.ScopeUserByIds(-1, int(spaceGID))
+				if err != nil {
+					return errors.Wrap(err, "failed to scope user")
+				}
+				defer func() { _ = unscope() }()
+			}
+
+			for name := range work {
+				path := filepath.Join(dir, name)
+
+				_, nodeID, err := t.idResolver.IDsForPath(ctx, path)
+				if err != nil {
+					if _, ok := err.(errtypes.IsNotFound); !ok {
+						// a NotFound error just means we don't know about this
+						// node yet. Any other error (e.g. an unavailable id
+						// cache backend) is a real failure that must not be
+						// silently turned into an assimilation attempt.
+						return errors.Wrap(err, "tree: error resolving ids for "+path)
+					}
+					if !forUser {
+						// A listing for maintenance (ListFolderKnownUnchecked, e.g. the walk of the
+						// on-demand revision cleanup) must not change anything, so it skips the
+						// item instead of assimilating it. Assimilation registers the item, with a
+						// new id and metadata, and with enable_fs_revisions it can even create a
+						// revision (e.g. for a file whose id is missing from the id cache) and run
+						// the revision cleanup with the driver's own strategy, which a dry run must
+						// not do either. The item has no revisions the storage knows of yet, so
+						// there is nothing to clean up; it is listed once it has been assimilated,
+						// e.g. by the watcher, a scan or a listing for a user.
+						t.log.Debug().Str("path", path).Msg("skipping an item that is unknown to the storage (not assimilated yet)")
+						continue
+					}
+					// we don't know about this node yet, assimilate it on the fly
+					t.log.Info().Err(err).Str("path", path).Msg("encountered an item unknown to the storage while listing the directory, assimilating it")
+					err = t.assimilateFunc(scanItem{Path: path})
+					if err != nil {
+						t.log.Error().Err(err).Str("path", path).Msg("failed to assimilate node")
+						continue
+					}
+					_, nodeID, err = t.idResolver.IDsForPath(ctx, path)
+					if err != nil || nodeID == "" {
+						t.log.Error().Err(err).Str("path", path).Msg("still could not resolve node after assimilation")
+						continue
+					}
+				}
+
+				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, path, false, n.SpaceRoot, true)
+				if err != nil {
+					t.log.Error().Err(err).Str("path", path).Msg("failed to read node")
+					continue
+				}
+
+				// prevent listing denied resources, for users only: a listing for maintenance
+				// (ListFolderKnownUnchecked) has no user in the context, IsDenied would panic
+				// without one, and it must see all children, also the ones denied to users
+				if !forUser || !child.IsDenied(ctx) {
+					if child.SpaceRoot == nil {
+						child.SpaceRoot = n.SpaceRoot
+					}
+					select {
+					case results <- child:
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}
+			}
+			return nil
+		})
+	}
+	// Wait for things to settle down, then close results chan
+	go func() {
+		_ = g.Wait() // error is checked later
+		close(results)
+	}()
+
+	retNodes := []*node.Node{}
+	for n := range results {
+		retNodes = append(retNodes, n)
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return retNodes, nil
+}
+
+// Delete deletes a node in the tree by moving it to the trash
+func (t *Tree) Delete(ctx context.Context, n *node.Node) error {
+	path := n.InternalPath()
+
+	if !strings.HasPrefix(path, t.options.Root) {
+		return errtypes.InternalError("invalid internal path")
+	}
+
+	// remove entry from cache immediately to avoid inconsistencies
+	defer func() {
+		if err := t.idCache.DeleteByPath(ctx, path); err != nil {
+			t.log.Error().Err(err).Str("path", path).Msg("could not delete id from cache")
+		}
+	}()
+
+	var sizeDiff int64
+	if n.IsDir(ctx) {
+		treesize, err := n.GetTreeSize(ctx)
+		if err != nil {
+			return err // TODO calculate treesize if it is not set
+		}
+		sizeDiff = -int64(treesize)
+	} else {
+		sizeDiff = -n.Blobsize
+	}
+
+	// Remove lock file if it exists
+	paths := n.LockFilePaths()
+	for _, lockFilePath := range paths {
+		if err := os.Remove(lockFilePath); err != nil && !os.IsNotExist(err) {
+			t.log.Error().Err(err).Str("path", lockFilePath).Msg("could not remove lock file")
+		}
+	}
+
+	// Remove metadata mlock file if it exists
+	_ = os.Remove(t.lookup.MetadataBackend().LockfilePath(n))
+
+	err := t.trashbin.MoveToTrash(ctx, n, path)
+	if err != nil {
+		return err
+	}
+
+	return t.Propagate(ctx, n, sizeDiff)
+}
+
+// Propagate propagates changes to the root of the tree
+func (t *Tree) Propagate(ctx context.Context, n *node.Node, sizeDiff int64) (err error) {
+	// We do not propagate size diffs here but rely on the assimilation to take care of the tree sizes instead
+	return t.propagator.Propagate(ctx, n, sizeDiff)
+}
+
+// WriteBlob writes a blob to the blobstore
+func (t *Tree) WriteBlob(n *node.Node, source string) error {
+	var currentPath string
+	var err error
+
+	if t.options.EnableFSRevisions {
+		currentPath = t.lookup.CurrentPath(n.SpaceID, n.ID)
+
+		defer func() {
+			attrs := node.Attributes{}
+			attrs.SetInt64(prefixes.TypeAttr, int64(n.Type(context.Background())))
+			attrs.SetString(prefixes.BlobIDAttr, n.BlobID)
+			attrs.SetInt64(prefixes.BlobsizeAttr, n.Blobsize)
+
+			err := t.lookup.MetadataBackend().SetMultiple(context.Background(), node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup), attrs)
+			if err != nil {
+				t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Msg("could not copy metadata to current revision")
+			}
+		}()
+	}
+
+	err = t.blobstore.Upload(n, source, currentPath)
+	return err
+}
+
+// WriteBlobFromReader writes a blob to the blobstore from a reader
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
+}
+
+// ReadBlob reads a blob from the blobstore
+func (t *Tree) ReadBlob(node *node.Node) (io.ReadCloser, error) {
+	return t.blobstore.Download(node)
+}
+
+// DeleteBlob deletes a blob from the blobstore
+func (t *Tree) DeleteBlob(node *node.Node) error {
+	if node == nil {
+		return fmt.Errorf("could not delete blob, nil node was given")
+	}
+	return t.blobstore.Delete(node)
+}
+
+// RevisionsCleanup returns the revision cleanup, a disabled one without a strategy.
+// It is used to hand the same instance to Decomposedfs via aspects.Aspects, so that
+// uploads, restores and changes on disk are all cleaned up by the same strategy and
+// share the same background workers.
+func (t *Tree) RevisionsCleanup() *revisioncleanup.Service {
+	return t.revisionsCleanup
+}
+
+var _ revisioncleanup.SpaceScoper = (*Tree)(nil)
+
+// ScopeToSpace switches the current goroutine to the group of the space with use_space_groups,
+// as the space group hooks of the storage driver's middleware do for user requests, see
+// revisioncleanup.SpaceScoper. The returned context carries the group, for the goroutines that
+// listFolder starts. Without use_space_groups, it does nothing.
+func (t *Tree) ScopeToSpace(ctx context.Context, spaceID string) (context.Context, func() error, error) {
+	if !t.options.UseSpaceGroups {
+		return ctx, func() error { return nil }, nil
+	}
+	fi, err := os.Stat(t.lookup.InternalPath(spaceID, spaceID))
+	if err != nil {
+		return ctx, nil, errors.Wrapf(err, "could not stat the root of space %q", spaceID)
+	}
+	gid := fi.Sys().(*syscall.Stat_t).Gid
+	unscope, err := t.userMapper.ScopeUserByIds(-1, int(gid))
+	if err != nil {
+		return ctx, nil, errors.Wrap(err, "failed to scope user")
+	}
+	return context.WithValue(ctx, decomposedfs.CtxKeySpaceGID, gid), unscope, nil
+}
+
+// BuildSpaceIDIndexEntry returns the entry for the space id index
+func (t *Tree) BuildSpaceIDIndexEntry(spaceID string) string {
+	return spaceID
+}
+
+// ResolveSpaceIDIndexEntry returns the node id for the space id index entry
+func (t *Tree) ResolveSpaceIDIndexEntry(spaceID string) (string, error) {
+	return spaceID, nil
+}
+
+// InitNewNode initializes a new node
+func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (metadata.UnlockFunc, error) {
+	if t.Ignorer.IsIgnored(filepath.Join(n.ParentPath(), n.Name)) {
+		return nil, errtypes.PermissionDenied(n.ID)
+	}
+
+	_, span := tracer.Start(ctx, "InitNewNode")
+	defer span.End()
+
+	// the node may not be cached yet, so its path comes from the parent and the name
+	nodePath := filepath.Join(n.ParentPath(), n.Name)
+
+	// create folder structure (if needed)
+	if err := os.MkdirAll(filepath.Dir(nodePath), 0700); err != nil {
+		return nil, err
+	}
+
+	// create and write lock new node metadata
+	unlock, err := t.lookup.MetadataBackend().Lock(n)
+	if err != nil {
+		return nil, err
+	}
+
+	// we also need to touch the actual node file here it stores the mtime of the resource
+	h, err := os.OpenFile(nodePath, os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		// the file is not ours: leave it, and its cache entry, alone
+		releaseNewNodeLock(ctx, n, unlock)
+		if os.IsExist(err) {
+			// the name only: the message reaches the client, the path is the server's
+			return nil, errtypes.AlreadyExists(n.Name)
+		}
+		return nil, err
+	}
+	defer func() { _ = h.Close() }()
+
+	// from here the file is ours. A failure removes it and our cache entry before
+	// unlocking, so nothing can open the node in between.
+	fail := func(err error) (metadata.UnlockFunc, error) {
+		if rErr := os.Remove(nodePath); rErr != nil {
+			t.log.Error().Err(rErr).Str("nodeid", n.ID).Msg("could not remove new node file")
+		}
+		if dErr := t.lookup.IDCache.Delete(ctx, n.SpaceID, n.ID); dErr != nil {
+			t.log.Error().Err(dErr).Str("nodeid", n.ID).Msg("could not remove new node from the id cache")
+		}
+		releaseNewNodeLock(ctx, n, unlock)
+		return nil, err
+	}
+
+	// cached only now that the name is ours, so a losing upload cannot point it at its id
+	if err := t.lookup.CacheID(ctx, n.SpaceID, n.ID, nodePath); err != nil {
+		return fail(err)
+	}
+
+	// Set known mtime from filesystem to metadata to preven re-assimilation
+	fi, err := h.Stat()
+	if err != nil {
+		return fail(err)
+	}
+	mtime := fi.ModTime()
+	err = n.SetXattrsWithContext(ctx, map[string][]byte{
+		prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
+	})
+	if err != nil {
+		t.log.Error().Err(err).Str("path", nodePath).Msg("could not set mtime attribute on new node")
+	}
+
+	if _, err := node.CheckQuota(ctx, n.SpaceRoot, false, 0, fsize); err != nil {
+		return fail(err)
+	}
+
+	return unlock, nil
+}
+
+// releaseNewNodeLock releases the lock of a node InitNewNode failed to create.
+func releaseNewNodeLock(ctx context.Context, n *node.Node, unlock metadata.UnlockFunc) {
+	if err := unlock(); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not release new node lock")
+	}
+}
+
+// TODO check if node exists?
+func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
+	if t.Ignorer.IsIgnored(filepath.Join(n.ParentPath(), n.Name)) {
+		return errtypes.PermissionDenied(n.ID)
+	}
+
+	ctx, span := tracer.Start(ctx, "createDirNode")
+	defer span.End()
+
+	idcache := t.lookup.IDCache
+	// create a directory node
+	parentPath, err := idcache.Get(ctx, n.SpaceID, n.ParentID)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(parentPath, n.Name)
+
+	// lock the meta file
+	unlock, err := t.lookup.MetadataBackend().Lock(n)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = unlock()
+	}()
+
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return errors.Wrap(err, "posixfs: error creating node")
+	}
+
+	if err := idcache.Set(ctx, n.SpaceID, n.ID, path); err != nil {
+		t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Str("path", path).Msg("could not cache id")
+	}
+
+	// Write mtime from filesystem to metadata to preven re-assimilation
+	d, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = d.Close()
+	}()
+
+	fi, err := d.Stat()
+	if err != nil {
+		return err
+	}
+	mtime := fi.ModTime()
+
+	attributes := n.NodeMetadata(ctx)
+	attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
+	attributes[prefixes.IDAttr] = []byte(n.ID)
+	attributes[prefixes.SpaceIDAttr] = []byte(n.SpaceID)
+	attributes[prefixes.TreesizeAttr] = []byte("0") // initialize as empty, TODO why bother? if it is not set we could treat it as 0?
+
+	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
+		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation
+	}
+	return n.SetXattrsWithContext(ctx, attributes)
+}

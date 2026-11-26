@@ -39,10 +39,14 @@ func OidcAuth(opts ...Option) func(http.Handler) http.Handler {
 		// Initialize a provider by specifying the issuer URL.
 		// it will fetch the keys from the issuer using the .well-known
 		// endpoint
-		return goidc.NewProvider(
+		p, err := goidc.NewProvider(
 			context.WithValue(context.Background(), oauth2.HTTPClient, &opt.HttpClient),
 			opt.OidcIssuer,
 		)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
 	}
 	var provider OIDCProvider
 	initializeProviderLock := sync.Mutex{}

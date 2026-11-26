@@ -41,7 +41,7 @@ type Config struct {
 	Workers              int `yaml:"workers" env:"ANTIVIRUS_WORKERS" desc:"The number of concurrent go routines that fetch events from the event queue." introductionVersion:"1.0.0"`
 
 	Scanner         Scanner
-	MaxScanSize     string          `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle.0 means unlimited. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
+	MaxScanSize     string          `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle. 0 means unlimited. When using ClamAV, keep it at or below clamd's StreamMaxLength, otherwise clamd refuses bigger files and their uploads fail after the postprocessing retries. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
 	MaxScanSizeMode MaxScanSizeMode `yaml:"max-scan-size-mode" env:"ANTIVIRUS_MAX_SCAN_SIZE_MODE" desc:"Defines the mode of handling files that exceed the maximum scan size. Supported options are: 'skip', which skips files that are bigger than the max scan size, and 'truncate' (default), which only uses the file up to the max size." introductionVersion:"2.1.0"`
 
 	Context context.Context `json:"-" yaml:"-"`

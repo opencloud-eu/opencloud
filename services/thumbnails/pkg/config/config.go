@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
+	"github.com/opencloud-eu/reva/v3/pkg/bytesize"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )

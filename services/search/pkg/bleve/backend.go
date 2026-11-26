@@ -9,13 +9,14 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -28,7 +29,7 @@ const defaultBatchSize = 50
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
-	index        bleve.Index
+	index        *serialIndex
 	queryCreator searchQuery.Creator[query.Query]
 	log          log.Logger
 }
@@ -172,6 +173,36 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
 	}, nil
+}
+
+func (b *Backend) Get(_ context.Context, id string) (*search.Resource, error) {
+	return searchResourceByID(id, b.index)
+}
+
+// Update holds the batch lock from the read to the write, so a batch pushed in
+// between is not overwritten; a batch built before the update and pushed after
+// it still writes the tags it read
+func (b *Backend) Update(_ context.Context, id string, u search.MetadataUpdate) error {
+	b.index.batchMu.Lock()
+	defer b.index.batchMu.Unlock()
+
+	r, err := searchResourceByID(id, b.index)
+	if err != nil {
+		return err
+	}
+	r.Tags = u.Tags
+	r.Favorites = u.Favorites
+
+	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	if err != nil {
+		return err
+	}
+	batch := b.index.NewBatch()
+	err = batch.Index(id, doc)
+	if err != nil {
+		return err
+	}
+	return b.index.bleveIndex.Batch(batch)
 }
 
 func (b *Backend) DocCount() (uint64, error) {

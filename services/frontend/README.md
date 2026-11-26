@@ -24,13 +24,13 @@ The ocs endpoint, by default `/ocs`, implements the Open Collaboration Services 
 
 #### Event Handler
 
-As of now, the `frontend` service does not contain any event handlers.
+As of now, the `frontend` service does not contain any event handlers. It only connects to the event system, see `FRONTEND_EVENTS_ENDPOINT`, when the audit log is enabled: the archiver records every archive download in the audit stream, see the [audit](https://github.com/opencloud-eu/opencloud/tree/main/services/audit) service.
 
 ### Sharing
 
 Aggregating share information is one of the most time consuming operations in OpenCloud. The service fetches a list of either received or created shares and has to stat every resource individually. While stats are fast, the default behavior scales linearly with the number of shares.
 
-To save network trips the sharing implementation can cache the stat requests with an in memory cache or in Redis. It will shorten the response time by the network round-trip overhead at the cost of the API only eventually being updated.
+To save network trips the sharing implementation can cache the stat requests with an in-memory cache or in nats. It will shorten the response time by the network round-trip overhead at the cost of the API only eventually being updated.
 
 Setting `FRONTEND_OCS_RESOURCE_INFO_CACHE_TTL=60` (deprecated) would cache the stat info for 60 seconds. Increasing this value makes sense for large deployments with thousands of active users that keep the cache up to date. Low frequency usage scenarios should not expect a noticeable improvement.
 
@@ -48,7 +48,6 @@ You can find more details regarding available attributes at the [libre-graph-api
 
 The `frontend` service can use a configured store via `FRONTEND_OCS_STAT_CACHE_STORE` (deprecated). Possible stores are:
   -   `memory`: Basic in-memory store and the default.
-  -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
   -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store)
   -   `noop`: Stores nothing. Useful for testing. Not recommended in production environments.
 
@@ -59,7 +58,6 @@ Note: The service can only be scaled if not using `memory` store and the stores 
 Note that if you have used one of the deprecated stores, you should reconfigure to one of the supported ones as the deprecated stores will be removed in a later version.
 
 Store specific notes:
-  -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
 
@@ -136,3 +134,11 @@ For public accessible writable shares, a password can be enforced. To change the
 Note that changing this environment variable only makes sense if\
 `OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD`\
 is set to `false`.
+
+## Server Managed Spaces
+
+The `frontend` service can announce that the membership of spaces is managed by the server instead of by users. To enable this, set the following environment variable to `true`:
+
+`OC_CLAIM_MANAGED_SPACES_ENABLED`
+
+When enabled, the `spaces` capability contains `server_managed: true`. Clients like the web UI evaluate this capability and block adding or removing users to or from spaces.

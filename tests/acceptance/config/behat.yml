@@ -493,6 +493,7 @@ default:
         - OcConfigContext:
         - SharingNgContext:
         - PublicWebDavContext:
+        - FilesVersionsContext:
 
     coreApiMain:
       paths:

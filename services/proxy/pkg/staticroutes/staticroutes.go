@@ -9,7 +9,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
 	microstore "go-micro.dev/v4/store"
 )
 
@@ -24,6 +25,7 @@ type StaticRouteHandler struct {
 	OidcClient      oidc.OIDCClient
 	OidcHttpClient  *http.Client
 	EventsPublisher events.Publisher
+	AuditEmitter    audit.Emitter
 	UserProvider    backend.UserBackend
 }
 

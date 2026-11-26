@@ -23,11 +23,12 @@ import (
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/tags"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/conversions"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/publicshare"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/tags"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -493,9 +494,12 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(res.GetId()))
 	driveItem.WebUrl = libregraph.PtrString(webURL.String())
 
-	if name := path.Base(res.GetPath()); name != "" {
-		driveItem.Name = &name
+	name := res.GetName()
+	if name == "" {
+		name = path.Base(res.GetPath())
 	}
+	driveItem.Name = &name
+
 	if res.GetEtag() != "" {
 		driveItem.ETag = &res.Etag
 	}
@@ -615,6 +619,8 @@ func shareTypesOf(info *storageprovider.ResourceInfo, linkShares map[string]stru
 			types = append(types, "user")
 		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_GROUP)):
 			types = append(types, "group")
+		case strconv.Itoa(int(conversions.ShareTypeEmail)):
+			types = append(types, "email")
 		}
 	}
 

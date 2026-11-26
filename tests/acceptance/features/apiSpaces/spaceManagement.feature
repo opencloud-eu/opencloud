@@ -49,34 +49,10 @@ Feature: Space management
     And the json response should not contain a space with name "Alice Hansen"
 
 
-  Scenario: space admin user can see another personal spaces
+  Scenario: space admin user cannot see another personal spaces
     When user "Brian" lists all spaces via the Graph API with query "$filter=driveType eq 'personal'"
     Then the HTTP status code should be "200"
-    And the JSON response should contain space called "Alice Hansen" and match
-      """
-      {
-        "type": "object",
-        "required": [
-          "driveType",
-          "name",
-          "id"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "enum": ["Alice Hansen"]
-          },
-          "driveType": {
-            "type": "string",
-            "enum": ["personal"]
-          },
-          "id": {
-            "type": "string",
-            "enum": ["%space_id%"]
-          }
-        }
-      }
-      """
+    And the json response should not contain a space with name "Alice Hansen"
     And the json response should not contain a space with name "Project"
 
 
@@ -155,10 +131,8 @@ Feature: Space management
     Then the HTTP status code should be "<code>"
     Examples:
       | user  | code |
-      # Brian is Space Admin and can currently list all Personal Spaces, so he
-      # gets a 403 instead of a 404 here. This might change in the future see:
-      # https://github.com/opencloud-eu/opencloud/issues/2979
-      | Brian | 403  |
+      # The Space Admin role has no permission to list personal spaces, so Brian gets 404 like Carol
+      | Brian | 404  |
       | Carol | 404  |
 
 

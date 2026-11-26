@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/CiscoM31/godata"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -20,10 +21,11 @@ import (
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/render"
+	"github.com/google/uuid"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"github.com/pkg/errors"
 	merrors "go-micro.dev/v4/errors"
 	"golang.org/x/sync/errgroup"
@@ -61,7 +63,36 @@ var (
 
 	// ErrForbiddenCharacter is thrown when the spacename contains an invalid character
 	ErrForbiddenCharacter = fmt.Errorf("spacenames must not contain %v", _invalidSpaceNameCharacters)
+
+	// ErrSpaceImageTooLarge is returned when the file set as the image of a space is larger than
+	// the maximum size of a space image
+	ErrSpaceImageTooLarge = errors.New("the space image is too large")
 )
+
+// checkSpaceImageSize returns ErrSpaceImageTooLarge if the file with the given
+// id is larger than the maximum size of a space image. A space image is only
+// ever shown as a thumbnail, and no thumbnail is made of a file above that
+// size, so such an image would be stored but never shown.
+func (g Graph) checkSpaceImageSize(ctx context.Context, gatewayClient gateway.GatewayAPIClient, fileID string) error {
+	if g.maxSpaceImageSize == 0 {
+		return nil
+	}
+
+	rid, err := storagespace.ParseID(fileID)
+	if err != nil {
+		return errorcode.New(errorcode.InvalidRequest, fmt.Sprintf("invalid space image id %q: %v", fileID, err))
+	}
+
+	res, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{Ref: &storageprovider.Reference{ResourceId: &rid}})
+	if err := errorcode.FromStat(res, err); err != nil {
+		return err
+	}
+
+	if size := res.GetInfo().GetSize(); size > g.maxSpaceImageSize {
+		return fmt.Errorf("%w: %d bytes, the maximum is %d bytes", ErrSpaceImageTooLarge, size, g.maxSpaceImageSize)
+	}
+	return nil
+}
 
 // GetDrives serves as a factory method that returns the appropriate
 // http.Handler function based on the specified API version.
@@ -268,8 +299,19 @@ func (g Graph) getDrives(r *http.Request, unrestricted bool, apiVersion APIVersi
 	return spaces, nil
 }
 
-// GetSingleDrive does a lookup of a single space by spaceId
+// GetSingleDrive returns the space with the given ID, in the v1.0 format.
 func (g Graph) GetSingleDrive(w http.ResponseWriter, r *http.Request) {
+	g.getSingleDrive(w, r, APIVersion_1)
+}
+
+// GetSingleDriveV1Beta1 returns the space with the given ID, in the v1beta1
+// format: its expanded root permissions name unified roles.
+func (g Graph) GetSingleDriveV1Beta1(w http.ResponseWriter, r *http.Request) {
+	g.getSingleDrive(w, r, APIVersion_1_Beta_1)
+}
+
+// getSingleDrive returns the space with the given ID, in the format of the given API version.
+func (g Graph) getSingleDrive(w http.ResponseWriter, r *http.Request, apiVersion APIVersion) {
 	ctx := r.Context()
 	log := g.logger.SubloggerWithRequestID(ctx).With().Interface("query", r.URL.Query()).Logger()
 	log.Debug().Msg("calling get drive")
@@ -324,7 +366,7 @@ func (g Graph) GetSingleDrive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := g.formatDrives(ctx, webDavBaseURL, res.StorageSpaces, APIVersion_1, expandPermissions, getFieldMask(odataReq))
+	spaces, err := g.formatDrives(ctx, webDavBaseURL, res.StorageSpaces, apiVersion, expandPermissions, getFieldMask(odataReq))
 	if err != nil {
 		log.Debug().Err(err).Msg("could not get drive: error parsing grpc response")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -359,8 +401,18 @@ func (g Graph) canCreateSpace(ctx context.Context, ownPersonalHome bool) bool {
 	return true
 }
 
-// CreateDrive creates a storage drive (space).
+// CreateDrive creates a space and returns it in the v1.0 format.
 func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
+	g.createDrive(w, r, APIVersion_1)
+}
+
+// CreateDriveV1Beta1 creates a space and returns it in the v1beta1 format.
+func (g Graph) CreateDriveV1Beta1(w http.ResponseWriter, r *http.Request) {
+	g.createDrive(w, r, APIVersion_1_Beta_1)
+}
+
+// createDrive creates a space and returns it in the format of the given API version.
+func (g Graph) createDrive(w http.ResponseWriter, r *http.Request, apiVersion APIVersion) {
 	ctx := r.Context()
 	log := g.logger.SubloggerWithRequestID(ctx).With().Interface("query", r.URL.Query()).Logger()
 	log.Debug().Msg("calling create drive")
@@ -403,7 +455,7 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid body schema definition")
 		return
 	}
-	spaceName := strings.TrimSpace(drive.Name)
+	spaceName := trimSpaceName(drive.Name)
 	if err := validateSpaceName(spaceName); err != nil {
 		log.Debug().Str("name", spaceName).Err(err).Msg("could not create drive: name validation failed")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, fmt.Sprintf("invalid spacename: %s", err.Error()))
@@ -427,6 +479,28 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		Type:  driveType,
 		Name:  spaceName,
 		Quota: getQuota(drive.Quota, g.config.Spaces.DefaultQuota),
+	}
+
+	if id := drive.GetId(); id != "" {
+		// the id ends up in storage paths and in "storageid$spaceid!opaqueid" references,
+		// so only accept the canonical form of the uuids the storage drivers generate themselves
+		if u, err := uuid.Parse(id); err != nil || u.String() != id {
+			log.Debug().Str("id", id).Msg("could not create drive: id is not a canonical uuid")
+			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid drive id: must be a canonical UUID")
+			return
+		}
+		// personal spaces may use their owner's user id as space id, so an id that belongs to a user
+		// must not be taken by another space, or that user's personal space could not be created anymore
+		if _, err := g.identityBackend.GetUser(r.Context(), id, &godata.GoDataRequest{}); err == nil {
+			log.Debug().Str("id", id).Msg("could not create drive: id belongs to a user")
+			errorcode.NameAlreadyExists.Render(w, r, http.StatusConflict, "drive already exists")
+			return
+		} else if !errorcode.IsErrorCode(err, errorcode.ItemNotFound) {
+			log.Error().Err(err).Str("id", id).Msg("could not create drive: could not check whether the id belongs to a user")
+			errorcode.RenderError(w, r, err)
+			return
+		}
+		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "spaceid", id)
 	}
 
 	if drive.Description != nil {
@@ -463,6 +537,11 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, resp.GetStatus().GetMessage())
 			return
 		}
+		if resp.GetStatus().GetCode() == cs3rpc.Code_CODE_ALREADY_EXISTS {
+			log.Debug().Str("grpcmessage", resp.GetStatus().GetMessage()).Msg("could not create drive: already exists")
+			errorcode.NameAlreadyExists.Render(w, r, http.StatusConflict, "drive already exists")
+			return
+		}
 		log.Debug().Interface("grpcmessage", csr).Str("grpc", resp.GetStatus().GetMessage()).Msg("could not create drive: grpc error")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, resp.GetStatus().GetMessage())
 		return
@@ -486,7 +565,7 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	spaces, err := g.formatDrives(ctx, webDavBaseURL, []*storageprovider.StorageSpace{space}, APIVersion_1, false, nil)
+	spaces, err := g.formatDrives(ctx, webDavBaseURL, []*storageprovider.StorageSpace{space}, apiVersion, false, nil)
 	if err != nil {
 		log.Debug().Err(err).Msg("could not get drive: error parsing grpc response")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -502,8 +581,19 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, spaces[0])
 }
 
-// UpdateDrive updates the properties of a storage drive (space).
+// UpdateDrive updates the properties of a space and returns it in the v1.0 format.
 func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
+	g.updateDrive(w, r, APIVersion_1)
+}
+
+// UpdateDriveV1Beta1 updates the properties of a space and returns it in the
+// v1beta1 format.
+func (g Graph) UpdateDriveV1Beta1(w http.ResponseWriter, r *http.Request) {
+	g.updateDrive(w, r, APIVersion_1_Beta_1)
+}
+
+// updateDrive updates the properties of a space and returns it in the format of the given API version.
+func (g Graph) updateDrive(w http.ResponseWriter, r *http.Request, apiVersion APIVersion) {
 	log := g.logger.SubloggerWithRequestID(r.Context()).With().Interface("query", r.URL.Query()).Logger()
 	log.Debug().Msg("calling update drive")
 
@@ -575,13 +665,30 @@ func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, special := range drive.Special {
-		if special.Id != nil {
-			updateSpaceRequest.StorageSpace.Opaque = utils.AppendPlainToOpaque(updateSpaceRequest.StorageSpace.Opaque, *special.SpecialFolder.Name, *special.Id)
+		// an entry without an id names no file to set, so it changes nothing, as it always did;
+		// the web UI, for one, sends such an entry after it has deleted the file of the space image
+		if special.Id == nil {
+			continue
 		}
+
+		// an empty id names no file, so there is nothing to look at
+		if special.SpecialFolder.GetName() == SpaceImageSpecialFolderName && *special.Id != "" {
+			if err := g.checkSpaceImageSize(r.Context(), gatewayClient, *special.Id); err != nil {
+				log.Warn().Err(err).Str("image", *special.Id).Msg("could not update drive: space image refused")
+				if errors.Is(err, ErrSpaceImageTooLarge) {
+					errorcode.InvalidRequest.Render(w, r, http.StatusRequestEntityTooLarge, err.Error())
+					return
+				}
+				errorcode.RenderError(w, r, err)
+				return
+			}
+		}
+
+		updateSpaceRequest.StorageSpace.Opaque = utils.AppendPlainToOpaque(updateSpaceRequest.StorageSpace.Opaque, *special.SpecialFolder.Name, *special.Id)
 	}
 
-	if drive.GetName() != "" {
-		spacename := strings.TrimSpace(drive.GetName())
+	if _, ok := drive.GetNameOk(); ok {
+		spacename := trimSpaceName(drive.GetName())
 		if err := validateSpaceName(spacename); err != nil {
 			log.Info().Err(err).Msg("could not update drive: spacename invalid")
 			errorcode.GeneralException.Render(w, r, http.StatusBadRequest, err.Error())
@@ -658,7 +765,7 @@ func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	spaces, err := g.formatDrives(r.Context(), webDavBaseURL, []*storageprovider.StorageSpace{resp.StorageSpace}, APIVersion_1, false, nil)
+	spaces, err := g.formatDrives(r.Context(), webDavBaseURL, []*storageprovider.StorageSpace{resp.StorageSpace}, apiVersion, false, nil)
 	if err != nil {
 		log.Debug().Err(err).Msg("could not update drive: error parsing grpc response")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -807,6 +914,10 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 	}
 	if expandPermissions {
 		drive.Root.Permissions, _ = g.cs3SpacePermissionsToLibreGraph(ctx, space, false, apiVersion)
+	}
+
+	if rootInfo := space.GetRootInfo(); rootInfo != nil {
+		drive.Root.SetLibreGraphMeFollowing(isFollowing(ctx, rootInfo))
 	}
 
 	if _, ok := fieldMask["@libre.graph.hasTrashedItems"]; ok {
@@ -1176,6 +1287,18 @@ func sortSpaces(req *godata.GoDataRequest, spaces []*libregraph.Drive) ([]*libre
 		sort.Slice(spaces, less)
 	}
 	return spaces, nil
+}
+
+// trimSpaceName removes whitespace and invisible formatting characters from both ends of a
+// space name. strings.TrimSpace alone isn't enough: characters such as the zero-width space
+// (U+200B), the word joiner (U+2060) or the byte order mark (U+FEFF) aren't whitespace in
+// Unicode, but they are invisible, so a name made only of them would look empty in every client.
+// Formatting characters inside a name are kept, since some of them are needed there, e.g. the
+// zero-width joiner (U+200D) in emoji sequences.
+func trimSpaceName(name string) string {
+	return strings.TrimFunc(name, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.Is(unicode.Cf, r)
+	})
 }
 
 func validateSpaceName(name string) error {

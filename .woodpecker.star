@@ -9,6 +9,7 @@ docker_repo_slug = "opencloudeu/opencloud"
 # images
 ALPINE_GIT = "alpine/git:latest"
 APACHE_TIKA = "apache/tika:4.2.1-SNAPSHOT"
+AXLLENT_MAILPIT = "axllent/mailpit:v1.32.0"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
@@ -17,7 +18,6 @@ OPEN_SEARCH = "opensearchproject/opensearch:2"
 # imagor for the thumbnail parity suite, keep equal to imagortest.Variants
 IMAGOR = "shumc/imagor:1.9.11"
 IMAGOR_MAGICK = "ghcr.io/cshum/imagor-magick:1.9.11"
-INBUCKET_INBUCKET = "inbucket/inbucket"
 MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
@@ -53,7 +53,7 @@ dirs = {
     "zip": "/woodpecker/src/github.com/%s/zip" % repo_slug,
     "webZip": "/woodpecker/src/github.com/%s/zip/web.tar.gz" % repo_slug,
     "webPnpmZip": "/woodpecker/src/github.com/%s/zip/web-pnpm.tar.gz" % repo_slug,
-    "playwrightBrowsersArchive": "/woodpecker/src/github.com/%s/zip/playwright-browsers.tar.gz" % repo_slug,
+    "chromiumArchive": "/woodpecker/src/github.com/%s/zip/chromium.tar.gz" % repo_slug,
     "baseGo": "/go/src/github.com/%s" % repo_slug,
     "gobinTar": "go-bin.tar.gz",
     "gobinTarPath": "/go/src/github.com/%s/go-bin.tar.gz" % repo_slug,
@@ -164,12 +164,12 @@ config = {
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
-                "EMAIL_PORT": "9000",
+                "EMAIL_PORT": "8025",
             },
             "extraServerEnvironment": {
                 "OC_ADD_RUN_SERVICES": "notifications",
                 "NOTIFICATIONS_SMTP_HOST": "email",
-                "NOTIFICATIONS_SMTP_PORT": "2500",
+                "NOTIFICATIONS_SMTP_PORT": "1025",
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
@@ -261,12 +261,12 @@ config = {
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
-                "EMAIL_PORT": "9000",
+                "EMAIL_PORT": "8025",
             },
             "extraServerEnvironment": {
                 "OC_ADD_RUN_SERVICES": "notifications",
                 "NOTIFICATIONS_SMTP_HOST": "email",
-                "NOTIFICATIONS_SMTP_PORT": "2500",
+                "NOTIFICATIONS_SMTP_PORT": "1025",
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
@@ -306,7 +306,7 @@ config = {
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
-                "EMAIL_PORT": "9000",
+                "EMAIL_PORT": "8025",
             },
             "extraServerEnvironment": {
                 "OC_ADD_RUN_SERVICES": "ocm,notifications",
@@ -317,7 +317,7 @@ config = {
                 "OCM_OCM_PROVIDER_AUTHORIZER_PROVIDERS_FILE": "%s" % dirs["ocmProviders"],
                 # mail notifications
                 "NOTIFICATIONS_SMTP_HOST": "email",
-                "NOTIFICATIONS_SMTP_PORT": "2500",
+                "NOTIFICATIONS_SMTP_PORT": "1025",
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
             },
@@ -802,20 +802,6 @@ def testOpencloud(ctx):
             "commands": [
                 "make test",
                 "mv coverage.out unit.coverage.out",
-            ],
-        },
-        {
-            # the only run that covers the resize code the official docker
-            # images ship
-            # FIXME: run it with the libvips those images ship, see issue 3746
-            "name": "test-thumbnail-parity-vips",
-            "image": OC_CI_GOLANG,
-            "environment": {
-                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
-                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
-            },
-            "commands": [
-                "go test -tags enable_vips ./services/thumbnails/pkg/parity/...",
             ],
         },
         {
@@ -1614,7 +1600,6 @@ def e2eTestPipeline(ctx):
                         },
                         "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "pnpm playwright install chromium",
                             "pnpm bddgen",
                             "pnpm playwright test %s --project=chromium" % e2e_args,
                         ],
@@ -1763,7 +1748,6 @@ def multiServiceE2ePipeline(ctx):
                         },
                         "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "pnpm playwright install chromium",
                             "pnpm bddgen",
                             "pnpm playwright test %s --project=chromium" % e2e_args,
                         ],
@@ -2647,7 +2631,7 @@ def build():
             "name": "build",
             "image": OC_CI_GOLANG,
             "commands": [
-                "for i in $(seq 3); do make -C opencloud build ENABLE_VIPS=1 && break || sleep 1; done",
+                "for i in $(seq 3); do make -C opencloud build && break || sleep 1; done",
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
@@ -3136,7 +3120,7 @@ def cacheBrowsers(ctx):
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
             "mc ls --recursive s3/$CACHE_BUCKET/web",
             "cd %s" % dirs["web"],
-            "bash tests/woodpecker/script.sh check_browsers_cache",
+            "bash tests/woodpecker/script.sh check_browsers_cache chromium",
         ],
     }]
 
@@ -3151,16 +3135,12 @@ def cacheBrowsers(ctx):
         {
             "name": "install-browsers",
             "image": OC_CI_NODEJS,
-            "environment": {
-                "PLAYWRIGHT_BROWSERS_PATH": ".playwright",
-            },
             "commands": [
                 "cd %s" % dirs["web"],
                 ". ./.woodpecker.env",
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
-                "pnpm exec playwright install",
-                "pnpm exec playwright install --list",
-                "tar -czf %s .playwright" % dirs["playwrightBrowsersArchive"],
+                "PLAYWRIGHT_BROWSERS_PATH=/tmp/chromium/.playwright pnpm exec playwright install chromium",
+                "tar -czf %s -C /tmp/chromium .playwright" % dirs["chromiumArchive"],
             ],
         },
         {
@@ -3173,7 +3153,7 @@ def cacheBrowsers(ctx):
                 "if $BROWSER_CACHE_FOUND; then exit 0; fi",
                 "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
                 "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                "mc cp -r -a %s s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/" % dirs["playwrightBrowsersArchive"],
+                "mc cp -a %s s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/" % dirs["chromiumArchive"],
                 "mc ls --recursive s3/$CACHE_BUCKET/web",
             ],
         },
@@ -3260,31 +3240,22 @@ def restoreWebPnpmCache(extra_commands = []):
     }]
 
 def restoreBrowsersCache():
-    return [
-        {
-            "name": "restore-browsers-cache",
-            "image": MINIO_MC,
-            "environment": MINIO_MC_ENV,
-            "commands": [
-                "cd %s" % dirs["web"],
-                "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
-                "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                "mc cp -r -a s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/playwright-browsers.tar.gz %s" % dirs["web"],
-            ],
-        },
-        {
-            "name": "unzip-browsers-cache",
-            "image": OC_CI_NODEJS,
-            "commands": [
-                "tar -xf /woodpecker/src/github.com/%s/webTestRunner/playwright-browsers.tar.gz -C ." % repo_slug,
-            ],
-        },
-    ]
+    return [{
+        "name": "restore-browsers-cache",
+        "image": MINIO_MC,
+        "environment": MINIO_MC_ENV,
+        "commands": [
+            "cd %s" % dirs["web"],
+            "playwright_version=$(bash tests/woodpecker/script.sh get_playwright_version)",
+            "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
+            "mc cat s3/$CACHE_BUCKET/web/browsers-cache/$playwright_version/chromium.tar.gz | tar -xzf - -C %s" % dirs["base"],
+        ],
+    }]
 
 def emailService():
     return [{
         "name": "email",
-        "image": INBUCKET_INBUCKET,
+        "image": AXLLENT_MAILPIT,
     }]
 
 def waitForEmailService():
@@ -3292,7 +3263,7 @@ def waitForEmailService():
         "name": "wait-for-email",
         "image": OC_CI_WAIT_FOR,
         "commands": [
-            "wait-for -host email -port 9000 -timeout 600",
+            "wait-for -host email -port 8025 -timeout 600",
         ],
     }]
 
@@ -3326,6 +3297,7 @@ def ldapService():
                 "LDAP_TLS_KEY_FILE": "/opt/bitnami/openldap/share/openldap.key",
                 "LDAP_ROOT": "dc=opencloud,dc=eu",
                 "LDAP_ADMIN_PASSWORD": "admin",
+                "LDAP_CUSTOM_LDIF_DIR": "/tmp/ldif-files",
             },
             "commands": [
                 "mkdir -p /opt/bitnami/openldap/share",
@@ -3563,6 +3535,11 @@ def onlyofficeService():
             "environment": {
                 "WOPI_ENABLED": True,
                 "USE_UNAUTHORIZED_STORAGE": True,  # self signed certificates
+                # the image comes with the fonts already generated: regenerating them
+                # restarts the document server about 30 s after it is first ready, and
+                # the collaboration service can fail to fetch the discovery during that
+                # restart (https://github.com/opencloud-eu/opencloud/issues/3994)
+                "GENERATE_FONTS": False,
             },
             "commands": [
                 "cp %s/tests/config/woodpecker/only-office.json /etc/onlyoffice/documentserver/local.json" % dirs["base"],

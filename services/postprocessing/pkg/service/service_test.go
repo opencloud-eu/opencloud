@@ -13,9 +13,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/metrics"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 	microevents "go-micro.dev/v4/events"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -195,6 +195,36 @@ var _ = Describe("PostprocessingService", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrEvent)).To(BeTrue())
 			Expect(errors.Is(err, ErrFatal)).To(BeFalse())
+		})
+	})
+
+	Describe("handling UploadReady", func() {
+		uploadReady := func(uploadID string) raw.Event {
+			ev := events.UploadReady{
+				UploadID: uploadID,
+				Filename: "test.txt",
+			}
+			return raw.Event{
+				Event: events.Event{
+					ID:    uuid.New().String(),
+					Type:  reflect.TypeOf(ev).String(),
+					Event: ev,
+				},
+			}
+		}
+
+		It("ignores an event that does not belong to an upload", func() {
+			pps = newService()
+
+			Expect(pps.processEvent(uploadReady(""))).To(Succeed())
+		})
+
+		It("fails for an upload it does not know", func() {
+			pps = newService()
+
+			err := pps.processEvent(uploadReady("upload-" + uuid.New().String()))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrEvent)).To(BeTrue())
 		})
 	})
 })

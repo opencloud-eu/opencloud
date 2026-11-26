@@ -290,7 +290,10 @@ Fixtures:
 | FIELDS-12 | `id:"1$1!ab-23"` | no match | no match | no match | ✅ |
 | FIELDS-13 | `audio.artist:"Some Artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
 | FIELDS-14 | `audio.artist:"some artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
-| FIELDS-15 | `audio.duration>100` | no match | no match | no match | ✅ |
+| FIELDS-15 | `audio.duration>100` | song.mp3 | song.mp3 | song.mp3 | ✅ |
+| FIELDS-16 | `type:banana` | no match | no match | no match | ✅ |
+| FIELDS-17 | `audio.duration:200` | song.mp3 | song.mp3 | song.mp3 | ✅ |
+| FIELDS-18 | `audio.duration:long` | no match | no match | no match | ✅ |
 
 ### deleted
 
@@ -443,6 +446,55 @@ Fixtures:
 | RANGE-06 | `Mtime:"yesterday"` | no match | no match | no match | ✅ |
 | RANGE-07 | `mtime>2021` | no match | no match | no match | ✅ |
 | RANGE-08 | `name>100` | no match | no match | no match | ✅ |
+| RANGE-09 | `size>=50` | big.txt, small.txt | big.txt, small.txt | big.txt, small.txt | ✅ |
+| RANGE-10 | `size<=50` | ancient.txt, small.txt | ancient.txt, small.txt | ancient.txt, small.txt | ✅ |
+| RANGE-11 | `size>100 AND size<1000` | big.txt | big.txt | big.txt | ✅ |
+| RANGE-12 | `mtime>=2021-01-01` | big.txt, small.txt | big.txt, small.txt | big.txt, small.txt | ✅ |
+| RANGE-13 | `size:50` | small.txt | small.txt | small.txt | ✅ |
+| RANGE-14 | `size=50` | small.txt | small.txt | small.txt | ✅ |
+| RANGE-15 | `size:1.5` | no match | no match | no match | ✅ |
+| RANGE-16 | `size:5*` | no match | no match | no match | ✅ |
+| RANGE-17 | `size:>100` | no match | no match | no match | ✅ |
+| RANGE-18 | `size:<100` | no match | no match | no match | ✅ |
+| RANGE-19 | `size:>=100` | no match | no match | no match | ✅ |
+| RANGE-20 | `mtime:>"2021-01-01T00:00:00Z"` | no match | no match | no match | ✅ |
+| RANGE-21 | `mtime:>2021-01-01` | no match | no match | no match | ✅ |
+| RANGE-22 | `size:50..500` | no match | no match | no match | ✅ |
+| RANGE-23 | `mtime:2019-01-01..2020-12-31` | no match | no match | no match | ✅ |
+
+### photo
+
+Fixtures:
+
+- `bright.jpg`, MimeType = image/jpeg
+- `dark.jpg`, MimeType = image/jpeg
+- `plain.txt`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| PHOTO-01 | `photo.iso>=1000` | dark.jpg | dark.jpg | dark.jpg | ✅ |
+| PHOTO-02 | `Photo.FNumber<2` | bright.jpg | bright.jpg | bright.jpg | ✅ |
+| PHOTO-03 | `photo.focalLength>30 AND photo.iso<=3200` | dark.jpg | dark.jpg | dark.jpg | ✅ |
+| PHOTO-04 | `photo.orientation>1` | dark.jpg | dark.jpg | dark.jpg | ✅ |
+| PHOTO-05 | `photo.iso<=100` | bright.jpg | bright.jpg | bright.jpg | ✅ |
+| PHOTO-06 | `photo.cameraMake>1` | no match | no match | no match | ✅ |
+| PHOTO-07 | `location.altitude>1000` | bright.jpg | bright.jpg | bright.jpg | ✅ |
+| PHOTO-08 | `location.latitude<49` | no match | no match | no match | ✅ |
+
+### extraction
+
+Fixtures:
+
+- `given-up.pdf`
+- `waiting.png`
+- `extracted.txt`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| EXTRACTION-01 | `extractionfailure.count>=3` | given-up.pdf | given-up.pdf | given-up.pdf | ✅ |
+| EXTRACTION-02 | `ExtractionFailure.Count>=1` | given-up.pdf, waiting.png | given-up.pdf, waiting.png | given-up.pdf, waiting.png | ✅ |
+| EXTRACTION-03 | `extractionfailure.retryat>"2029-01-01T00:00:00Z"` | waiting.png | waiting.png | waiting.png | ✅ |
+| EXTRACTION-04 | `extractionfailure.retryat<"2029-01-01T00:00:00Z"` | no match | no match | no match | ✅ |
 
 ### scope
 
@@ -748,6 +800,8 @@ Fixtures:
 - `parent`, ID = 1$1!2, folder
 - `bar.pdf`, ID = 1$1!3, MimeType = application/pdf, Path = ./parent/bar.pdf, Size = 1234
 - `notes.txt`, ID = 1$1!4, Content = "foo bar baz"
+- `markup.txt`, ID = 1$1!5, Content = "foo <img src=x> qux"
+- `escaped.txt`, ID = 1$1!6, Content = "foo &lt;img src=x&gt; zap"
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -764,6 +818,8 @@ Fixtures:
 | ENTITY-11 | `path:"./parent"` reads `TotalMatches` | 2 | 2 | 2 | ✅ |
 | ENTITY-12 | `name:"*notes*"` reads `Highlights` | "" | "" | "" | ✅ |
 | ENTITY-13 | `content:bar` reads `Highlights` | foo <mark>bar</mark> baz | foo <mark>bar</mark> baz | foo <mark>bar</mark> baz | ✅ |
+| ENTITY-17 | `content:qux` reads `Highlights` | foo &lt;im...x</mark> | foo &lt;im...x</mark> | foo &lt;im...x</mark> | ✅ |
+| ENTITY-18 | `content:zap` reads `Highlights` | foo &amp;l...p</mark> | foo &amp;l...p</mark> | foo &amp;l...p</mark> | ✅ |
 | ENTITY-14 | moved to another parent, then `name:"newname"` reads `ParentId` | 1$1!9 | 1$1!9 | 1$1!9 | ✅ |
 | ENTITY-15 | moved to another parent, then `name:"bar.pdf"` reads `ParentId` | 1$1!2 | 1$1!2 | 1$1!2 | ✅ |
 | ENTITY-16 | moved to another parent, then `name:"bar.pdf"` reads `Ref.Path` | ./somewher.../bar.pdf | ./somewher.../bar.pdf | ./somewher.../bar.pdf | ✅ |

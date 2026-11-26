@@ -3,6 +3,7 @@ package defaults
 import (
 	"strings"
 
+	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
@@ -46,7 +47,7 @@ func DefaultConfig() *config.Config {
 		Thumbnails: config.Thumbnails{
 			GeneratorURL:     "http://127.0.0.1:9186",
 			GeneratorTimeout: "30s",
-			MaxInputFileSize: "50MB",
+			MaxInputFileSize: ocdefaults.ThumbnailsMaxInputImageFileSize,
 			CacheBackend:     "file",
 			Resolutions: []string{
 				"16", "32", "64", "128", "192", "256", "320", "384", "448",

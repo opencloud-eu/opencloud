@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"net/http"
 
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-chi/render"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
 	microstore "go-micro.dev/v4/store"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 )
@@ -50,6 +52,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		msg := "failed to verify logout token"
 		logger.Warn().Err(err).Msg(msg)
+		s.auditLogout(r.Context(), nil, "", audit.OutcomeFailure, "invalid_token")
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
 		return
@@ -129,6 +132,11 @@ func (s *StaticRouteHandler) notifyAndCleanUp(ctx context.Context, requestSubjec
 			}
 		}
 
+		// resolve the user before the claims are deleted
+		user := s.logoutUser(ctx, value)
+		// the marker has ended the session, whether or not the cleanup below succeeds
+		s.auditLogout(ctx, user, session, audit.OutcomeSuccess, "")
+
 		err = s.UserInfoCache.Delete(value)
 		if err != nil && !errors.Is(err, microstore.ErrNotFound) {
 			s.Logger.Warn().Err(err).Msgf("failed to delete record for: %s", key)
@@ -148,27 +156,9 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 		return errors.New("events publisher not set")
 	}
 
-	claimRecords, err := s.UserInfoCache.Read(claimKey)
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to read userinfo cache: %w", err)
-	case len(claimRecords) == 0:
-		return fmt.Errorf("no claim found for key: %s", claimKey)
-	}
-
-	var cached bcl.TokenRecord
-	if err = msgpack.Unmarshal(claimRecords[0].Value, &cached); err != nil {
-		return fmt.Errorf("failed to unmarshal claims: %w", err)
-	}
-
-	oidcClaim, ok := cached.Claims[s.Config.UserOIDCClaim].(string)
-	if !ok {
-		return fmt.Errorf("failed to get claim %w", err)
-	}
-
-	user, _, err := s.UserProvider.GetUserByClaims(ctx, s.Config.UserCS3Claim, oidcClaim)
-	if err != nil || user.GetId() == nil {
-		return fmt.Errorf("failed to get user by claims: %w", err)
+	user, err := s.userForClaimKey(ctx, claimKey)
+	if err != nil {
+		return err
 	}
 
 	e := events.BackchannelLogout{
@@ -181,4 +171,71 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 		return fmt.Errorf("failed to publish user logout event %w", err)
 	}
 	return nil
+}
+
+// userForClaimKey resolves the user of a session from the claims stored for it.
+func (s *StaticRouteHandler) userForClaimKey(ctx context.Context, claimKey string) (*userpb.User, error) {
+	claimRecords, err := s.UserInfoCache.Read(claimKey)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("failed to read userinfo cache: %w", err)
+	case len(claimRecords) == 0:
+		return nil, fmt.Errorf("no claim found for key: %s", claimKey)
+	}
+
+	var cached bcl.TokenRecord
+	if err = msgpack.Unmarshal(claimRecords[0].Value, &cached); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal claims: %w", err)
+	}
+
+	oidcClaim, ok := cached.Claims[s.Config.UserOIDCClaim].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to get claim %w", err)
+	}
+
+	user, _, err := s.UserProvider.GetUserByClaims(ctx, s.Config.UserCS3Claim, oidcClaim)
+	if err != nil || user.GetId() == nil {
+		return nil, fmt.Errorf("failed to get user by claims: %w", err)
+	}
+	return user, nil
+}
+
+// logoutUser returns the user of a session for the audit log, nil if unknown.
+func (s *StaticRouteHandler) logoutUser(ctx context.Context, claimKey string) *userpb.User {
+	if _, off := s.AuditEmitter.(audit.Discard); off || s.AuditEmitter == nil {
+		return nil
+	}
+	user, err := s.userForClaimKey(ctx, claimKey)
+	if err != nil {
+		return nil
+	}
+	return user
+}
+
+// auditLogout reports a session the identity provider ended. The request
+// comes from the identity provider, the session belongs to the user.
+func (s *StaticRouteHandler) auditLogout(ctx context.Context, user *userpb.User, session string, outcome audit.Outcome, reason string) {
+	if s.AuditEmitter == nil {
+		return
+	}
+	ev := audit.Event{
+		Definition: audit.AuthBackchannelLogout,
+		Outcome:    outcome,
+		Reason:     reason,
+		Actor:      &audit.Actor{Type: audit.ActorAnonymous},
+		Target:     audit.Target{ID: "unknown"},
+	}
+	if user != nil {
+		ev.Actor = &audit.Actor{Type: audit.ActorUser, ID: user.GetId().GetOpaqueId(), Name: user.GetDisplayName()}
+		ev.Target = audit.Target{ID: user.GetId().GetOpaqueId(), Name: user.GetUsername()}
+		ev.Tenant = user.GetId().GetTenantId()
+	}
+	if session != "" {
+		rc, _ := audit.ContextGetRequest(ctx)
+		rc.SessionID = session
+		ctx = audit.ContextSetRequest(ctx, rc)
+	}
+	if err := s.AuditEmitter.Emit(ctx, ev); err != nil {
+		s.Logger.Error().Err(err).Msg("could not emit audit event")
+	}
 }

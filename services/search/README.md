@@ -160,6 +160,20 @@ The following settings must be set:
 Additionally, the following optional settings can be set:
 
 *   `SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS=true` (default: `true`): ignore stop words like `I`, `you`, `the` during content extraction.
+*   `SEARCH_CONTENT_EXTRACTION_SIZE_LIMIT=20971520` (default: 20 MiB): files up to this size get their content extracted. Of a larger file only the metadata is extracted, such as EXIF or the image size, from its first bytes up to this size.
+*   `SEARCH_EXTRACTOR_TIKA_TIMEOUT=5m` (default: `5m`): the time one extraction may take, from downloading the file to the answer of Tika. A longer one counts as a failure of the file, see below. Raise it if OCR of large files takes longer, `0` disables the limit.
+
+#### Files Tika Cannot Parse
+
+A file Tika cannot parse, such as a broken PDF or an image the OCR fails on, is still indexed by name, path and tags, so it stays findable. The same goes for a file the storage refuses to hand out, for example one deleted meanwhile, and for a file whose extraction takes longer than `SEARCH_EXTRACTOR_TIKA_TIMEOUT` while Tika still answers a request for its version. The content is tried again on the first reindex of its space at least one hour after the failure, and on the first one at least one day after that. After the third failure the service logs a warning with the path and stops trying until the file changes. If Tika or the file is unreachable (a failed connection, a server error, too many requests or a Tika that does not answer its version within five seconds), a space reindex retries the extraction up to five times, one second apart, so a restarting Tika does not leave gaps. Once Tika was unreachable, the reindex asks Tika for its version before each extraction and skips the extraction while it gets no answer. A file still unreachable after that is indexed by name as well, this does not count as a failure and every later reindex tries again. After five such files in a row the reindex assumes Tika is down: it indexes the remaining files by name without retries until an extraction succeeds again, and reports an error naming the number of files indexed by name only once the space is done.
+
+To list the files the service gave up on, search for:
+
+```text
+extractionfailure.count>=3
+```
+
+A reindex with `--force-rescan` (see below) tries these files again regardless of the limit, for example after a Tika upgrade.
 
 ## Manually Trigger Re-Indexing a Space
 
@@ -172,15 +186,17 @@ opencloud search index --space $SPACE_ID
 It can also be used to re-index all spaces:
 
 ```shell
-opencloud search index --all-spaces --insecure
+opencloud search index --all-spaces
 ```
 
 Please note that a reindex only picks up new or changed files. Files that have already been indexed are not scanned again, even if the configuration or the whole extractor has been changed. To force a full rescan (re-running the extractor on every file) you need to use the `force-rescan` flag:
 
 
 ```shell
-opencloud search index --all-spaces --force-rescan --insecure
+opencloud search index --all-spaces --force-rescan
 ```
+
+The command connects to the service's gRPC address (`SEARCH_GRPC_ADDR`) unless `--endpoint` is given, with the TLS mode set in `OC_GRPC_CLIENT_TLS_MODE`. With `on`, the server certificate is verified against that address, so if `SEARCH_GRPC_ADDR` is a bind address such as `0.0.0.0:9220`, pass `--endpoint` with a host name the certificate is valid for.
 
 ## Metrics
 

@@ -9,6 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/sharing/pkg/config"
 )
 
@@ -38,7 +39,8 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 			// TODO build services dynamically
 			"services": map[string]any{
 				"usershareprovider": map[string]any{
-					"driver": cfg.UserSharingDriver,
+					"driver":                  cfg.UserSharingDriver,
+					"disable_new_user_shares": cfg.DisableNewUserShares,
 					"drivers": map[string]any{
 						"json": map[string]any{
 							"file":         cfg.UserSharingDrivers.JSON.File,
@@ -99,6 +101,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 					"public_share_must_have_password":    cfg.PublicShareMustHavePassword,
 					"password_policy":                    passwordPolicyCfg,
 					"driver":                             cfg.PublicSharingDriver,
+					"disable_new_public_links":           cfg.DisableNewPublicLinks,
 					"drivers": map[string]any{
 						"json": map[string]any{
 							"file":         cfg.PublicSharingDrivers.JSON.File,
@@ -134,16 +137,20 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 			},
 			"interceptors": map[string]any{
 				"eventsmiddleware": map[string]any{
-					"group":            "sharing",
-					"type":             "nats",
-					"address":          cfg.Events.Addr,
-					"clusterID":        cfg.Events.ClusterID,
-					"tls-insecure":     cfg.Events.TLSInsecure,
-					"tls-root-ca-cert": cfg.Events.TLSRootCaCertPath,
-					"enable-tls":       cfg.Events.EnableTLS,
-					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
-					"username":         cfg.Events.AuthUsername,
-					"password":         cfg.Events.AuthPassword,
+					"group":                 "sharing",
+					"type":                  "nats",
+					"address":               cfg.Events.Addr,
+					"clusterID":             cfg.Events.ClusterID,
+					"tls-insecure":          cfg.Events.TLSInsecure,
+					"tls-root-ca-cert":      cfg.Events.TLSRootCaCertPath,
+					"enable-tls":            cfg.Events.EnableTLS,
+					"name":                  generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
+					"username":              cfg.Events.AuthUsername,
+					"password":              cfg.Events.AuthPassword,
+					"audit_enabled":         cfg.Audit.Enabled,
+					"audit_mode":            cfg.Audit.Mode,
+					"audit_service":         cfg.Service.Name,
+					"audit_service_version": version.GetString(),
 				},
 				"prometheus": map[string]any{
 					"namespace": "opencloud",

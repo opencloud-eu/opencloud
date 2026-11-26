@@ -28,8 +28,10 @@ type Config struct {
 	DataServerURL string  `yaml:"data_server_url" env:"STORAGE_USERS_DATA_SERVER_URL" desc:"URL of the data server, needs to be reachable by the data gateway provided by the frontend service or the user if directly exposed." introductionVersion:"1.0.0"`
 
 	Events            Events            `yaml:"events"`
+	Audit             Audit             `yaml:"audit"`
 	FilemetadataCache FilemetadataCache `yaml:"filemetadata_cache"`
 	IDCache           IDCache           `yaml:"id_cache"`
+	RevisionsCleanup  RevisionsCleanup  `yaml:"revisions_cleanup"`
 	MountID           string            `yaml:"mount_id" env:"STORAGE_USERS_MOUNT_ID" desc:"Mount ID of this storage." introductionVersion:"1.0.0"`
 	ReadOnly          bool              `yaml:"readonly" env:"STORAGE_USERS_READ_ONLY" desc:"Set this storage to be read-only." introductionVersion:"1.0.0"`
 	UploadExpiration  int64             `yaml:"upload_expiration" env:"STORAGE_USERS_UPLOAD_EXPIRATION" desc:"Duration in seconds after which uploads will expire. Note that when setting this to a low number, uploads could be cancelled before they are finished and return a 403 to the user." introductionVersion:"1.0.0"`
@@ -213,6 +215,12 @@ type PosixDriver struct {
 	InotifyStatsFrequency    time.Duration `yaml:"inotify_stats_frequency" env:"STORAGE_USERS_POSIX_INOTIFY_STATS_FREQUENCY" desc:"Frequency to log inotify stats." introductionVersion:"4.0.0"`
 }
 
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;STORAGE_USERS_AUDIT_ENABLED" desc:"Emit audit events for the CS3 calls of the service to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;STORAGE_USERS_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort', the only mode for now, never blocks a request and counts dropped events." introductionVersion:"%%NEXT%%"`
+}
+
 // Events combines the configuration options for the event bus.
 type Events struct {
 	Addr              string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;STORAGE_USERS_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
@@ -226,9 +234,19 @@ type Events struct {
 	// TODO use TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;STORAGE_USERS_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided STORAGE_USERS_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 }
 
+// RevisionsCleanup configures the deletion of old revisions, for the 'decomposed', 'decomposeds3' and 'posix' storage drivers
+type RevisionsCleanup struct {
+	Strategy              string        `yaml:"strategy" env:"STORAGE_USERS_REVISIONS_CLEANUP_STRATEGY" desc:"Which old revisions (versions) of a file to delete whenever the file gets a new revision. 'disabled' keeps all revisions. A strategy is a comma-separated list of up to three parts: a number of revisions, which counts from the newest one (e.g. '10'), a duration with one of the units 'w', 'd', 'h', 'm' or 's' (e.g. '30d'; with the uppercase units 'D' and 'W', days and weeks count from midnight, e.g. '1D'), and 'auto', which thins out revisions the older they get. 'X' deletes everything beyond X, e.g. '10', '30d', or '0' to delete all revisions. 'X, auto' keeps everything within X and thins out the older revisions, e.g. '14d, auto'. 'auto, X' deletes everything beyond X and thins out the rest, e.g. 'auto, 90d'. 'X1, X2' keeps everything within X1 and deletes everything beyond X2, e.g. '5, 30d'. 'X1, auto, X2' also thins out in between, e.g. '7d, auto, 90d'. The age of a revision is the time it was created, i.e. when the file was changed and its previous content became the revision, not the modification time of that content, which the version list shows. Only files that get a new revision are cleaned up, including revisions created from changes on disk with posix. An invalid value makes the storage driver fail at startup." introductionVersion:"%%NEXT%%"`
+	Async                 bool          `yaml:"async" env:"STORAGE_USERS_REVISIONS_CLEANUP_ASYNC" desc:"Run the revision cleanup in background workers, so that it does not slow down the upload, restore or change that created the new revision. When set to false, the cleanup runs right away." introductionVersion:"%%NEXT%%"`
+	AsyncWorkers          int           `yaml:"async_workers" env:"STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_WORKERS" desc:"Number of background workers for the revision cleanup. A value of 0 determines it automatically: half the available CPUs, respecting container CPU limits, but at least 2." introductionVersion:"%%NEXT%%"`
+	AsyncQueueSize        int           `yaml:"async_queue_size" env:"STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE" desc:"Number of files that can wait for a background revision cleanup. A value of 0 determines it automatically: 64 per worker." introductionVersion:"%%NEXT%%"`
+	AsyncQueueFull        string        `yaml:"async_queue_full" env:"STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_FULL" desc:"What happens when a file gets a new revision while the revision cleanup queue is full. 'drop' skips the cleanup of that file, which is cleaned up with its next revision. 'block' waits for room, up to STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_FULL_TIMEOUT." introductionVersion:"%%NEXT%%"`
+	AsyncQueueFullTimeout time.Duration `yaml:"async_queue_full_timeout" env:"STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_FULL_TIMEOUT" desc:"How long 'block' (see STORAGE_USERS_REVISIONS_CLEANUP_ASYNC_QUEUE_FULL) waits for room in the revision cleanup queue at most, after which the cleanup of that file is skipped as with 'drop'. A value of 0 waits as long as it takes, so that no cleanup is ever skipped, but then writes can slow down without bound under heavy load. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
 // FilemetadataCache holds cache config
 type FilemetadataCache struct {
-	Store                string        `yaml:"store" env:"OC_CACHE_STORE;STORAGE_USERS_FILEMETADATA_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'redis-sentinel', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_CACHE_STORE;STORAGE_USERS_FILEMETADATA_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"nodes" env:"OC_CACHE_STORE_NODES;STORAGE_USERS_FILEMETADATA_CACHE_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	Database             string        `yaml:"database" env:"OC_CACHE_DATABASE;STORAGE_USERS_FILEMETADATA_CACHE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL;STORAGE_USERS_FILEMETADATA_CACHE_TTL" desc:"Default time to live for user info in the user info cache. Only applied when access tokens has no expiration. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
@@ -242,7 +260,7 @@ type FilemetadataCache struct {
 
 // IDCache holds cache config
 type IDCache struct {
-	Store                string        `yaml:"store" env:"OC_CACHE_STORE;STORAGE_USERS_ID_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'redis-sentinel', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_CACHE_STORE;STORAGE_USERS_ID_CACHE_STORE" desc:"The type of the cache store. Supported values are: 'memory', 'nats-js-kv', 'noop'. The 'posix' driver only supports 'nats-js-kv'. See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"nodes" env:"OC_CACHE_STORE_NODES;STORAGE_USERS_ID_CACHE_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	Database             string        `yaml:"database" env:"OC_CACHE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL;STORAGE_USERS_ID_CACHE_TTL" desc:"Default time to live for user info in the user info cache. Only applied when access tokens have no expiration. Defaults to 300s which is derived from the underlaying package though not explicitly set as default. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`

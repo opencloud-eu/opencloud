@@ -15,8 +15,8 @@ import (
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -264,7 +264,7 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 				}
 
 				if root := shareStat.GetInfo().GetSpace().GetRoot(); root != nil {
-					parentReference.SetDriveId(storagespace.FormatResourceID(root))
+					parentReference.SetDriveId(storagespace.FormatStorageID(root.GetStorageId(), root.GetSpaceId()))
 				}
 				if !reflect.ValueOf(*parentReference).IsZero() {
 					remoteItem.ParentReference = parentReference
@@ -285,6 +285,8 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 			if etag := shareStat.GetInfo().GetEtag(); etag != "" {
 				driveItem.SetETag(etag)
 			}
+
+			driveItem.SetLibreGraphMeFollowing(isFollowing(ctx, shareStat.GetInfo()))
 
 			// connect the dots
 			{
@@ -619,7 +621,7 @@ func cs3ReceivedOCMSharesToDriveItems(ctx context.Context,
 				}
 
 				if root := shareStat.GetInfo().GetSpace().GetRoot(); root != nil {
-					parentReference.SetDriveId(storagespace.FormatResourceID(root))
+					parentReference.SetDriveId(storagespace.FormatStorageID(root.GetStorageId(), root.GetSpaceId()))
 				}
 				if !reflect.ValueOf(*parentReference).IsZero() {
 					remoteItem.ParentReference = parentReference

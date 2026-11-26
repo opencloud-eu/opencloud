@@ -10,6 +10,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
 
+// the task timeout of tika server 3, tika 4 allows up to an hour per file
+const defaultTikaTimeout = 5 * time.Minute
+
 // FullDefaultConfig returns a fully initialized default configuration
 func FullDefaultConfig() *config.Config {
 	cfg := DefaultConfig()
@@ -51,6 +54,7 @@ func DefaultConfig() *config.Config {
 			Tika: config.ExtractorTika{
 				TikaURL:        "http://127.0.0.1:9998",
 				CleanStopWords: false,
+				Timeout:        defaultTikaTimeout,
 			},
 		},
 		Events: config.Events{

@@ -13,11 +13,11 @@ import (
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID *storageprovider.ResourceId, createLink libregraph.DriveItemCreateLink) (libregraph.Permission, error) {
@@ -62,7 +62,7 @@ func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID
 	}
 	expirationDate, isSet := createLink.GetExpirationDateTimeOk()
 	if isSet {
-		expireTime := parseAndFillUpTime(expirationDate)
+		expireTime := timePointerToTS(expirationDate)
 		if expireTime == nil {
 			s.logger.Debug().Interface("createLink", createLink).Send()
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid expiration date")
@@ -153,9 +153,15 @@ func (api DriveItemPermissionsApi) CreateLink(w http.ResponseWriter, r *http.Req
 	logger := api.logger.SubloggerWithRequestID(r.Context())
 	logger.Info().Msg("calling create link")
 
-	_, driveItemID, err := GetDriveAndItemIDParam(r, &logger)
+	driveID, driveItemID, err := GetDriveAndItemIDParam(r, &logger)
 	if err != nil {
 		errorcode.RenderError(w, r, err)
+		return
+	}
+
+	if IsShareJail(driveID) && driveID.GetSpaceId() == driveItemID.GetOpaqueId() {
+		logger.Debug().Interface("driveItemID", driveItemID).Msg("cannot create link on shares space root")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "cannot create link on shares space root")
 		return
 	}
 
@@ -230,6 +236,8 @@ func (api DriveItemPermissionsApi) SetLinkPassword(w http.ResponseWriter, r *htt
 
 	newPermission, err := api.driveItemPermissionsService.SetPublicLinkPassword(ctx, itemID, permissionID, password.GetPassword())
 	if err != nil {
+		logger := api.logger.SubloggerWithRequestID(ctx)
+		errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not set link password")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -264,6 +272,8 @@ func (api DriveItemPermissionsApi) SetSpaceRootLinkPassword(w http.ResponseWrite
 	ctx := r.Context()
 	newPermission, err := api.driveItemPermissionsService.SetPublicLinkPasswordOnSpaceRoot(ctx, &driveID, permissionID, password.GetPassword())
 	if err != nil {
+		logger := api.logger.SubloggerWithRequestID(ctx)
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(&driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not set link password")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -275,7 +285,8 @@ func (api DriveItemPermissionsApi) SetSpaceRootLinkPassword(w http.ResponseWrite
 func (s DriveItemPermissionsService) updatePublicLinkPermission(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId, newPermission *libregraph.Permission) (perm *libregraph.Permission, err error) {
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
-		s.logger.Error().Err(err).Msg("could not select next gateway client")
+		logger := s.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("could not select next gateway client")
 		return nil, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
@@ -296,7 +307,7 @@ func (s DriveItemPermissionsService) updatePublicLinkPermission(ctx context.Cont
 		expirationDate := newPermission.GetExpirationDateTime()
 		update := &link.UpdatePublicShareRequest_Update{
 			Type:  link.UpdatePublicShareRequest_Update_TYPE_EXPIRATION,
-			Grant: &link.Grant{Expiration: parseAndFillUpTime(&expirationDate)},
+			Grant: &link.Grant{Expiration: timePointerToTS(&expirationDate)},
 		}
 		perm, err = s.updatePublicLink(ctx, permissionID, update)
 		if err != nil {
@@ -408,19 +419,9 @@ func (s DriveItemPermissionsService) updatePublicLink(ctx context.Context, permi
 	return permission, nil
 }
 
-func parseAndFillUpTime(t *time.Time) *types.Timestamp {
+func timePointerToTS(t *time.Time) *types.Timestamp {
 	if t == nil || t.IsZero() {
 		return nil
 	}
-
-	// the link needs to be valid for the whole day
-	tLink := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-	tLink = tLink.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-
-	final := tLink.UnixNano()
-
-	return &types.Timestamp{
-		Seconds: uint64(final / 1000000000),
-		Nanos:   uint32(final % 1000000000),
-	}
+	return utils.TimeToTS(*t)
 }

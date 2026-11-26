@@ -281,6 +281,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		cfg.Frontend.Archiver = _insecureService
 		cfg.Frontend.OCDav = _insecureService
 		cfg.Graph.Spaces = _insecureService
+		cfg.Webfinger = _insecureService
 		cfg.Graph.Events = _insecureEvents
 		cfg.Notifications.Notifications.Events = _insecureEvents
 		cfg.Search.Events = _insecureEvents

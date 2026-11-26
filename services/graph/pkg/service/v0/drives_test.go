@@ -195,3 +195,31 @@ func TestSpaceNameValidation(t *testing.T) {
 	// set max length back to protect other tests
 	_maxSpaceNameLength = 255
 }
+
+func TestTrimSpaceName(t *testing.T) {
+	// the names are written as escape sequences on purpose: written directly, these characters
+	// would be invisible or look like ordinary spaces in the source code
+	testCases := []struct {
+		Alias     string
+		SpaceName string
+		Expected  string
+	}{
+		{"Unchanged", "Space", "Space"},
+		{"Spaces around", "  Space  ", "Space"},
+		{"Spaces inside are kept", "My Space", "My Space"},
+		// U+00A0 no-break space, U+3000 ideographic space
+		{"Unicode spaces around", "\u00a0Space\u3000", "Space"},
+		// U+200B zero-width space, U+FEFF byte order mark
+		{"Invisible characters around", "\u200bSpace\ufeff", "Space"},
+		// U+2060 word joiner, U+2003 em space, U+200E left-to-right mark
+		{"Mixed around", " \u2060\u2003Space\u200e ", "Space"},
+		// U+200D zero-width joiner, as in the emoji sequence of a family
+		{"Zero-width joiner inside is kept", "Team \U0001F468\u200d\U0001F469\u200d\U0001F467", "Team \U0001F468\u200d\U0001F469\u200d\U0001F467"},
+		// U+200B zero-width space, U+200C zero-width non-joiner, U+00A0 no-break space
+		{"Only invisible characters", "\u200b\u200c\u00a0", ""},
+	}
+
+	for _, tc := range testCases {
+		require.Equal(t, tc.Expected, trimSpaceName(tc.SpaceName), tc.Alias)
+	}
+}

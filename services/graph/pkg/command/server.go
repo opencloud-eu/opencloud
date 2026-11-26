@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/opencloud-eu/opencloud/pkg/auditemitter"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -20,8 +21,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
 	evc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/events"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/nats-io/nats.go"
@@ -123,6 +125,21 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
+			auditEmitter, err := auditemitter.New(ctx, cfg.Service.Name, auditemitter.Settings(cfg.Audit), raw.Config{
+				Endpoint:             cfg.Events.Endpoint,
+				Cluster:              cfg.Events.Cluster,
+				TLSInsecure:          cfg.Events.TLSInsecure,
+				TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+				EnableTLS:            cfg.Events.EnableTLS,
+				AuthUsername:         cfg.Events.AuthUsername,
+				AuthPassword:         cfg.Events.AuthPassword,
+			}, logger)
+			if err != nil {
+				logger.Error().Err(err).Msg("Error initializing the audit emitter")
+				return err
+			}
+			defer auditemitter.Close(auditEmitter)
+
 			gr := runner.NewGroup()
 
 			if !cfg.HTTP.Disabled {
@@ -138,6 +155,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					http.Metrics(mtrcs),
 					http.TraceProvider(traceProvider),
 					http.NatsKeyValue(kv),
+					http.AuditEmitter(auditEmitter),
 				)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "http").Msg("Failed to initialize server")

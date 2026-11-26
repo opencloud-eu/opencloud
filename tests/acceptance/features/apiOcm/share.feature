@@ -1061,7 +1061,11 @@ Feature: an user shares resources using ScienceMesh application
                           "maxItems": 1,
                           "items": {
                             "type": "object",
-                            "required": ["@libre.graph.permissions.actions"]
+                            "properties": {
+                              "@libre.graph.permissions.actions": {
+                                "type": "null"
+                              }
+                            }
                           }
                         }
                       }
@@ -1115,7 +1119,7 @@ Feature: an user shares resources using ScienceMesh application
       """
 
   @issue-9926
-  Scenario: federated user tries to update a shared file after local user updates role
+  Scenario: federated user updates a shared file after sharer has updated the role
     Given using spaces DAV path
     And using server "LOCAL"
     And "Alice" has created the federation share invitation
@@ -1136,9 +1140,9 @@ Feature: an user shares resources using ScienceMesh application
       | resource           | textfile.txt             |
     And using server "REMOTE"
     When user "Brian" updates the content of federated share "textfile.txt" with "this is a new content" using the WebDAV API
-    Then the HTTP status code should be "500"
+    Then the HTTP status code should be "204"
     And using server "LOCAL"
-    And the content of file "textfile.txt" for user "Alice" should be "ocm test"
+    And the content of file "textfile.txt" for user "Alice" should be "this is a new content"
 
   @issue-10689
   Scenario: federation user lists all the spaces
