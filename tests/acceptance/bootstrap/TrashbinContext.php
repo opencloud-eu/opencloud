@@ -136,14 +136,13 @@ class TrashbinContext implements Context {
 	 * @param string|null $user user
 	 * @param string $depth
 	 *
-	 * @return array response
+	 * @return ResponseInterface
 	 * @throws Exception
 	 */
-	public function listTopOfTrashbinFolder(?string $user, string $depth = "1"): array {
+	public function listTopOfTrashbinFolder(?string $user, string $depth = "1"): ResponseInterface {
 		$password = $this->featureContext->getPasswordForUser($user);
 		$davPathVersion = $this->featureContext->getDavPathVersion();
 
-		$suffixPath = $user;
 		$spaceId = null;
 		if ($davPathVersion === WebDavHelper::DAV_VERSION_SPACES) {
 			$spaceId = WebDavHelper::getPersonalSpaceIdForUser(
@@ -152,9 +151,8 @@ class TrashbinContext implements Context {
 				$password,
 				$this->featureContext->getStepLineRef()
 			);
-			$suffixPath = $spaceId;
 		}
-		$response = WebDavHelper::listFolder(
+		return WebDavHelper::listFolder(
 			$this->featureContext->getBaseUrl(),
 			$user,
 			$password,
@@ -171,23 +169,6 @@ class TrashbinContext implements Context {
 			'trash-bin',
 			$davPathVersion
 		);
-		$this->featureContext->setResponse($response);
-
-		$files = $this->getTrashbinContentFromResponseXml(
-			HttpRequestHelper::getResponseXml(
-				$response,
-				__METHOD__
-			)
-		);
-		// filter root element
-		$files = \array_filter(
-			$files,
-			static function ($element) use ($davPathVersion, $suffixPath) {
-				$davPath = WebDavHelper::getDavPath($davPathVersion, $suffixPath, "trash-bin");
-				return ($element['href'] !== "/" . $davPath . "/");
-			}
-		);
-		return $files;
 	}
 
 	/**
@@ -335,7 +316,7 @@ class TrashbinContext implements Context {
 	 */
 	#[When('user :user lists the resources in the trashbin with depth :depth using the WebDAV API')]
 	public function userGetsFilesInTheTrashbinWithDepthUsingTheWebdavApi(string $user, string $depth): void {
-		$this->listTopOfTrashbinFolder($user, $depth);
+		$this->featureContext->setResponse($this->listTopOfTrashbinFolder($user, $depth));
 	}
 
 	/**

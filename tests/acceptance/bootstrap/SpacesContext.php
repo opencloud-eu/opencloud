@@ -1073,14 +1073,14 @@ class SpacesContext implements Context {
 		TableNode $expectedFiles
 	): void {
 		$space = $this->getSpaceByName($user, $spaceName);
-		$this->featureContext->setResponse($this->propfindSpace($user, $spaceName));
 		$this->featureContext->propfindResultShouldContainEntries(
 			$shouldOrNot,
 			$expectedFiles,
 			$user,
 			'PROPFIND',
 			'',
-			$space['id']
+			$space['id'],
+			$this->propfindSpace($user, $spaceName)
 		);
 	}
 
@@ -1105,14 +1105,14 @@ class SpacesContext implements Context {
 		TableNode $expectedFiles
 	): void {
 		$space = $this->getSpaceByName($user, $spaceName);
-		$this->featureContext->setResponse($this->propfindSpace($user, $spaceName, $folderPath));
 		$this->featureContext->propfindResultShouldContainEntries(
 			$shouldOrNot,
 			$expectedFiles,
 			$this->featureContext->getActualUsername($user),
 			'PROPFIND',
 			$folderPath,
-			$space['id']
+			$space['id'],
+			$this->propfindSpace($user, $spaceName, $folderPath)
 		);
 	}
 
@@ -2525,7 +2525,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
-	#[Given('user :user renames file with id :fileId to :destinationFile inside space :spaceName')]
+	#[When('user :user renames file with id :fileId to :destinationFile inside space :spaceName')]
 	public function userRenamesFileWithIdToInsideSpace(
 		string $user,
 		string $fileId,
