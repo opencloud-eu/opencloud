@@ -312,6 +312,15 @@ _ocdav: api compatibility, return correct status code_
 
 - [coreApiTrashbin/trashbinSharingToShares.feature:277](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiTrashbin/trashbinSharingToShares.feature#L277)
 
+#### [Report response doesn't contain <d:getetag>](https://github.com/opencloud-eu/opencloud/issues/3501)
+
+- [apiSearch1/search.feature:459](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L459)
+- [apiSearch1/search.feature:460](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L460)
+- [apiSearch1/search.feature:461](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L461)
+- [apiSearch1/search.feature:483](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L483)
+- [apiSearch1/search.feature:484](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L484)
+- [apiSearch1/search.feature:485](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L485)
+
 ### Won't fix
 
 Not everything needs to be implemented for opencloud.
