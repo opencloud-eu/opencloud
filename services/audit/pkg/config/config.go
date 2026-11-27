@@ -18,8 +18,7 @@ type Config struct {
 	Stream Stream `yaml:"stream"`
 	Output Output `yaml:"output"`
 
-	// Legacy runs the old audit log on the domain events instead of the audit stream.
-	Legacy   Legacy   `yaml:"legacy"`
+	// Auditlog configures the legacy audit log, which runs while Stream.Enabled is false.
 	Auditlog Auditlog `yaml:"auditlog"`
 
 	Context context.Context `yaml:"-"`
@@ -38,6 +37,10 @@ type Events struct {
 
 // Stream configures the JetStream stream "audit", the buffer between the services and the audit service.
 type Stream struct {
+	// Enabled is read from OC_AUDIT_ENABLED like in the services that emit the audit events, so that
+	// one variable switches the whole installation, and existing installations keep the legacy audit
+	// log until they turn the new one on.
+	Enabled  bool          `yaml:"enabled" env:"OC_AUDIT_ENABLED;AUDIT_STREAM_ENABLED" desc:"Write the audit records of the audit stream. OC_AUDIT_ENABLED also makes the services emit them. If false, the deprecated legacy audit log runs instead, with the AUDIT_LOG_TO_CONSOLE, AUDIT_LOG_TO_FILE, AUDIT_FILEPATH and AUDIT_FORMAT settings." introductionVersion:"%%NEXT%%"`
 	Replicas int           `yaml:"replicas" env:"AUDIT_STREAM_REPLICAS" desc:"Number of replicas of the audit stream in a clustered NATS. Use 3 in production clusters." introductionVersion:"%%NEXT%%"`
 	MaxAge   time.Duration `yaml:"max_age" env:"AUDIT_STREAM_MAX_AGE" desc:"How long audit events stay in the stream. The stream is a buffer for outages of the audit service, not the archive. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 }
@@ -54,15 +57,10 @@ type OTLP struct {
 	Insecure bool   `yaml:"insecure" env:"AUDIT_OUTPUT_OTLP_INSECURE" desc:"Connect to the OpenTelemetry Collector without TLS." introductionVersion:"%%NEXT%%"`
 }
 
-// Legacy configures the legacy audit log.
-type Legacy struct {
-	Enabled bool `yaml:"enabled" env:"AUDIT_LEGACY_ENABLED" desc:"Run the legacy audit log on the domain events instead of the audit stream. It uses the AUDIT_LOG_TO_CONSOLE, AUDIT_LOG_TO_FILE, AUDIT_FILEPATH and AUDIT_FORMAT settings." introductionVersion:"%%NEXT%%" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The legacy audit log is replaced by the audit stream and will be removed." deprecationReplacement:"AUDIT_OUTPUT_STDOUT"`
-}
-
 // Auditlog holds audit log information, only used by the legacy audit log.
 type Auditlog struct {
-	LogToConsole bool   `yaml:"log_to_console" env:"AUDIT_LOG_TO_CONSOLE" desc:"Logs to stdout if set to 'true'. Independent of the LOG_TO_FILE option." introductionVersion:"1.0.0"`
-	LogToFile    bool   `yaml:"log_to_file" env:"AUDIT_LOG_TO_FILE" desc:"Logs to file if set to 'true'. Independent of the LOG_TO_CONSOLE option." introductionVersion:"1.0.0"`
-	FilePath     string `yaml:"filepath" env:"AUDIT_FILEPATH" desc:"Filepath of the logfile. Mandatory if LOG_TO_FILE is set to 'true'." introductionVersion:"1.0.0"`
-	Format       string `yaml:"format" env:"AUDIT_FORMAT" desc:"Log format. Supported values are '' (empty) and 'json'. Using 'json' is advised, '' (empty) renders the 'minimal' format. See the text description for more details." introductionVersion:"1.0.0"`
+	LogToConsole bool   `yaml:"log_to_console" env:"AUDIT_LOG_TO_CONSOLE" desc:"Logs to stdout if set to 'true'. Independent of the LOG_TO_FILE option. Only used by the legacy audit log." introductionVersion:"1.0.0" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The legacy audit log is replaced by the audit stream, enable it with OC_AUDIT_ENABLED. Without it, the audit service will not start once the legacy audit log is removed." deprecationReplacement:"AUDIT_OUTPUT_STDOUT"`
+	LogToFile    bool   `yaml:"log_to_file" env:"AUDIT_LOG_TO_FILE" desc:"Logs to file if set to 'true'. Independent of the LOG_TO_CONSOLE option. Only used by the legacy audit log." introductionVersion:"1.0.0" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The legacy audit log is replaced by the audit stream, enable it with OC_AUDIT_ENABLED. Without it, the audit service will not start once the legacy audit log is removed. The audit stream writes to stdout or to an OpenTelemetry Collector, not to a file." deprecationReplacement:"AUDIT_OUTPUT_OTLP_ENDPOINT"`
+	FilePath     string `yaml:"filepath" env:"AUDIT_FILEPATH" desc:"Filepath of the logfile. Mandatory if LOG_TO_FILE is set to 'true'. Only used by the legacy audit log." introductionVersion:"1.0.0" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The legacy audit log is replaced by the audit stream, enable it with OC_AUDIT_ENABLED. Without it, the audit service will not start once the legacy audit log is removed. The audit stream writes to stdout or to an OpenTelemetry Collector, not to a file." deprecationReplacement:"AUDIT_OUTPUT_OTLP_ENDPOINT"`
+	Format       string `yaml:"format" env:"AUDIT_FORMAT" desc:"Log format. Supported values are '' (empty) and 'json'. Using 'json' is advised, '' (empty) renders the 'minimal' format. See the text description for more details. Only used by the legacy audit log." introductionVersion:"1.0.0" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The legacy audit log is replaced by the audit stream, enable it with OC_AUDIT_ENABLED. Without it, the audit service will not start once the legacy audit log is removed. The audit stream always writes JSON." deprecationReplacement:""`
 }

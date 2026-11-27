@@ -32,9 +32,15 @@ const (
 func NewOIDCAuthenticator(opts ...Option) *OIDCAuthenticator {
 	options := newOptions(opts...)
 
+	loginStore := options.AuditLoginStore
+	if loginStore == nil {
+		loginStore = options.UserInfoCache
+	}
+
 	return &OIDCAuthenticator{
 		Logger:                  options.Logger,
 		userInfoCache:           options.UserInfoCache,
+		loginStore:              loginStore,
 		HTTPClient:              options.HTTPClient,
 		OIDCIss:                 options.OIDCIss,
 		DefaultTokenCacheTTL:    options.DefaultAccessTokenTTL,
@@ -58,7 +64,9 @@ type OIDCAuthenticator struct {
 	skipUserInfo            bool
 	// auditLogins makes the authenticator tell new logins from renewed tokens
 	auditLogins bool
-	TimeFunc    func() time.Time
+	// loginStore keeps the sessions already recorded as logins
+	loginStore store.Store
+	TimeFunc   func() time.Time
 }
 
 func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[string]any, bool, error) {
@@ -262,10 +270,11 @@ func (m *OIDCAuthenticator) Authenticate(r *http.Request) AuthenticationResult {
 	return Succeeded(r.WithContext(oidc.NewContext(ctx, claims)))
 }
 
-// loginTTL is how long a session counts as logged in for the audit log. It
-// only has to outlive the session at the identity provider; a session that
-// lasts longer is recorded as a new login once a day.
-const loginTTL = 24 * time.Hour
+// AuditLoginTTL is how long a session counts as logged in for the audit log.
+// It only has to outlive the session at the identity provider; a session that
+// lasts longer is recorded as a new login once a day. Stores that only support
+// a TTL per bucket, like nats-js-kv, need it as the TTL of the login store.
+const AuditLoginTTL = 24 * time.Hour
 
 // newLogin reports whether a new access token starts a login for the audit
 // log. A token with a session ID, as Keycloak issues them, renews the session
@@ -277,14 +286,14 @@ func (m *OIDCAuthenticator) newLogin(claims map[string]any) bool {
 		return true
 	}
 	key := loginKey(sid, oidcClientID(claims))
-	records, err := m.userInfoCache.Read(key)
+	records, err := m.loginStore.Read(key)
 	switch {
 	case err == nil && len(records) > 0:
 		return false
 	case err != nil && !errors.Is(err, store.ErrNotFound):
 		m.Logger.Error().Err(err).Msg("could not read the login record, recording a login")
 	}
-	if err := m.userInfoCache.Write(&store.Record{Key: key, Value: []byte{1}, Expiry: loginTTL}); err != nil {
+	if err := m.loginStore.Write(&store.Record{Key: key, Value: []byte{1}, Expiry: AuditLoginTTL}); err != nil {
 		m.Logger.Error().Err(err).Msg("could not write the login record")
 	}
 	return true

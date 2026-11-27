@@ -127,7 +127,12 @@ func (g Graph) auditRoute(d *audit.Definition, idParam string, report func(audit
 			target := audit.Target{ID: "unknown"}
 			switch {
 			case idParam != "":
+				// the IDs of the domain events are unescaped, a failure and a
+				// success record of the same object must have the same ID
 				target.ID = chi.URLParam(r, idParam)
+				if unescaped, err := url.PathUnescape(target.ID); err == nil {
+					target.ID = unescaped
+				}
 			case d == audit.UserPasswordChange:
 				if u, ok := revactx.ContextGetUser(r.Context()); ok {
 					target.ID = u.GetId().GetOpaqueId()

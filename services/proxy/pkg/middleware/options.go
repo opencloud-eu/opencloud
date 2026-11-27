@@ -26,6 +26,9 @@ type Option func(o *Options)
 type Options struct {
 	// AuditEmitter reports logins and failed logins
 	AuditEmitter audit.Emitter
+	// AuditLoginStore keeps the OIDC sessions already recorded as logins, the
+	// UserInfoCache if not set
+	AuditLoginStore store.Store
 	// Logger to use for logging, must be set
 	Logger log.Logger
 	// PolicySelectorConfig for using the policy selector
@@ -284,11 +287,17 @@ func TenantIDMappingEnabled(val bool) Option {
 	}
 }
 
-// EventsPublisher sets the events publisher.
 // AuditEmitter sets the emitter for audit events.
 func AuditEmitter(e audit.Emitter) Option {
 	return func(o *Options) {
 		o.AuditEmitter = e
+	}
+}
+
+// AuditLoginStore sets the store for the OIDC sessions already recorded as logins.
+func AuditLoginStore(s store.Store) Option {
+	return func(o *Options) {
+		o.AuditLoginStore = s
 	}
 }
 

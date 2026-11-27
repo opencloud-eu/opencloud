@@ -175,6 +175,19 @@ func TestLagCountsUnackedRecords(t *testing.T) {
 	assert.Equal(t, float64(7), lag(&jetstream.ConsumerInfo{NumPending: 3, NumAckPending: 4}))
 }
 
+func TestNextReadDelay(t *testing.T) {
+	var d time.Duration
+	var got []time.Duration
+	for range 8 {
+		d = nextReadDelay(d, 5*time.Second)
+		got = append(got, d)
+	}
+	assert.Equal(t, []time.Duration{
+		100 * time.Millisecond, 200 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond,
+		1600 * time.Millisecond, 3200 * time.Millisecond, 5 * time.Second, 5 * time.Second,
+	}, got)
+}
+
 func TestRunEndToEnd(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
