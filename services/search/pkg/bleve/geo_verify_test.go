@@ -1,17 +1,67 @@
 package bleve_test
 
 import (
+	"context"
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/search/query"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
+	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
+
+var _ = Describe("Location geohash sibling", func() {
+	var (
+		idx bleveSearch.Index
+		eng *bleve.Backend
+	)
+
+	// the geohash is written by the backend, not by PrepareForIndex
+	cells := func() []string {
+		req := bleveSearch.NewSearchRequest(bleveSearch.NewMatchAllQuery())
+		req.Size = 0
+		fr := bleveSearch.NewFacetRequest("location_geohash", 10)
+		fr.TermPrefix = "5/"
+		req.AddFacet("cells", fr)
+		res, err := idx.Search(req)
+		Expect(err).ToNot(HaveOccurred())
+		var terms []string
+		for _, term := range res.Facets["cells"].Terms.Terms() {
+			terms = append(terms, term.Term)
+		}
+		return terms
+	}
+
+	BeforeEach(func() {
+		idxMapping, err := bleve.NewMapping()
+		Expect(err).ToNot(HaveOccurred())
+		idx, err = bleveSearch.NewMemOnly(idxMapping)
+		Expect(err).ToNot(HaveOccurred())
+		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+
+		lon, lat := 10.40744, 57.64911
+		r := search.Resource{
+			ID:       "x",
+			Document: content.Document{Name: "team.jpg", Location: &libregraph.GeoCoordinates{Longitude: &lon, Latitude: &lat}},
+		}
+		Expect(eng.Upsert(r.ID, r)).To(Succeed())
+	})
+
+	It("indexes one depth-tagged term per precision", func() {
+		Expect(cells()).To(Equal([]string{"5/u4pru"}))
+	})
+
+	It("keeps the geohash when tags are updated", func() {
+		Expect(eng.Update(context.Background(), "x", search.MetadataUpdate{Tags: []string{"alpha"}})).To(Succeed())
+		Expect(cells()).To(Equal([]string{"5/u4pru"}))
+	})
+})
 
 // geoFixture builds an in-memory bleve index with a single resource carrying
 // the given lon/lat/alt, indexed through the full bleve pipeline.

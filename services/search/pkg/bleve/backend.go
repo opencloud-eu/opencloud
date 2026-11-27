@@ -20,7 +20,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -217,7 +216,7 @@ func (b *Backend) Update(_ context.Context, id string, u search.MetadataUpdate) 
 	r.Tags = u.Tags
 	r.Favorites = u.Favorites
 
-	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	doc, err := prepareDocument(*r)
 	if err != nil {
 		return err
 	}

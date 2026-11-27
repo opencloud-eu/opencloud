@@ -53,7 +53,7 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 // type-specific adaptations via the mapping package) and appends it to the
 // batch under id.
 func (b *Batch) indexResource(id string, r search.Resource) error {
-	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	doc, err := prepareDocument(r)
 	if err != nil {
 		return err
 	}
@@ -65,6 +65,18 @@ func (b *Batch) indexResource(id string, r search.Resource) error {
 		}
 	}
 	return b.batch.Index(id, doc)
+}
+
+// prepareDocument is what every write of a resource indexes: the prepared
+// document plus the geohash, which is not stored and has to be written again
+func prepareDocument(r search.Resource) (map[string]any, error) {
+	overrides := r.SearchFieldOverrides()
+	doc, err := mapping.PrepareForIndex(r, overrides)
+	if err != nil {
+		return nil, err
+	}
+	addGeohashValues(doc, overrides)
+	return doc, nil
 }
 
 func (b *Batch) Move(id, parentID, location string) error {
