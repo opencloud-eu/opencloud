@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/olekukonko/errors"
@@ -98,13 +99,14 @@ func Server(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
-			kv, err := ConnectNatsKV(cfg.Store)
+			kv, js, err := ConnectNatsKV(cfg.Store, logger)
 			if err != nil {
 				return err
 			}
 			activityLog, err := activitylog.New(kv,
 				activitylog.Logger(logger),
 				activitylog.MaxActivities(cfg.MaxActivities),
+				activitylog.JetStream(js),
 				activitylog.WriteBufferDuration(cfg.WriteBufferDuration),
 			)
 			if err != nil {
@@ -222,32 +224,102 @@ func Server(cfg *config.Config) *cobra.Command {
 	}
 }
 
-func ConnectNatsKV(cfg config.Store) (nats.KeyValue, error) {
+// minTTL is the smallest positive max age the NATS server accepts for a stream.
+const minTTL = 100 * time.Millisecond
+
+func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, nats.JetStreamContext, error) {
+	// NATS rejects negative and too small positive max ages, fall back to no expiry
+	if cfg.TTL < 0 || (cfg.TTL > 0 && cfg.TTL < minTTL) {
+		logger.Warn().
+			Str("bucket", cfg.Database).
+			Dur("ttl", cfg.TTL).
+			Msg("invalid TTL configured, falling back to the default (no expiry)")
+		cfg.TTL = 0
+	}
+
 	// Connect to NATS servers
 	secureOption := natspkg.Secure(cfg.EnableTLS, cfg.TLSInsecure, cfg.TLSRootCACertificate)
 	conn, err := nats.Connect(strings.Join(cfg.Nodes, ","), secureOption, nats.UserInfo(cfg.AuthUsername, cfg.AuthPassword))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	js, err := conn.JetStream()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	kv, err := js.KeyValue(cfg.Database)
 	if err != nil {
 		if !errors.Is(err, nats.ErrBucketNotFound) {
-			return nil, errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Database)
+			return nil, nil, errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Database)
 		}
 
 		kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
 			Bucket: cfg.Database,
+			TTL:    cfg.TTL,
 		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Database)
+			return nil, nil, errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Database)
+		}
+		return kv, js, nil
+	}
+
+	// the bucket already exists, make sure its TTL matches the configured one
+	streamName := "KV_" + cfg.Database
+	info, err := js.StreamInfo(streamName)
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Str("bucket", cfg.Database).
+			Str("stream", streamName).
+			Dur("ttl", cfg.TTL).
+			Msg("could not read stream info of the existing bucket, continuing with its current TTL")
+		return kv, js, nil
+	}
+
+	// keep a copy of the version key in the stream metadata, applying a TTL can purge the key
+	version := ""
+	if info.Config.Metadata[activitylog.ActivityLogVersionMetadataKey] == "" {
+		entry, err := kv.Get(activitylog.ActivityLogVersionKey)
+		switch {
+		case err == nil:
+			version = string(entry.Value())
+		case errors.Is(err, nats.ErrKeyNotFound):
+			// no legacy version key, nothing to copy
+		default:
+			logger.Error().
+				Err(err).
+				Str("bucket", cfg.Database).
+				Str("stream", streamName).
+				Dur("ttl", cfg.TTL).
+				Msg("could not read the version key of the existing bucket, continuing with its current settings")
+			return kv, js, nil
 		}
 	}
 
-	return kv, nil
+	if info.Config.MaxAge != cfg.TTL || version != "" {
+		streamCfg := info.Config
+		streamCfg.MaxAge = cfg.TTL
+		// the duplicate window must not exceed the max age
+		if cfg.TTL > 0 && streamCfg.Duplicates > cfg.TTL {
+			streamCfg.Duplicates = cfg.TTL
+		}
+		if version != "" {
+			if streamCfg.Metadata == nil {
+				streamCfg.Metadata = map[string]string{}
+			}
+			streamCfg.Metadata[activitylog.ActivityLogVersionMetadataKey] = version
+		}
+		if _, err := js.UpdateStream(&streamCfg); err != nil {
+			logger.Error().
+				Err(err).
+				Str("bucket", cfg.Database).
+				Str("stream", streamName).
+				Dur("ttl", cfg.TTL).
+				Msg("could not update the stream config of the existing bucket, continuing with its current settings")
+		}
+	}
+
+	return kv, js, nil
 }
