@@ -8,6 +8,13 @@ type UserExtraInfo struct {
 	Mail   string `json:"mail,omitempty"`
 }
 
+// SettingsRef points Collabora to a settings configuration it loads when a
+// document is opened. Collabora reloads the configuration when Stamp changes.
+type SettingsRef struct {
+	URI   string `json:"uri"`
+	Stamp string `json:"stamp"`
+}
+
 // Collabora fileInfo properties
 //
 // Collabora WOPI check file info specification:
@@ -123,6 +130,11 @@ type Collabora struct {
 
 	// If set to a non-empty string, is used for rendering a watermark-like text on each tile of the document.
 	WatermarkText string `json:"WatermarkText,omitempty"`
+
+	// The settings of the current user (dictionaries, autotext, preferences) saved with the Options dialog.
+	UserSettings *SettingsRef `json:"UserSettings,omitempty"`
+	// The settings shared by all users, managed by administrators.
+	SharedSettings *SettingsRef `json:"SharedSettings,omitempty"`
 
 	//
 	// Undocumented (from source code)
