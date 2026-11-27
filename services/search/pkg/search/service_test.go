@@ -899,6 +899,7 @@ var _ = Describe("Searchprovider", func() {
 				indexClient.AssertNotCalled(GinkgoT(), "Search", mock.Anything, mock.Anything)
 				gatewayClient.AssertNotCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything)
 			},
+			Entry("a page size below -1", &searchsvc.SearchRequest{Query: "foo", PageSize: conversions.ToPointer(int32(-2))}),
 			// the rules are pinned in the aggregation package
 			Entry("an aggregation on an internal field", &searchsvc.SearchRequest{Query: "foo",
 				Aggregations: []*searchsvc.AggregationOption{{Field: "Favorites"}}}),

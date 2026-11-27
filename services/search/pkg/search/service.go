@@ -155,6 +155,9 @@ func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) s
 
 // Search processes a search request and passes it down to the engine.
 func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+	if PageSizeOrDefault(req.PageSize) < -1 {
+		return nil, errtypes.BadRequest("page size must be -1, 0 or positive")
+	}
 	if err := aggregation.ValidateOptions(req.GetAggregations(), AggregatableFieldType); err != nil {
 		return nil, errtypes.BadRequest(err.Error())
 	}
@@ -549,7 +552,11 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	res, err = s.engine.Search(ctx, searchRequest)
 	duration := time.Since(start)
 	if err != nil {
-		s.logger.Error().Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
+		level := s.logger.Error()
+		if _, ok := err.(errtypes.BadRequest); ok {
+			level = s.logger.Debug()
+		}
+		level.Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
 		return nil, err
 	}
 	if duration > _slowQueryDuration {
