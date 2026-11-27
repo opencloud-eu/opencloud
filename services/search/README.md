@@ -206,7 +206,7 @@ Every write adds segments to the Bleve index, which the service merges in the ba
 opencloud search optimize
 ```
 
-The index stays searchable and writable while it is optimized. The command returns once the merge is done. Pressing Ctrl+C stops the merge; if a background merge is running at that moment, the command stops once that one is done. A merge that fails, for example because the disk is full, is retried by Bleve until it succeeds, so the command does not return; Ctrl+C ends it. It takes the same `--endpoint` and `--insecure` flags as `index`.
+The index stays searchable and writable while it is optimized. The command returns once the merge is done. Pressing Ctrl+C stops the merge. If a background merge is running at that moment, the service finishes it first, a new `optimize` is refused until then. A merge that fails, for example because the disk is full, is retried by Bleve until it succeeds, so the command does not return; Ctrl+C ends it. It takes the same `--endpoint` and `--insecure` flags as `index`.
 
 The command applies to Bleve only. OpenSearch merges its segments according to the merge policy of the cluster, so the command reports it as not supported there.
 
