@@ -880,6 +880,7 @@ Fixtures:
 | AGG-21 | `mediatype:image` reads `a metric without a single value has none` | audio.year avg none, audio.year min none, audio.year sum none | audio.year avg none, audio.year min none, audio.year sum none | audio.year avg none, audio.year min none, audio.year sum none | ✅ |
 | AGG-22 | `mediatype:audio` reads `filtered to the Saxon bucket, as many matches as the bucket counted` | a.mp3, audio.artist Saxon=2, b.mp3 | a.mp3, audio.artist Saxon=2, b.mp3 | a.mp3, audio.artist Saxon=2, b.mp3 | ✅ |
 | AGG-23 | `mediatype:audio` reads `filtered to saxon, a bucket key matches case-sensitively` | no match | no match | no match | ✅ |
+| AGG-46 | `mediatype:audio` reads `filtered to a fractional key on a whole-number field, no match and no error` | no match | no match | no match | ✅ |
 | AGG-24 | `mediatype:audio` reads `filtered to the Saxon or the Motörhead bucket` | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | ✅ |
 | AGG-25 | `mediatype:audio` reads `filtered to audio.year 1980-1990` | c.mp3 | c.mp3 | c.mp3 | ✅ |
 | AGG-26 | `mediatype:audio` reads `filtered to audio.year 1982-1999, from-inclusive and to-exclusive` | c.mp3 | c.mp3 | c.mp3 | ✅ |

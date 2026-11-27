@@ -273,6 +273,8 @@ func aggregationCases() []aggCase {
 			want:    []string{"a.mp3", "b.mp3", "audio.artist Saxon=2"}},
 		{id: 23, query: "mediatype:audio", reads: "filtered to saxon, a bucket key matches case-sensitively",
 			filters: []*searchService.AggregationFilter{terms("audio.artist", "saxon")}},
+		{id: 46, query: "mediatype:audio", reads: "filtered to a fractional key on a whole-number field, no match and no error",
+			filters: []*searchService.AggregationFilter{terms("Size", "1.5")}},
 		{id: 24, query: "mediatype:audio", reads: "filtered to the Saxon or the Motörhead bucket",
 			filters: []*searchService.AggregationFilter{terms("audio.artist", "Saxon", "Motörhead")},
 			want:    []string{"a.mp3", "b.mp3", "c.mp3", "d.mp3", "e.mp3"}},
