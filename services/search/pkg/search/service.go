@@ -201,6 +201,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	req.Query = query
 
+	var scopeRoot *provider.ResourceId
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
 		if err != nil {
@@ -225,6 +226,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			return nil, err
 		}
 
+		scopeRoot = statRes.GetInfo().GetId()
 		req.Ref = &searchmsg.Reference{
 			ResourceId: &searchmsg.ResourceID{
 				StorageId: statRes.GetInfo().GetSpace().GetRoot().GetStorageId(),
@@ -321,7 +323,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	for i := 0; i < numWorkers; i++ {
 		errg.Go(func() error {
 			for space := range work {
-				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId])
+				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId], scopeRoot)
 				if err != nil && err != errSkipSpace {
 					return err
 				}
@@ -425,7 +427,7 @@ func engineFetchSize(from int32, pageSize *int32) int32 {
 	return math.MaxInt32
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (res *IndexResult, err error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string, scopeRoot *provider.ResourceId) (res *IndexResult, err error) {
 	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
 	defer func() {
 		if r := recover(); r != nil {
@@ -529,8 +531,14 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		permissions = space.GetRootInfo().GetPermissionSet()
 	}
 
+	query := ExpandQueryTemplate(s.queryTemplate, req.Query, space)
+	if scopeRoot != nil {
+		// the path filter of the engines matches the scope folder as well
+		query = fmt.Sprintf(`(%s) AND NOT id:"%s"`, query, storagespace.FormatResourceID(scopeRoot))
+	}
+
 	searchRequest := &IndexQuery{
-		Query:              ExpandQueryTemplate(s.queryTemplate, req.Query, space),
+		Query:              query,
 		Aggregations:       req.GetAggregations(),
 		AggregationFilters: req.GetAggregationFilters(),
 		Ref: &searchmsg.Reference{
@@ -573,10 +581,6 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		// allowedValues is the same effective permission set the WebDAV report's
 		// oc:permissions string projects, in libregraph action notation.
 		match.Entity.PermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(permissions)
-
-		if req.Ref != nil && searchPathPrefix == "/"+match.Entity.Name {
-			continue
-		}
 
 		matches = append(matches, match)
 	}

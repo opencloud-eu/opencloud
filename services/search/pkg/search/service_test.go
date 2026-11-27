@@ -1033,6 +1033,7 @@ var _ = Describe("Searchprovider", func() {
 				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
 					Status: status.NewOK(context.Background()),
 					Info: &sprovider.ResourceInfo{
+						Id: &sprovider.ResourceId{StorageId: "storageid", SpaceId: "personalspace", OpaqueId: "scopefolder"},
 						Space: &sprovider.StorageSpace{Root: &sprovider.ResourceId{
 							StorageId: "storageid",
 							SpaceId:   "personalspace",
@@ -1045,8 +1046,26 @@ var _ = Describe("Searchprovider", func() {
 					Path:   "/path",
 				}, nil)
 				indexClient.On("Search", mock.Anything, mock.Anything).Return(&search.IndexResult{
-					TotalMatches: 1,
+					TotalMatches: 2,
 					Matches: []*searchmsg.Match{
+						{
+							Score: 2,
+							Entity: &searchmsg.Entity{
+								Ref: &searchmsg.Reference{
+									ResourceId: &searchmsg.ResourceID{
+										StorageId: personalSpace.Root.StorageId,
+										SpaceId:   personalSpace.Root.SpaceId,
+										OpaqueId:  personalSpace.Root.OpaqueId,
+									},
+									Path: "./path/to/path",
+								},
+								Id: &searchmsg.ResourceID{
+									StorageId: personalSpace.Root.StorageId,
+									OpaqueId:  "namesake-id",
+								},
+								Name: "path",
+							},
+						},
 						{
 							Score: 1,
 							Entity: &searchmsg.Entity{
@@ -1083,13 +1102,18 @@ var _ = Describe("Searchprovider", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).ToNot(BeNil())
-				Expect(res.TotalMatches).To(Equal(int32(1)))
-				Expect(len(res.Matches)).To(Equal(1))
-				match := res.Matches[0]
+				Expect(res.TotalMatches).To(Equal(int32(2)))
+				Expect(len(res.Matches)).To(Equal(2))
+				Expect(res.Matches[0].Entity.Name).To(Equal("path"), "a match named like the scope folder stays")
+				match := res.Matches[1]
 				Expect(match.Entity.Id.OpaqueId).To(Equal("foo-id"))
 				Expect(match.Entity.Name).To(Equal("Foo.pdf"))
 				Expect(match.Entity.Ref.ResourceId.OpaqueId).To(Equal(personalSpace.Root.OpaqueId))
 				Expect(match.Entity.Ref.Path).To(Equal("./path/to/Foo.pdf"))
+
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
+					return req.Query == `(foo) AND NOT id:"storageid$personalspace!scopefolder"`
+				}))
 			})
 		})
 
