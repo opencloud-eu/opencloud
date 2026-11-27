@@ -431,3 +431,90 @@ var _ = Describe("Authenticating guest session requests", Label("Authentication"
 		Expect(publicShareAuthCalls).To(Equal(1))
 	})
 })
+
+var _ = Describe("CredentialsByUserAgent challenge matching", Label("Authentication"), func() {
+	var savedStrategies []string
+
+	BeforeEach(func() {
+		savedStrategies = append([]string(nil), SupportedAuthStrategies...)
+		SupportedAuthStrategies = nil
+	})
+
+	AfterEach(func() {
+		SupportedAuthStrategies = savedStrategies
+	})
+
+	newChallengeHandler := func(locks map[string]string) http.Handler {
+		SupportedAuthStrategies = nil
+		return Authentication(
+			nil,
+			Logger(log.NewLogger()),
+			OIDCIss("http://idp.example.com"),
+			EnableBasicAuth(true),
+			CredentialsByUserAgent(locks),
+		)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+	}
+
+	DescribeTable("selecting WWW-Authenticate headers by User-Agent",
+		func(target, userAgent string, locks map[string]string, expected []string) {
+			handler := newChallengeHandler(locks)
+			req := httptest.NewRequest(http.MethodGet, target, http.NoBody)
+			req = req.WithContext(router.SetRoutingInfo(context.Background(), router.RoutingInfo{}))
+			if userAgent != "" {
+				req.Header.Set("User-Agent", userAgent)
+			}
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			Expect(rr).To(HaveHTTPStatus(http.StatusUnauthorized))
+			Expect(rr.Header().Values(WwwAuthenticate)).To(Equal(expected))
+		},
+		Entry("matches full User-Agent containing configured key",
+			"http://example.com/remote.php/dav/files/admin",
+			"Mozilla/5.0 (Macintosh) mirall/3.0.0 (OpenCloud)",
+			map[string]string{"mirall": "basic"},
+			[]string{`Basic realm="example.com", charset="UTF-8"`},
+		),
+		Entry("does not match empty User-Agent",
+			"http://example.com/remote.php/dav/files/admin",
+			"",
+			map[string]string{"mirall": "basic"},
+			[]string{
+				`Bearer realm="example.com", charset="UTF-8"`,
+				`Basic realm="example.com", charset="UTF-8"`,
+			},
+		),
+		Entry("does not match when User-Agent is only a substring of configured key",
+			"http://example.com/remote.php/dav/files/admin",
+			"mir",
+			map[string]string{"mirall": "basic"},
+			[]string{
+				`Bearer realm="example.com", charset="UTF-8"`,
+				`Basic realm="example.com", charset="UTF-8"`,
+			},
+		),
+		Entry("prefers longest matching key deterministically",
+			"http://example.com/remote.php/dav/files/admin",
+			"Mozilla/5.0 (Macintosh) mirall/3.0.0 (OpenCloud)",
+			map[string]string{"mirall": "basic", "mirall/3.0": "bearer"},
+			[]string{`Bearer realm="example.com", charset="UTF-8"`},
+		),
+		Entry("applies consistent matching on OCS cloud endpoints",
+			"http://example.com/ocs/v2.php/cloud/user",
+			"Mozilla/5.0 (Macintosh) mirall/3.0.0 (OpenCloud)",
+			map[string]string{"mirall": "basic"},
+			[]string{`Basic realm="example.com", charset="UTF-8"`},
+		),
+		Entry("does not lock in empty User-Agent on OCS cloud endpoints",
+			"http://example.com/ocs/v1.php/cloud/user",
+			"",
+			map[string]string{"mirall": "basic"},
+			[]string{
+				`Bearer realm="example.com", charset="UTF-8"`,
+				`Basic realm="example.com", charset="UTF-8"`,
+			},
+		),
+	)
+})

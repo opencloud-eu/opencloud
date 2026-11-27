@@ -206,19 +206,8 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 
 			if !suppressAuthenticationChallenge && !isPublicPath(r.URL.Path) {
 				// Failed basic authentication attempts receive the Www-Authenticate header in the response
-				var touch bool
-				caser := cases.Title(language.Und)
-				for k, v := range options.CredentialsByUserAgent {
-					if strings.Contains(k, r.UserAgent()) {
-						removeSuperfluousAuthenticate(w)
-						w.Header().Add("Www-Authenticate", fmt.Sprintf("%v realm=\"%s\", charset=\"UTF-8\"", caser.String(v), r.Host))
-						touch = true
-						break
-					}
-				}
-
 				// if the request is not bound to any user agent, write all available challenges
-				if !touch {
+				if !writeUserAgentAuthenticateHeader(w, r, options.CredentialsByUserAgent) {
 					writeSupportedAuthenticateHeader(w, r)
 				}
 			}
@@ -321,14 +310,35 @@ func evalRequestURI(l userAgentLocker, r regexp.Regexp) {
 	if !r.MatchString(l.r.RequestURI) {
 		return
 	}
-	caser := cases.Title(language.Und)
-	for k, v := range l.locks {
-		if strings.Contains(k, l.r.UserAgent()) {
-			removeSuperfluousAuthenticate(l.w)
-			l.w.Header().Add(WwwAuthenticate, fmt.Sprintf("%v realm=\"%s\", charset=\"UTF-8\"", caser.String(v), l.r.Host))
-			return
+	writeUserAgentAuthenticateHeader(l.w, l.r, l.locks)
+}
+
+func matchCredentialsByUserAgent(userAgent string, locks map[string]string) (string, bool) {
+	if userAgent == "" || len(locks) == 0 {
+		return "", false
+	}
+	var bestKey, bestMethod string
+	for k, v := range locks {
+		if k == "" || !strings.Contains(userAgent, k) {
+			continue
+		}
+		if len(k) > len(bestKey) || (len(k) == len(bestKey) && k < bestKey) {
+			bestKey = k
+			bestMethod = v
 		}
 	}
+	return bestMethod, bestKey != ""
+}
+
+func writeUserAgentAuthenticateHeader(w http.ResponseWriter, r *http.Request, locks map[string]string) bool {
+	method, ok := matchCredentialsByUserAgent(r.UserAgent(), locks)
+	if !ok {
+		return false
+	}
+	caser := cases.Title(language.Und)
+	removeSuperfluousAuthenticate(w)
+	w.Header().Add(WwwAuthenticate, fmt.Sprintf("%v realm=\"%s\", charset=\"UTF-8\"", caser.String(method), r.Host))
+	return true
 }
 
 func getTraceProvider(o Options) trace.TracerProvider {
