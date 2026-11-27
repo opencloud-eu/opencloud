@@ -191,9 +191,7 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest,
 	}
 
 	total := int64(rsp.TotalMatches)
-	// a next page has to exist and to be within reach
-	next := int64(from) + int64(size)
-	more := next < total && next < search.MaxResultWindow
+	more := int64(from)+int64(size) < total
 	return libregraph.SearchResponse{
 		SearchTerms: []string{sr.Query.QueryString},
 		HitsContainers: []libregraph.SearchHitsContainer{{
@@ -231,7 +229,7 @@ func validatePagination(fromP, sizeP *int32) error {
 	if size < 0 || size > maxPageSize {
 		return fmt.Errorf("size must be between 0 and %d", maxPageSize)
 	}
-	return search.CheckResultWindow(from, size)
+	return nil
 }
 
 // openapi-generator enforces neither the enums and bounds of the spec nor its

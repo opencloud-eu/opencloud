@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -127,11 +128,6 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		}
 	}
 
-	size, err := search.EnginePageSize(sir.PageSize, 1000)
-	if err != nil {
-		return nil, err
-	}
-
 	searchParams := opensearchgoAPI.SearchParams{
 		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
 		// ties by id, like the cross-space merge
@@ -139,7 +135,7 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		TrackScores: conversions.ToPointer(true),
 		// count every match, the default stops at 10000
 		TrackTotalHits: true,
-		Size:           conversions.ToPointer(size),
+		Size:           conversions.ToPointer(search.EnginePageSize(sir.PageSize, 1000)),
 	}
 	// replicas may score a document differently, so a user reads every page
 	// from the same shard copies; a preference must not start with an underscore
@@ -182,6 +178,8 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 	switch {
 	case tooManyBuckets(err):
 		return nil, errtypes.BadRequest(aggregation.ErrTooManyBuckets.Error())
+	case beyondResultWindow(err):
+		return nil, errtypes.BadRequest("from and size reach beyond the result window of the index (index.max_result_window)")
 	case err != nil:
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
@@ -282,6 +280,30 @@ func tooManyBuckets(err error) bool {
 	}
 	for cause := structErr.Err.CausedBy; cause != nil; cause = cause.CausedBy {
 		if cause.Type == "too_many_buckets_exception" {
+			return true
+		}
+	}
+	return false
+}
+
+// beyondResultWindow tells whether a search failed for a page that reaches
+// beyond index.max_result_window, 10000 matches by default.
+func beyondResultWindow(err error) bool {
+	var structErr *opensearchgo.StructError
+	if !errors.As(err, &structErr) {
+		return false
+	}
+	tooLarge := func(reason string) bool { return strings.Contains(reason, "Result window is too large") }
+	if tooLarge(structErr.Err.Reason) {
+		return true
+	}
+	for _, cause := range structErr.Err.RootCause {
+		if tooLarge(cause.Reason) {
+			return true
+		}
+	}
+	for cause := structErr.Err.CausedBy; cause != nil; cause = cause.CausedBy {
+		if tooLarge(cause.Reason) {
 			return true
 		}
 	}

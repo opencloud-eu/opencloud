@@ -113,16 +113,11 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		}
 	}
 
-	size, err := search.EnginePageSize(sir.PageSize, math.MaxInt)
-	if err != nil {
-		return nil, err
-	}
-
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Highlight = bleve.NewHighlight()
 	// ties by id, like the cross-space merge
 	bleveReq.SortBy([]string{"-_score", "_id"})
-	bleveReq.Size = size
+	bleveReq.Size = search.EnginePageSize(sir.PageSize, math.MaxInt)
 
 	collector, err := newAggCollector(sir.Aggregations)
 	if err != nil {

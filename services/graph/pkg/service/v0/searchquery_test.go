@@ -158,9 +158,6 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("entityTypes absent, the generated model requires it", `{"requests": [{"query": {"queryString": "fox"}}]}`, "invalid body"),
 		ginkgo.Entry("entityTypes empty", `{"requests": [{"entityTypes": [], "query": {"queryString": "fox"}}]}`, "entityTypes"),
 		ginkgo.Entry("another entity", `{"requests": [{"entityTypes": ["message"], "query": {"queryString": "fox"}}]}`, "message"),
-		ginkgo.Entry("a page beyond the first 10000 matches, whatever the engine",
-			`{"requests": [{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}, "from": 10000, "size": 25}]}`,
-			`"message":"from and size reach beyond`),
 		ginkgo.Entry("a bad second request, every request is validated before the first one runs", `{"requests": [
 			{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}},
 			{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}, "aggregations": [{"field": "audio.nonexistent"}]}
@@ -287,10 +284,7 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("negative from is rejected", libregraph.PtrInt32(-10), libregraph.PtrInt32(5), true),
 		ginkgo.Entry("negative size is rejected", libregraph.PtrInt32(10), libregraph.PtrInt32(-1), true),
 		ginkgo.Entry("oversized size is rejected", libregraph.PtrInt32(0), libregraph.PtrInt32(1000), true),
-		ginkgo.Entry("the last page within the first 10000 matches is valid", libregraph.PtrInt32(9975), libregraph.PtrInt32(25), false),
-		ginkgo.Entry("a page reaching beyond the first 10000 matches is rejected", libregraph.PtrInt32(9990), libregraph.PtrInt32(25), true),
-		ginkgo.Entry("the default size counts", libregraph.PtrInt32(10000), nil, true),
-		ginkgo.Entry("a from that overflows with the size is rejected", libregraph.PtrInt32(2147483647), libregraph.PtrInt32(500), true),
+		ginkgo.Entry("a page deep into the matches is valid, the engine decides how far it reaches", libregraph.PtrInt32(20000), libregraph.PtrInt32(25), false),
 	)
 
 	ginkgo.It("pushes from/size to the search service and offsets the ranks", func() {
@@ -314,7 +308,7 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(hc.Hits[1].Rank).To(Equal(int32(12)))
 	})
 
-	ginkgo.DescribeTable("promises more results only within reach of from and size",
+	ginkgo.DescribeTable("promises more results while matches follow the page",
 		func(from, size, total int, want bool) {
 			g, _ := graphWithSearchAnswer(&searchsvc.SearchResponse{TotalMatches: int32(total)})
 			rr := postSearchQuery(g, fmt.Sprintf(`{"requests": [{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}, "from": %d, "size": %d}]}`, from, size))
@@ -323,8 +317,7 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		},
 		ginkgo.Entry("more matches than the page", 0, 25, 42, true),
 		ginkgo.Entry("the last page", 25, 25, 42, false),
-		ginkgo.Entry("a next page within the first 10000 matches", 9950, 25, 20000, true),
-		ginkgo.Entry("a next page the search would refuse", 9975, 25, 20000, false),
+		ginkgo.Entry("a next page deep into the matches", 9975, 25, 20000, true),
 	)
 
 	ginkgo.It("sends an explicit zero page size for facet-only requests", func() {

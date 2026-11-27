@@ -920,5 +920,5 @@ Fixtures:
 |---|---|---|---|---|---|
 | AGG-17 | `mediatype:audio` reads `one bucket per artist, cardinality above the page size` | 10050 items | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | ✅ |
 | AGG-42 | `mediatype:audio` reads `the total counts every match` | 1 of 10050 matches | 1 of 10050 matches | 1 of 10050 matches | ✅ |
-| AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches is refused` | bad request | bad request | bad request | ✅ |
+| AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches` | 10001 of 10050 matches | 10001 of 10050 matches | bad request | ❌ known |
 | AGG-44 | `mediatype:audio` reads `more than 65535 buckets in one request are refused` | bad request | bad request | bad request | ✅ |

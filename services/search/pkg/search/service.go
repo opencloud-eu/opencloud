@@ -402,16 +402,13 @@ func PageSizeOrDefault(pageSize *int32) int32 {
 }
 
 // EnginePageSize is the page an engine fetches: the default for an absent
-// size, unlimited for -1, and never beyond the result window.
-func EnginePageSize(pageSize *int32, unlimited int) (int, error) {
+// size, unlimited for -1.
+func EnginePageSize(pageSize *int32, unlimited int) int {
 	size := PageSizeOrDefault(pageSize)
-	if err := CheckResultWindow(0, size); err != nil {
-		return 0, errtypes.BadRequest(err.Error())
-	}
 	if size == -1 {
-		return unlimited, nil
+		return unlimited
 	}
-	return int(size), nil
+	return int(size)
 }
 
 // engineFetchSize: the global offset cannot be distributed across spaces, so

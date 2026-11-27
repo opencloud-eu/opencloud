@@ -132,6 +132,8 @@ Empty turns it off. The service checks the template at startup.
 
 Matches are ordered by score, matches of the same score by their id. Pages are therefore stable as long as the index does not change. Between two requests a write can change scores and shift offsets, so a match can show up on two pages or on none. On OpenSearch every search of a user goes to the same shard copies, because replicas may score a document differently.
 
+How deep a search pages depends on the engine. Bleve has no limit. OpenSearch answers up to `index.max_result_window` matches of a space, 10000 by default, and rejects an offset and page size that reach beyond it as a bad request. The setting can be raised on the index, at the cost of memory per request on the OpenSearch nodes.
+
 The total and the aggregation buckets count a resource once per way it reaches the user. A file in a folder that was shared twice with the user, or in a project space the user is a member of and also received a share from, is counted once per share or space and listed as often.
 
 ## Content analysis / Extraction

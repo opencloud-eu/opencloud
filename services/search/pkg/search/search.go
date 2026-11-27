@@ -192,18 +192,6 @@ func ResolveReference(ctx context.Context, ref *provider.Reference, ri *provider
 	}, nil
 }
 
-// MaxResultWindow is how deep a search pages: OpenSearch returns no matches
-// beyond its index.max_result_window, so no engine does.
-const MaxResultWindow = 10000
-
-// CheckResultWindow rejects a page that reaches beyond MaxResultWindow.
-func CheckResultWindow(from, size int32) error {
-	if int64(from)+int64(size) > MaxResultWindow {
-		return fmt.Errorf("from and size reach beyond the first %d matches", MaxResultWindow)
-	}
-	return nil
-}
-
 type matchArray []*searchmsg.Match
 
 func (ma matchArray) Len() int {
