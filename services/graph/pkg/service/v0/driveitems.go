@@ -30,7 +30,6 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/tags"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
-	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
@@ -40,6 +39,7 @@ import (
 const (
 	_selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
 	_selectShareTypes    = "@libre.graph.shareTypes"
+	_selectDownloadURL   = "@microsoft.graph.downloadUrl"
 )
 
 // without it the provider leaves the share-types opaque empty
@@ -286,12 +286,11 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
 		return
 	}
-	driveItem, err := cs3ResourceToDriveItem(g.logger, g.publicBaseURL, res.GetInfo())
+	driveItem, err := g.cs3ResourceToDriveItem(res.GetInfo())
 	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		setDriveItemAllowedValues(driveItem, res.GetInfo())
 	}
@@ -309,6 +308,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		infos := []*storageprovider.ResourceInfo{res.GetInfo()}
 		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
 	}
+	g.setDriveItemDownloadURL(r, driveItem)
 
 	if driveItemRelationExpanded(r, _expandThumbnails) {
 		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL, g.sourceTypes)
@@ -390,7 +390,7 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 		return nil, false
 	}
 
-	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
+	files, err := g.formatDriveItems(res.GetInfos())
 	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return nil, false
@@ -401,6 +401,7 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	if driveItemPropertySelected(r, _selectShareTypes) {
 		g.addShareTypes(r.Context(), files, res.GetInfos())
 	}
+	g.SetDriveItemsDownloadURL(r, files)
 
 	g.setDriveItemsThumbnails(r, files, res.GetInfos())
 
@@ -464,10 +465,10 @@ func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.Resource
 	return item, nil
 }
 
-func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]libregraph.DriveItem, error) {
+func (g BaseGraphService) formatDriveItems(mds []*storageprovider.ResourceInfo) ([]libregraph.DriveItem, error) {
 	responses := make([]libregraph.DriveItem, 0, len(mds))
 	for i := range mds {
-		res, err := cs3ResourceToDriveItem(logger, publicBaseURL, mds[i])
+		res, err := g.cs3ResourceToDriveItem(mds[i])
 		if err != nil {
 			return nil, err
 		}
@@ -481,18 +482,15 @@ func cs3TimestampToTime(t *types.Timestamp) time.Time {
 	return time.Unix(int64(t.GetSeconds()), int64(t.GetNanos()))
 }
 
-func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *storageprovider.ResourceInfo) (*libregraph.DriveItem, error) {
+func (g BaseGraphService) cs3ResourceToDriveItem(res *storageprovider.ResourceInfo) (*libregraph.DriveItem, error) {
 	size := new(int64)
 	*size = int64(res.GetSize()) // TODO lurking overflow: make size of libregraph drive item use uint64
 
 	driveItem := &libregraph.DriveItem{
-		Id:   libregraph.PtrString(storagespace.FormatResourceID(res.GetId())),
-		Size: size,
+		Id:     libregraph.PtrString(storagespace.FormatResourceID(res.GetId())),
+		Size:   size,
+		WebUrl: g.webURLForResource(res.GetId()),
 	}
-
-	webURL := *publicBaseURL
-	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(res.GetId()))
-	driveItem.WebUrl = libregraph.PtrString(webURL.String())
 
 	name := res.GetName()
 	if name == "" {
