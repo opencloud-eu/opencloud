@@ -89,16 +89,21 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger := g.logger.SubloggerWithRequestID(ctx).With().
+		Str("resourceID", assignment.ResourceId).
+		Strs("tags", assignment.Tags).
+		Logger()
+
 	rid, err := storagespace.ParseID(assignment.ResourceId)
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("could not parse resourceId")
+		logger.Debug().Err(err).Msg("could not parse resourceId")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid resourceId")
 		return
 	}
 
 	client, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("error selecting next gateway client")
+		logger.Error().Err(err).Msg("error selecting next gateway client")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -106,7 +111,7 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 		Ref: &provider.Reference{ResourceId: &rid},
 	})
 	if err != nil {
-		g.logger.Error().Err(err).Msg("error stating file")
+		logger.Error().Err(err).Msg("error stating file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -121,14 +126,14 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 
 	pm := sres.GetInfo().GetPermissionSet()
 	if pm == nil {
-		g.logger.Error().Err(err).Msg("no permissionset on file")
+		logger.Error().Msg("no permissionset on file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// it says we need "write access" to set tags. One of those should do
 	if !pm.InitiateFileUpload && !pm.CreateContainer {
-		g.logger.Info().Msg("no permission to create a tag")
+		logger.Info().Msg("no permission to create a tag")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -156,7 +161,7 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		g.logger.Error().Err(err).Interface("status", resp.GetStatus()).Msg("error setting tags")
+		logger.Error().Err(err).Interface("status", resp.GetStatus()).Msg("error setting tags")
 		if resp.GetStatus().GetCode() == rpc.Code_CODE_LOCKED {
 			errorcode.InvalidRequest.Render(w, r, http.StatusLocked, "file is locked")
 			return
@@ -176,7 +181,7 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 			Executant:  revaCtx.ContextMustGetUser(r.Context()).Id,
 		}
 		if err := events.Publish(r.Context(), g.eventsPublisher, ev); err != nil {
-			g.logger.Error().Err(err).Msg("Failed to publish TagsAdded event")
+			logger.Error().Err(err).Msg("Failed to publish TagsAdded event")
 		}
 	}
 }
