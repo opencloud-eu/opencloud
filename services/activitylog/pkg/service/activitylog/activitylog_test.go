@@ -481,9 +481,37 @@ var _ = Describe("migrations", func() {
 
 		_, err = kv.Get(legacyKey)
 		Expect(err).To(MatchError(nats.ErrKeyNotFound))
+		info, err := js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Config.Metadata).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
+		_, err = kv.Get(activitylog.ActivityLogVersionKey)
+		Expect(err).To(MatchError(nats.ErrKeyNotFound))
+	})
+
+	It("stores the version key when no JetStream context is configured", func() {
+		_, err := activitylog.New(kv, activitylog.Logger(log.NopLogger()))
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = kv.Get(legacyKey)
+		Expect(err).To(MatchError(nats.ErrKeyNotFound))
 		entry, err := kv.Get(activitylog.ActivityLogVersionKey)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(entry.Value())).To(Equal("1"))
+	})
+
+	It("does not migrate again after the migration stored the version in the stream metadata", func() {
+		_, err := activitylog.New(kv, activitylog.JetStream(js), activitylog.Logger(log.NopLogger()))
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = kv.Put("second-legacy-key", []byte("not migrated"))
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = activitylog.New(kv, activitylog.JetStream(js), activitylog.Logger(log.NopLogger()))
+		Expect(err).ToNot(HaveOccurred())
+
+		entry, err := kv.Get("second-legacy-key")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(entry.Value())).To(Equal("not migrated"))
 	})
 
 	It("fails when the stream metadata has an unexpected version", func() {
