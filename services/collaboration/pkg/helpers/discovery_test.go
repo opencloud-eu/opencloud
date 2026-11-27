@@ -25,6 +25,17 @@ var _ = Describe("AppURLs", func() {
 			Expect(appURLs.GetMimeTypes()).To(BeEmpty())
 			Expect(appURLs.GetAppURLFor("view", ".pdf")).To(BeEmpty())
 		})
+
+		It("should not be fetched before the first Store", func() {
+			Expect(appURLs.Fetched()).To(BeFalse())
+		})
+	})
+
+	Describe("Fetched", func() {
+		It("should be fetched after a Store, even of an empty map", func() {
+			appURLs.Store(map[string]map[string]string{})
+			Expect(appURLs.Fetched()).To(BeTrue())
+		})
 	})
 
 	Describe("Store and GetAppURLFor", func() {

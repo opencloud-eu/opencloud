@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // App defines the available app configuration.
 type App struct {
 	Name        string `yaml:"name" env:"COLLABORATION_APP_NAME" desc:"The name of the app which is shown to the user. You can chose freely but you are limited to a single word without special characters or whitespaces. We recommend to use pascalCase like 'CollaboraOnline'." introductionVersion:"1.0.0"`
@@ -9,6 +11,8 @@ type App struct {
 
 	Addr     string `yaml:"addr" env:"COLLABORATION_APP_ADDR" desc:"The URL where the WOPI app is located, such as https://127.0.0.1:8080." introductionVersion:"1.0.0"`
 	Insecure bool   `yaml:"insecure" env:"COLLABORATION_APP_INSECURE" desc:"Skip TLS certificate verification when connecting to the WOPI app" introductionVersion:"1.0.0"`
+
+	DiscoveryTimeout time.Duration `yaml:"discovery_timeout" env:"COLLABORATION_APP_DISCOVERY_TIMEOUT" desc:"How long a fetch of the WOPI app's discovery may take, such as 10s. Fetches that take longer fail and are retried. 0 disables the limit." introductionVersion:"%%NEXT%%"`
 
 	ProofKeys          ProofKeys `yaml:"proofkeys"`
 	LicenseCheckEnable bool      `yaml:"licensecheckenable" env:"COLLABORATION_APP_LICENSE_CHECK_ENABLE" desc:"Enable license checking to edit files. Needs to be enabled when using Microsoft365 with the business flow." introductionVersion:"1.0.0"`
