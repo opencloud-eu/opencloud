@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -130,4 +131,19 @@ func ParseNumber(value string) (float64, bool) {
 		return 0, false
 	}
 	return v, true
+}
+
+// FieldIsGeopoint reports whether a field is indexed as a geopoint, so a geo
+// predicate can target its geopoint sibling.
+func FieldIsGeopoint(field string) bool {
+	return fieldTypes()[field] == mapping.TypeGeopoint
+}
+
+// GeopointField names the indexed geopoint sibling of a field, erroring when
+// the field is not a geopoint.
+func GeopointField(field string) (string, error) {
+	if !FieldIsGeopoint(field) {
+		return "", &kql.GeoFieldError{Key: field}
+	}
+	return field + mapping.GeopointSuffix, nil
 }

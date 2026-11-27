@@ -202,6 +202,31 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 		}
 
 		return group, nil
+	case *ast.GeoDistanceNode:
+		field, err := query.GeopointField(node.Key)
+		if err != nil {
+			return nil, err
+		}
+		return osu.NewGeoDistanceQuery(field).
+			Distance(strconv.FormatFloat(node.Radius, 'f', -1, 64)+"m").
+			Point(node.Lat, node.Lon), nil
+	case *ast.GeoBoundingBoxNode:
+		field, err := query.GeopointField(node.Key)
+		if err != nil {
+			return nil, err
+		}
+		return osu.NewGeoBoundingBoxQuery(field).
+			Box(node.MinLat, node.MinLon, node.MaxLat, node.MaxLon), nil
+	case *ast.GeoPolygonNode:
+		field, err := query.GeopointField(node.Key)
+		if err != nil {
+			return nil, err
+		}
+		q := osu.NewGeoPolygonQuery(field)
+		for _, p := range node.Points {
+			q.Point(p.Lat, p.Lon)
+		}
+		return q, nil
 	}
 
 	return nil, fmt.Errorf("%w: %T", ErrUnsupportedNodeType, node)
