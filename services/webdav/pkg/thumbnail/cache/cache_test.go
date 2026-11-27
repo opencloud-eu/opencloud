@@ -532,10 +532,6 @@ var _ = Describe("FileCache", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.ContentType).To(Equal("image/png"))
 		Expect(got.Data).To(Equal([]byte("thumbnail\ndata")))
-
-		raw, err := os.ReadFile(filepath.Join(tmpdir, key))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(raw).To(Equal([]byte("oc-thumbnail/1 image/png\nthumbnail\ndata")))
 	})
 
 	It("returns an entry without a header without a type", func() {

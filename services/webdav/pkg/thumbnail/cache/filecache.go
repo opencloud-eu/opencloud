@@ -25,7 +25,9 @@ func NewFileCache(dir string) *FileCache {
 // The cache key is already a hierarchical relative path, so the on-disk
 // location is the cache dir joined with it.
 func (c *FileCache) Get(key string) (*thumbnail.Image, error) {
-	raw, err := os.ReadFile(filepath.Join(c.dir, key))
+	path := filepath.Join(c.dir, key)
+
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, ErrCacheMiss
