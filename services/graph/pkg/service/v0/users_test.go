@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -42,6 +43,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
@@ -214,6 +216,55 @@ var _ = Describe("Users", func() {
 
 				Expect(rr.Code).To(Equal(http.StatusOK))
 				identityBackend.AssertCalled(GinkgoT(), "GetUser", mock.Anything, "alice", mock.Anything)
+			})
+
+			It("looks up the personal space with the given id when the user is unknown", func() {
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				identityBackend.On("GetUser", mock.Anything, "deleted-user-id", mock.Anything).Return(nil, identity.ErrNotFound)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.MatchedBy(func(req *provider.ListStorageSpacesRequest) bool {
+					for _, f := range req.GetFilters() {
+						if f.GetUser().GetOpaqueId() == "deleted-user-id" {
+							return true
+						}
+					}
+					return false
+				}), mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+						},
+					},
+				}, nil)
+				gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+					Status:     status.NewOK(ctx),
+					TotalBytes: 10,
+				}, nil)
+				valueService.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything).
+					Return(&settings.GetValueResponse{}, nil)
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/deleted-user-id/drive", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", "deleted-user-id")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.GetUserDrive(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
+
+			It("fails when the user cannot be resolved for another reason", func() {
+				identityBackend.On("GetUser", mock.Anything, "alice", mock.Anything).Return(nil, errors.New("backend down"))
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/alice/drive", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", "alice")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.GetUserDrive(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything)
 			})
 		})
 
