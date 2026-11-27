@@ -831,7 +831,7 @@ func (f *FS) Shutdown(ctx context.Context) error {
 	return res0
 }
 
-func (f *FS) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) error {
+func (f *FS) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -840,25 +840,25 @@ func (f *FS) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, 
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("SetArbitraryMetadata", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.SetArbitraryMetadata(ctx, ref, md)
+	res0, res1 := f.next.SetArbitraryMetadata(ctx, ref, md)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return res0, res1
 }
 
-func (f *FS) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) error {
+func (f *FS) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -867,22 +867,22 @@ func (f *FS) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("UnsetArbitraryMetadata", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.UnsetArbitraryMetadata(ctx, ref, keys)
+	res0, res1 := f.next.UnsetArbitraryMetadata(ctx, ref, keys)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return res0, res1
 }
 
 func (f *FS) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.SetLockResult, error) {

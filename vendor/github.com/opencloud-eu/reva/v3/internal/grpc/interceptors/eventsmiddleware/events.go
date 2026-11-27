@@ -21,6 +21,8 @@ package eventsmiddleware
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
 	ocmcore "github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -34,6 +36,7 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/grpc"
@@ -74,6 +77,7 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 
 		// Register a slot for typed DeleteStorageSpace results
 		ctx = storagespace.ContextRegisterDeleteStorageSpaceResultSlot(ctx)
+		ctx = storagespace.ContextRegisterMetadataResultSlot(ctx)
 
 		// only with audit on, the drivers look up more for the slot
 		itemSlot := &storagespace.ItemSlot{}
@@ -226,6 +230,28 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 		case *provider.UnlockResponse:
 			if isSuccess(v) {
 				ev = FileUnlocked(v, req.(*provider.UnlockRequest), spaceOwnerID, executant)
+			}
+		case *provider.SetArbitraryMetadataResponse:
+			if isSuccess(v) {
+				r := req.(*provider.SetArbitraryMetadataRequest)
+				result := storagespace.ContextGetMetadataResult(ctx)
+				if result == nil {
+					result = &storage.MetadataResult{ChangedKeys: slices.Collect(maps.Keys(r.GetArbitraryMetadata().GetMetadata()))}
+				}
+				if e, ok := ArbitraryMetadataChanged(r.GetRef(), result, spaceOwnerID, executant); ok {
+					ev = e
+				}
+			}
+		case *provider.UnsetArbitraryMetadataResponse:
+			if isSuccess(v) {
+				r := req.(*provider.UnsetArbitraryMetadataRequest)
+				result := storagespace.ContextGetMetadataResult(ctx)
+				if result == nil {
+					result = &storage.MetadataResult{RemovedKeys: r.GetArbitraryMetadataKeys()}
+				}
+				if e, ok := ArbitraryMetadataChanged(r.GetRef(), result, spaceOwnerID, executant); ok {
+					ev = e
+				}
 			}
 		}
 

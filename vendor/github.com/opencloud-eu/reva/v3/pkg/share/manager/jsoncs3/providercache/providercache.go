@@ -503,6 +503,9 @@ func (c *Cache) syncWithLock(ctx context.Context, storageID, spaceID string) err
 		span.AddEvent("updating local cache")
 	case errtypes.NotFound:
 		span.SetStatus(codes.Ok, "")
+		if err := c.Persist(ctx, storageID, spaceID); err != nil {
+			log.Warn().Err(err).Msg("failed to create empty provider cache file")
+		}
 		return nil
 	case errtypes.NotModified:
 		span.SetStatus(codes.Ok, "")

@@ -815,7 +815,7 @@ func (nc *StorageDriver) Shutdown(ctx context.Context) error {
 }
 
 // SetArbitraryMetadata as defined in the storage.FS interface
-func (nc *StorageDriver) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) error {
+func (nc *StorageDriver) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
 	type paramsObj struct {
 		Ref *provider.Reference         `json:"ref"`
 		Md  *provider.ArbitraryMetadata `json:"md"`
@@ -829,11 +829,11 @@ func (nc *StorageDriver) SetArbitraryMetadata(ctx context.Context, ref *provider
 	log.Info().Msgf("SetArbitraryMetadata %s", bodyStr)
 
 	_, _, err := nc.do(ctx, Action{"SetArbitraryMetadata", string(bodyStr)})
-	return err
+	return nil, err
 }
 
 // UnsetArbitraryMetadata as defined in the storage.FS interface
-func (nc *StorageDriver) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) error {
+func (nc *StorageDriver) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
 	type paramsObj struct {
 		Ref  *provider.Reference `json:"ref"`
 		Keys []string            `json:"keys"`
@@ -847,7 +847,7 @@ func (nc *StorageDriver) UnsetArbitraryMetadata(ctx context.Context, ref *provid
 	log.Info().Msgf("UnsetArbitraryMetadata %s", bodyStr)
 
 	_, _, err := nc.do(ctx, Action{"UnsetArbitraryMetadata", string(bodyStr)})
-	return err
+	return nil, err
 }
 
 // GetLock returns an existing lock on the given reference

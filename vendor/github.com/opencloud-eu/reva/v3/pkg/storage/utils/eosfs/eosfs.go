@@ -534,24 +534,24 @@ func (fs *eosfs) GetPathByID(ctx context.Context, id *provider.ResourceId) (stri
 	return path.Join(fs.conf.MountPath, p), nil
 }
 
-func (fs *eosfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) error {
+func (fs *eosfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
 	if len(md.Metadata) == 0 {
-		return errtypes.BadRequest("eosfs: no metadata set")
+		return nil, errtypes.BadRequest("eosfs: no metadata set")
 	}
 
 	fn, auth, err := fs.resolveRefAndGetAuth(ctx, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for k, v := range md.Metadata {
 		if k == "" || v == "" {
-			return errtypes.BadRequest(fmt.Sprintf("eosfs: key or value is empty: key:%s, value:%s", k, v))
+			return nil, errtypes.BadRequest(fmt.Sprintf("eosfs: key or value is empty: key:%s, value:%s", k, v))
 		}
 
 		// do not allow to set a lock key attr
 		if k == LockPayloadKey || k == LockExpirationKey || k == LockTypeKey {
-			return errtypes.BadRequest(fmt.Sprintf("eosfs: key %s not allowed", k))
+			return nil, errtypes.BadRequest(fmt.Sprintf("eosfs: key %s not allowed", k))
 		}
 
 		attr := &eosclient.Attribute{
@@ -564,26 +564,26 @@ func (fs *eosfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Referen
 		// We set it to false
 		err := fs.c.SetAttr(ctx, auth, attr, false, false, fn)
 		if err != nil {
-			return errors.Wrap(err, "eosfs: error setting xattr in eos driver")
+			return nil, errors.Wrap(err, "eosfs: error setting xattr in eos driver")
 		}
 
 	}
-	return nil
+	return nil, nil
 }
 
-func (fs *eosfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) error {
+func (fs *eosfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
 	if len(keys) == 0 {
-		return errtypes.BadRequest("eosfs: no keys set")
+		return nil, errtypes.BadRequest("eosfs: no keys set")
 	}
 
 	fn, auth, err := fs.resolveRefAndGetAuth(ctx, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, k := range keys {
 		if k == "" {
-			return errtypes.BadRequest("eosfs: key is empty")
+			return nil, errtypes.BadRequest("eosfs: key is empty")
 		}
 
 		attr := &eosclient.Attribute{
@@ -593,11 +593,11 @@ func (fs *eosfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 
 		err := fs.c.UnsetAttr(ctx, auth, attr, false, fn)
 		if err != nil {
-			return errors.Wrap(err, "eosfs: error unsetting xattr in eos driver")
+			return nil, errors.Wrap(err, "eosfs: error unsetting xattr in eos driver")
 		}
 
 	}
-	return nil
+	return nil, nil
 }
 
 func (fs *eosfs) getLockExpiration(ctx context.Context, auth eosclient.Authorization, path string) (*types.Timestamp, bool, error) {

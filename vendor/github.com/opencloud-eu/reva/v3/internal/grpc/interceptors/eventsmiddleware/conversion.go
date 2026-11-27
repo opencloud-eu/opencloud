@@ -19,6 +19,7 @@
 package eventsmiddleware
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -518,6 +519,22 @@ func SpaceDeleted(r *provider.DeleteStorageSpaceResponse, req *provider.DeleteSt
 		FinalMembers: final,
 		Timestamp:    time.Now(),
 	}
+}
+
+// ArbitraryMetadataChanged converts a reported metadata result to an event, or returns false when nothing changed.
+func ArbitraryMetadataChanged(ref *provider.Reference, result *storage.MetadataResult, spaceOwner *user.UserId, executant *user.User) (events.ArbitraryMetadataChanged, bool) {
+	if len(result.ChangedKeys) == 0 && len(result.RemovedKeys) == 0 {
+		return events.ArbitraryMetadataChanged{}, false
+	}
+	return events.ArbitraryMetadataChanged{
+		SpaceOwner:        spaceOwner,
+		Executant:         executant.GetId(),
+		Ref:               ref,
+		ChangedKeys:       slices.Sorted(slices.Values(result.ChangedKeys)),
+		RemovedKeys:       slices.Sorted(slices.Values(result.RemovedKeys)),
+		Timestamp:         utils.TSNow(),
+		ImpersonatingUser: extractImpersonator(executant),
+	}, true
 }
 
 func extractOwner(u *user.User) *user.UserId {

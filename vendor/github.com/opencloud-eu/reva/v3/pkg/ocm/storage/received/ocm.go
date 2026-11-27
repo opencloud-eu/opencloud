@@ -492,12 +492,12 @@ func (d *driver) CreateReference(ctx context.Context, path string, targetURI *ur
 	return errtypes.NotSupported("operation not supported")
 }
 
-func (d *driver) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) error {
-	return errtypes.NotSupported("operation not supported")
+func (d *driver) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
+	return nil, errtypes.NotSupported("operation not supported")
 }
 
-func (d *driver) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) error {
-	return errtypes.NotSupported("operation not supported")
+func (d *driver) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
+	return nil, errtypes.NotSupported("operation not supported")
 }
 
 // SetLock sets a lock on a file

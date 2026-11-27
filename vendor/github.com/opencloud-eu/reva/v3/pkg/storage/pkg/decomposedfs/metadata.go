@@ -25,6 +25,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/appctx"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
@@ -32,47 +33,50 @@ import (
 )
 
 // SetArbitraryMetadata sets the metadata on a resource
-func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (err error) {
+func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
 	_, span := tracer.Start(ctx, "SetArbitraryMetadata")
 	defer span.End()
 	n, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error resolving ref")
+		return nil, errors.Wrap(err, "Decomposedfs: error resolving ref")
 	}
 	if !n.Exists {
 		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return err
+		return nil, err
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, n)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload: // TODO add explicit SetArbitraryMetadata grant to CS3 api, tracked in https://github.com/cs3org/cs3apis/issues/91
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
-
-	// Set space owner in context
-	storagespace.ContextSetSpaceOwner(ctx, n.SpaceOwnerOrManager(ctx))
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
+	}
+
+	existingAttribs, err := n.Xattrs(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Decomposedfs: could not read metadata attributes")
 	}
 
 	errs := []error{}
 	// TODO should we really continue updating when an error occurs?
-	changed := false
+	result := &storage.MetadataResult{SpaceOwner: n.SpaceOwnerOrManager(ctx)}
 	if md.Metadata != nil {
 		if val, ok := md.Metadata["mtime"]; ok {
-			changed = true
 			delete(md.Metadata, "mtime")
 			if err := n.SetMtimeString(ctx, val); err != nil {
 				errs = append(errs, errors.Wrap(err, "could not set mtime"))
+			} else {
+				result.ChangedKeys = append(result.ChangedKeys, "mtime")
 			}
 		}
 		// TODO(jfd) special handling for atime?
@@ -81,10 +85,11 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 		// TODO unset when file is updated
 		// TODO unset when folder is updated or add timestamp to etag?
 		if val, ok := md.Metadata["etag"]; ok {
-			changed = true
 			delete(md.Metadata, "etag")
 			if err := n.SetEtag(ctx, val); err != nil {
 				errs = append(errs, errors.Wrap(err, "could not set etag"))
+			} else {
+				result.ChangedKeys = append(result.ChangedKeys, "etag")
 			}
 		}
 	}
@@ -92,12 +97,11 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 	// one write for the whole set: a per key write publishes every intermediate
 	// state to the unlocked, cache first readers
 	attribs := make(map[string][]byte, len(md.Metadata))
-	existingAttribs, err := n.Xattrs(ctx)
 	for k, v := range md.Metadata {
 		if existingVal, ok := existingAttribs[prefixes.MetadataPrefix+k]; ok && string(existingVal) == v {
 			continue // no change needed
 		}
-		changed = true
+		result.ChangedKeys = append(result.ChangedKeys, k)
 		attribs[prefixes.MetadataPrefix+k] = []byte(v)
 	}
 	if len(attribs) > 0 {
@@ -106,7 +110,7 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 		}
 	}
 
-	if changed {
+	if len(result.ChangedKeys) > 0 {
 		if err = fs.tp.Propagate(ctx, n, 0); err != nil {
 			errs = append(errs, errors.Wrap(err, "Decomposedfs: could not propagate metadata changes"))
 		}
@@ -114,54 +118,59 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 
 	switch len(errs) {
 	case 0:
-		return nil
+		return result, nil
 	case 1:
 		// TODO Propagate if anything changed
-		return errs[0]
+		return nil, errs[0]
 	default:
 		// TODO Propagate if anything changed
 		// TODO how to return multiple errors?
-		return errors.New("multiple errors occurred, see log for details")
+		return nil, errors.New("multiple errors occurred, see log for details")
 	}
 }
 
 // UnsetArbitraryMetadata unsets the metadata on the given resource
-func (fs *Decomposedfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (err error) {
+func (fs *Decomposedfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
 	_, span := tracer.Start(ctx, "UnsetArbitraryMetadata")
 	defer span.End()
 	n, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error resolving ref")
+		return nil, errors.Wrap(err, "Decomposedfs: error resolving ref")
 	}
 	sublog := appctx.GetLogger(ctx).With().Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Logger()
 
 	if !n.Exists {
 		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return err
+		return nil, err
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, n)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload: // TODO use SetArbitraryMetadata grant to CS3 api, tracked in https://github.com/cs3org/cs3apis/issues/91
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
-
-	// Set space owner in context
-	storagespace.ContextSetSpaceOwner(ctx, n.SpaceOwnerOrManager(ctx))
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
 	errs := []error{}
+	result := &storage.MetadataResult{SpaceOwner: n.SpaceOwnerOrManager(ctx)}
+	existingAttribs, err := n.Xattrs(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Decomposedfs: could not read metadata attributes")
+	}
 	for _, k := range keys {
+		if _, ok := existingAttribs[prefixes.MetadataPrefix+k]; !ok {
+			continue // already gone, ignore
+		}
 		if err = n.RemoveXattr(ctx, prefixes.MetadataPrefix+k); err != nil {
 			if metadata.IsAttrUnset(err) {
 				continue // already gone, ignore
@@ -170,17 +179,24 @@ func (fs *Decomposedfs) UnsetArbitraryMetadata(ctx context.Context, ref *provide
 				Str("key", k).
 				Msg("could not unset metadata")
 			errs = append(errs, errors.Wrap(err, "could not unset metadata"))
+			continue
 		}
+		result.RemovedKeys = append(result.RemovedKeys, k)
 	}
 	switch len(errs) {
 	case 0:
-		return fs.tp.Propagate(ctx, n, 0)
+		if len(result.RemovedKeys) > 0 {
+			if err := fs.tp.Propagate(ctx, n, 0); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
 	case 1:
 		// TODO Propagate if anything changed
-		return errs[0]
+		return nil, errs[0]
 	default:
 		// TODO Propagate if anything changed
 		// TODO how to return multiple errors?
-		return errors.New("multiple errors occurred, see log for details")
+		return nil, errors.New("multiple errors occurred, see log for details")
 	}
 }
