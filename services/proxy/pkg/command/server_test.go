@@ -100,7 +100,7 @@ func TestUnauthenticatedRequestChallenges(t *testing.T) {
 
 			chain, err := loadMiddlewares(
 				log.NopLogger(), cfg,
-				microstore.NewMemoryStore(), microstore.NewMemoryStore(),
+				microstore.NewMemoryStore(), nil, microstore.NewMemoryStore(),
 				noop.NewTracerProvider(), newTestMetrics(t),
 				nil, nil, audit.Discard{}, nil, selector.NewSelector(),
 			)

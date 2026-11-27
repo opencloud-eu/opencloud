@@ -8,8 +8,10 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	oidcmocks "github.com/opencloud-eu/opencloud/pkg/oidc/mocks"
@@ -47,13 +49,16 @@ func TestBackchannelLogoutIsAudited(t *testing.T) {
 	store := microstore.NewMemoryStore()
 	key, err := bcl.NewKey("subject", "s-1")
 	require.NoError(t, err)
-	claims, err := msgpack.Marshal(map[string]any{"preferred_username": "alice"})
+	claims, err := msgpack.Marshal(bcl.TokenRecord{Claims: map[string]any{"preferred_username": "alice"}})
 	require.NoError(t, err)
 	require.NoError(t, store.Write(&microstore.Record{Key: key, Value: []byte("claims-key")}))
 	require.NoError(t, store.Write(&microstore.Record{Key: "claims-key", Value: claims}))
 
 	oidcClient := oidcmocks.NewOIDCClient(t)
-	oidcClient.EXPECT().VerifyLogoutToken(mock.Anything, "token").Return(&oidc.LogoutToken{SessionId: "s-1"}, nil)
+	oidcClient.EXPECT().VerifyLogoutToken(mock.Anything, "token").Return(&oidc.LogoutToken{
+		RegisteredClaims: jwt.RegisteredClaims{IssuedAt: jwt.NewNumericDate(time.Now())},
+		SessionId:        "s-1",
+	}, nil)
 	users := backendmocks.NewUserBackend(t)
 	users.On("GetUserByClaims", mock.Anything, "username", "alice").Return(&userpb.User{
 		Id:       &userpb.UserId{OpaqueId: "u-1", TenantId: "t-1"},
@@ -66,6 +71,7 @@ func TestBackchannelLogoutIsAudited(t *testing.T) {
 		Config:          config.Config{UserOIDCClaim: "preferred_username", UserCS3Claim: "username"},
 		OidcClient:      oidcClient,
 		UserInfoCache:   store,
+		LogoutMarkers:   bcl.NewLogoutMarkers(microstore.NewMemoryStore(), time.Hour),
 		UserProvider:    users,
 		EventsPublisher: nopPublisher{},
 		AuditEmitter:    emitter,
@@ -81,6 +87,57 @@ func TestBackchannelLogoutIsAudited(t *testing.T) {
 	assert.Equal(t, audit.OutcomeSuccess, ev.Outcome)
 	assert.Equal(t, "u-1", ev.Target.ID)
 	assert.Equal(t, "t-1", ev.Tenant)
+}
+
+// undeletableStore cannot remove records.
+type undeletableStore struct{ microstore.Store }
+
+func (undeletableStore) Delete(string, ...microstore.DeleteOption) error {
+	return errors.New("delete failed")
+}
+
+// The marker has ended the session, so the logout is audited even if the cached
+// claims cannot be removed.
+func TestBackchannelLogoutIsAuditedWhenTheCleanupFails(t *testing.T) {
+	store := undeletableStore{microstore.NewMemoryStore()}
+	key, err := bcl.NewKey("subject", "s-1")
+	require.NoError(t, err)
+	claims, err := msgpack.Marshal(bcl.TokenRecord{Claims: map[string]any{"preferred_username": "alice"}})
+	require.NoError(t, err)
+	require.NoError(t, store.Write(&microstore.Record{Key: key, Value: []byte("claims-key")}))
+	require.NoError(t, store.Write(&microstore.Record{Key: "claims-key", Value: claims}))
+
+	oidcClient := oidcmocks.NewOIDCClient(t)
+	oidcClient.EXPECT().VerifyLogoutToken(mock.Anything, "token").Return(&oidc.LogoutToken{
+		RegisteredClaims: jwt.RegisteredClaims{IssuedAt: jwt.NewNumericDate(time.Now())},
+		SessionId:        "s-1",
+	}, nil)
+	users := backendmocks.NewUserBackend(t)
+	users.On("GetUserByClaims", mock.Anything, "username", "alice").Return(&userpb.User{
+		Id: &userpb.UserId{OpaqueId: "u-1"},
+	}, "", nil)
+
+	emitter := &recordingEmitter{}
+	s := &StaticRouteHandler{
+		Logger:          log.NopLogger(),
+		Config:          config.Config{UserOIDCClaim: "preferred_username", UserCS3Claim: "username"},
+		OidcClient:      oidcClient,
+		UserInfoCache:   store,
+		LogoutMarkers:   bcl.NewLogoutMarkers(microstore.NewMemoryStore(), time.Hour),
+		UserProvider:    users,
+		EventsPublisher: nopPublisher{},
+		AuditEmitter:    emitter,
+	}
+
+	w := httptest.NewRecorder()
+	s.backchannelLogout(w, logoutRequest())
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	_, err = store.Read("claims-key")
+	require.NoError(t, err, "the cached claims are still there")
+	require.Len(t, emitter.events, 1)
+	assert.Equal(t, audit.OutcomeSuccess, emitter.events[0].Outcome)
+	assert.Equal(t, "u-1", emitter.events[0].Target.ID)
 }
 
 func TestInvalidLogoutTokenIsAudited(t *testing.T) {

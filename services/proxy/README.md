@@ -348,6 +348,24 @@ Store specific notes:
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
 
+### Backchannel Logout
+
+When the IDP sends a backchannel logout, the `proxy` service stores a logout marker and checks it on every authenticated request. Tokens issued at or before the logout are rejected, even if the service has not seen them before. Tokens issued later stay valid, because the IDP only issues them for sessions it still considers alive, for example for a client with an offline token.
+
+This requires the following:
+  -   `PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD` must be set to `jwt`.
+  -   Access tokens must contain the `sid`, `sub` and `iat` claims. A token without `sid` is not covered by a logout of its session. A token without `iat` is rejected if a logout covers its session or subject.
+  -   The IDP must support backchannel logout for the client, and the client must be configured with the `/backchannel_logout` URL of the `proxy` service.
+  -   `PROXY_OIDC_SKIP_USER_INFO` must be `false`, which is the default. The IDP is then asked about every token that is not in the cache, so it can still reject a logged out token whose marker is lost, has expired or cannot be read. With `true`, only the markers reject a token.
+
+Logout markers use the store configured via `PROXY_OIDC_USERINFO_CACHE_STORE`, in a separate database named after the cache database with the suffix `-logout-markers`. With the `noop` store, they are kept in memory. With the `memory` store, they are lost on restart and not shared between instances.
+
+Markers are kept for `PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME` plus a small buffer, so this value must not be shorter than the access token lifetime configured at the IDP. An access token with a longer lifetime or without an expiration can outlive its marker. Such a token is accepted, and the service logs a warning. With the `nats-js-kv` store, this retention is a setting of the bucket of the markers. It is applied at every start of the service, also to markers that already exist. Before lowering `PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME`, wait until the access tokens with the longer lifetime have expired.
+
+If the store of the markers cannot be read, the service does not use the cached claims and asks the userinfo endpoint of the IDP about each request instead. With `PROXY_OIDC_SKIP_USER_INFO=true` there is no such check, so the request is rejected and an outage of the store causes authentication failures.
+
+The IDP decides when a logout is sent. For example, Keycloak does not send one for clients without a backchannel logout URL or for a realm-wide logout of all sessions.
+
 
 ## Presigned Urls
 
