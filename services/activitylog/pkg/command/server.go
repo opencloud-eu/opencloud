@@ -276,12 +276,38 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 			Msg("could not read stream info of the existing bucket, continuing with its current TTL")
 		return kv, nil
 	}
-	if info.Config.MaxAge != cfg.TTL {
+
+	// keep a copy of the version key in the stream metadata, applying a TTL can purge the key
+	version := ""
+	if info.Config.Metadata[activitylog.ActivityLogVersionMetadataKey] == "" {
+		entry, err := kv.Get(activitylog.ActivityLogVersionKey)
+		switch {
+		case err == nil:
+			version = string(entry.Value())
+		case errors.Is(err, nats.ErrKeyNotFound):
+		default:
+			logger.Error().
+				Err(err).
+				Str("bucket", cfg.Database).
+				Str("stream", streamName).
+				Dur("ttl", cfg.TTL).
+				Msg("could not read the version key of the existing bucket, continuing with its current settings")
+			return kv, nil
+		}
+	}
+
+	if info.Config.MaxAge != cfg.TTL || version != "" {
 		streamCfg := info.Config
 		streamCfg.MaxAge = cfg.TTL
 		// the duplicate window must not exceed the max age
 		if cfg.TTL > 0 && streamCfg.Duplicates > cfg.TTL {
 			streamCfg.Duplicates = cfg.TTL
+		}
+		if version != "" {
+			if streamCfg.Metadata == nil {
+				streamCfg.Metadata = map[string]string{}
+			}
+			streamCfg.Metadata[activitylog.ActivityLogVersionMetadataKey] = version
 		}
 		if _, err := js.UpdateStream(&streamCfg); err != nil {
 			logger.Error().
@@ -289,7 +315,7 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 				Str("bucket", cfg.Database).
 				Str("stream", streamName).
 				Dur("ttl", cfg.TTL).
-				Msg("could not update the TTL of the existing bucket, continuing with its current TTL")
+				Msg("could not update the stream config of the existing bucket, continuing with its current settings")
 		}
 	}
 

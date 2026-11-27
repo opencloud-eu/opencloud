@@ -274,6 +274,12 @@ var _ = Describe("ConnectNatsKV", func() {
 		return info.Config.MaxAge
 	}
 
+	metadata := func() map[string]string {
+		info, err := js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		return info.Config.Metadata
+	}
+
 	BeforeEach(func() {
 		db = "activitylog-ttl-test-" + uuid.New().String()
 		cfg = config.Store{
@@ -347,6 +353,61 @@ var _ = Describe("ConnectNatsKV", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(maxAge()).To(Equal(time.Duration(0)))
 		}
+	})
+
+	It("copies the version key to the stream metadata of an existing bucket", func() {
+		kv, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		_, err = kv.PutString(activitylog.ActivityLogVersionKey, "1")
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metadata()).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
+		Expect(maxAge()).To(Equal(time.Duration(0)))
+
+		entry, err := kv.Get(activitylog.ActivityLogVersionKey)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(entry.Value())).To(Equal("1"))
+	})
+
+	It("copies the version key to the stream metadata while applying a TTL", func() {
+		kv, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		_, err = kv.PutString(activitylog.ActivityLogVersionKey, "1")
+		Expect(err).ToNot(HaveOccurred())
+
+		cfg.TTL = time.Hour
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metadata()).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
+		Expect(maxAge()).To(Equal(time.Hour))
+	})
+
+	It("keeps the version stream metadata when the version key is missing", func() {
+		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		info, err := js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		streamCfg := info.Config
+		streamCfg.Metadata = map[string]string{activitylog.ActivityLogVersionMetadataKey: "1"}
+		_, err = js.UpdateStream(&streamCfg)
+		Expect(err).ToNot(HaveOccurred())
+
+		cfg.TTL = time.Hour
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metadata()).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
+		Expect(maxAge()).To(Equal(time.Hour))
+	})
+
+	It("does not set the version stream metadata when there is no version", func() {
+		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(metadata()).ToNot(HaveKey(activitylog.ActivityLogVersionMetadataKey))
 	})
 })
 

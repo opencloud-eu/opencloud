@@ -10,13 +10,17 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-const activitylogVersionKey = "activitylog.version"
+// VersionKey is the KV key holding the activitylog data version.
+const ActivityLogVersionKey = "activitylog.version"
+
+// VersionMetadataKey is the stream metadata key holding a copy of the activitylog data version.
+const ActivityLogVersionMetadataKey = "opencloud.activitylog.version"
 const currentMigrationVersion = "1"
 
 // RunMigrations checks the activitylog data version and runs migrations if necessary.
 // It should be called during service startup, after the NATS KeyValue store is initialized.
 func (a *ActivityLog) runMigrations(ctx context.Context, kv nats.KeyValue) error {
-	entry, err := kv.Get(activitylogVersionKey)
+	entry, err := kv.Get(ActivityLogVersionKey)
 	if err == nats.ErrKeyNotFound {
 		a.log.Info().Msg("activitylog version key not found. Running migration to V1...")
 		return a.migrateToV1(ctx, kv)
@@ -60,7 +64,7 @@ func (a *ActivityLog) migrateToV1(_ context.Context, kv nats.KeyValue) error {
 	}
 
 	for key := range keyChan {
-		if key == activitylogVersionKey {
+		if key == ActivityLogVersionKey {
 			skippedCount++
 			continue // Skip the version key itself
 		}
@@ -120,7 +124,7 @@ func (a *ActivityLog) migrateToV1(_ context.Context, kv nats.KeyValue) error {
 	}
 
 	// Set the activitylog version to "1" after migration
-	if _, err := kv.PutString(activitylogVersionKey, currentMigrationVersion); err != nil {
+	if _, err := kv.PutString(ActivityLogVersionKey, currentMigrationVersion); err != nil {
 		return fmt.Errorf("migrateToV1: failed to set activitylog version key to '%s' in NATS KV store: %w", currentMigrationVersion, err)
 	}
 
