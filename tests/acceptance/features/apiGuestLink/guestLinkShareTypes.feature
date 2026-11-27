@@ -12,7 +12,7 @@ Feature: share types of resources shared with a guest
     And user "Alice" has uploaded file with content "to share" to "parent/textfile.txt"
 
 
-  Scenario Outline: resource shared with a guest has the share type email in the WebDAV response
+  Scenario Outline: check the share-types property of a resource shared with a guest
     Given user "Alice" has sent the following resource share invitation:
       | resource        | <resource>        |
       | space           | Personal          |
@@ -31,7 +31,7 @@ Feature: share types of resources shared with a guest
       | parent/folderToShare |
 
 
-  Scenario: resource shared with a user, a group and a guest has all share types in the WebDAV response
+  Scenario: check the share-types property of a resource shared with a user, a group and a guest
     Given user "Brian" has been created with default attributes
     And user "Alice" has sent the following resource share invitation:
       | resource        | parent/textfile.txt |
@@ -62,7 +62,7 @@ Feature: share types of resources shared with a guest
       | 4 |
 
 
-  Scenario: resource has no share types in the WebDAV response after the guest share is removed
+  Scenario: check the share-types property of a resource after the guest share is removed
     Given user "Alice" has sent the following resource share invitation:
       | resource        | parent/textfile.txt |
       | space           | Personal            |
