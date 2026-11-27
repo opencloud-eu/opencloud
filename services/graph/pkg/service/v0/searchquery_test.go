@@ -114,9 +114,10 @@ type searchHitsContainerJSON struct {
 				Path string `json:"path"`
 			} `json:"remoteItem"`
 			ParentReference struct {
-				Id   string  `json:"id"`
-				Path string  `json:"path"`
-				Name *string `json:"name"`
+				DriveId string  `json:"driveId"`
+				Id      string  `json:"id"`
+				Path    string  `json:"path"`
+				Name    *string `json:"name"`
 			} `json:"parentReference"`
 		} `json:"resource"`
 	} `json:"hits"`
@@ -223,6 +224,7 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
 
 			parent := hitsContainer(rr).Hits[0].Resource.ParentReference
+			Expect(parent.DriveId).To(Equal("1$2"))
 			Expect(parent.Id).To(Equal("1$2!4"))
 			Expect(parent.Path).To(Equal(wantPath))
 			if wantName == nil {
@@ -234,6 +236,23 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("a hit in a folder", "./projects/2026/notes.txt", "/projects/2026", libregraph.PtrString("2026")),
 		ginkgo.Entry("a hit in the space root, the root has no name", "./notes.txt", "/", nil),
 	)
+
+	ginkgo.It("places the parent of a hit in a share in the drive of the mountpoint", func() {
+		g, _ := graphWithSearchAnswer(oneMatch(&searchmsg.Entity{
+			Id:           &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "3"},
+			ParentId:     &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "4"},
+			Ref:          &searchmsg.Reference{ResourceId: &searchmsg.ResourceID{StorageId: "jail", SpaceId: "jail", OpaqueId: "share"}, Path: "./2026/notes.txt"},
+			RemoteItemId: &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "5"},
+			Name:         "notes.txt",
+		}))
+		rr := postSearchQuery(g, searchQueryBody(`"from": 0`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		parent := hitsContainer(rr).Hits[0].Resource.ParentReference
+		Expect(parent.DriveId).To(Equal("jail$jail!share"))
+		Expect(parent.Id).To(Equal("1$2!4"))
+		Expect(parent.Path).To(Equal("/2026"))
+	})
 
 	ginkgo.DescribeTable("validatePagination enforces the spec's from/size bounds",
 		func(from, size *int32, wantErr bool) {
