@@ -93,7 +93,7 @@ The webdav service caches the thumbnails it generates. Choose a backend with `WE
 
 `s3` needs a bucket, a region and credentials. A service other than AWS also needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT`, and it is always addressed over https. While previews are enabled, an unknown backend or an incomplete `s3` configuration fails at startup rather than running without a cache.
 
-Every entry keeps the type of its image: `file` in an extended attribute (`user.oc.content_type`), `s3` as the object's `Content-Type`. A `file` cache on a filesystem without extended attributes fails at startup.
+Every entry keeps the type of its image: `file` in a header line in front of the image (`oc-thumbnail/1 <type>`), `s3` as the object's `Content-Type`. A file in a `file` cache is therefore not an image a viewer opens. An entry without the header, written by an earlier version, is made again on its next request.
 
 ##### What Is Cached
 

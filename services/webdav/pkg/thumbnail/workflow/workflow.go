@@ -459,7 +459,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		case err == nil && cached != nil && cached.ContentType != "":
 			return Thumbnail{Data: cached.Data, ContentType: cached.ContentType}, nil
 		case err == nil:
-			// no type, e.g. copied without xattrs: made again
+			// no type, e.g. written by an earlier version: made again
 		case !errors.Is(err, cache.ErrCacheMiss):
 			// a miss is the normal answer; anything else is the cache itself
 			// failing, and the thumbnail is made again without a word otherwise

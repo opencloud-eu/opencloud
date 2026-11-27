@@ -41,11 +41,7 @@ func NewThumbnailCache(backend string, cacheDir string, s3cfg *S3CacheConfig) (T
 		if dir == "" {
 			dir = DefaultFileCacheDir()
 		}
-		c := NewFileCache(dir)
-		if err := c.probe(); err != nil {
-			return nil, err
-		}
-		return c, nil
+		return NewFileCache(dir), nil
 	case "s3":
 		if s3cfg == nil || !s3cfg.IsComplete() {
 			return nil, errors.New("s3 thumbnail cache needs a bucket, a region and credentials")

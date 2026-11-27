@@ -1,19 +1,17 @@
 package cache
 
 import (
+	"bytes"
 	"errors"
-	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/xattr"
-
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
-const contentTypeAttr = "user.oc.content_type"
+// An entry is a header line naming the type of the image, followed by the image.
+const entryMagic = "oc-thumbnail/1 "
 
 // FileCache stores thumbnails on the local filesystem using hierarchical directories.
 type FileCache struct {
@@ -24,52 +22,27 @@ func NewFileCache(dir string) *FileCache {
 	return &FileCache{dir: dir}
 }
 
-func (c *FileCache) probe() error {
-	if err := os.MkdirAll(c.dir, 0700); err != nil {
-		return err
-	}
-
-	f, err := os.CreateTemp(c.dir, "tmpprobe")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name())
-	defer f.Close()
-
-	if err := xattr.FSet(f, contentTypeAttr, []byte("image/png")); err != nil {
-		return fmt.Errorf("the thumbnail cache in %s needs a filesystem with extended attributes, use another directory or the s3 or memory backend: %w", c.dir, err)
-	}
-
-	return nil
-}
-
 // The cache key is already a hierarchical relative path, so the on-disk
 // location is the cache dir joined with it.
 func (c *FileCache) Get(key string) (*thumbnail.Image, error) {
-	f, err := os.Open(filepath.Join(c.dir, key))
+	raw, err := os.ReadFile(filepath.Join(c.dir, key))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, ErrCacheMiss
 		}
 		return nil, err
 	}
-	defer f.Close()
 
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
-	contentType, err := xattr.FGet(f, contentTypeAttr)
-	if err != nil && !errors.Is(err, xattr.ENOATTR) {
-		return nil, err
-	}
-
-	if len(data) == 0 {
+	if len(raw) == 0 {
 		return nil, nil
 	}
 
-	return &thumbnail.Image{ContentType: string(contentType), Data: data}, nil
+	header, data, found := bytes.Cut(raw, []byte("\n"))
+	if !found || !bytes.HasPrefix(header, []byte(entryMagic)) {
+		return &thumbnail.Image{Data: raw}, nil
+	}
+
+	return &thumbnail.Image{ContentType: string(header[len(entryMagic):]), Data: data}, nil
 }
 
 func (c *FileCache) Put(key string, img *thumbnail.Image) error {
@@ -87,15 +60,11 @@ func (c *FileCache) Put(key string, img *thumbnail.Image) error {
 	tempPath := f.Name()
 
 	if img != nil {
-		if _, err := f.Write(img.Data); err != nil {
-			f.Close()
-			os.Remove(tempPath)
-			return err
+		_, err := f.WriteString(entryMagic + img.ContentType + "\n")
+		if err == nil {
+			_, err = f.Write(img.Data)
 		}
-	}
-
-	if img != nil && img.ContentType != "" {
-		if err := xattr.FSet(f, contentTypeAttr, []byte(img.ContentType)); err != nil {
+		if err != nil {
 			f.Close()
 			os.Remove(tempPath)
 			return err
