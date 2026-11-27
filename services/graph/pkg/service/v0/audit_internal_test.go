@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	"github.com/opencloud-eu/reva/v3/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
@@ -213,4 +214,32 @@ func TestGroupRenameIsAudited(t *testing.T) {
 	require.NotNil(t, ev.Change)
 	assert.Equal(t, map[string]any{"displayname": "old"}, ev.Change.Before)
 	assert.Equal(t, map[string]any{"displayname": "new"}, ev.Change.After)
+}
+
+func TestGroupMembersAddedByPatchAreAudited(t *testing.T) {
+	rec := &recordingEmitter{}
+	backend := &identitymocks.Backend{}
+	backend.On("AddMembersToGroup", mock.Anything, "g-1", []string{"u-1", "u-2"}).Return(nil)
+	logger := log.NopLogger()
+	g := Graph{
+		BaseGraphService: BaseGraphService{logger: &logger, config: &config.Config{API: config.API{GroupMembersPatchLimit: 20}}},
+		auditEmitter:     rec,
+		identityBackend:  backend,
+	}
+
+	body := `{"members@odata.bind":["https://localhost/graph/v1.0/users/u-1","https://localhost/graph/v1.0/users/u-2"]}`
+	r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/groups/g-1", strings.NewReader(body))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("groupID", "g-1")
+	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+	g.PatchGroup(w, r)
+
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Len(t, rec.events, 2, "one record per member, as with POST /members/$ref")
+	for i, member := range []string{"u-1", "u-2"} {
+		assert.Equal(t, audit.GroupMemberAdd, rec.events[i].Definition)
+		assert.Equal(t, "g-1", rec.events[i].Target.ID)
+		assert.Equal(t, map[string]any{"member": member}, rec.events[i].Change.After)
+	}
 }

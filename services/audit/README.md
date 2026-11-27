@@ -97,6 +97,7 @@ Some actions are left out on purpose:
 - Uploads and downloads are recorded when the transfer is done. Uploads and downloads by OpenCloud itself, e.g. for a copy, thumbnails, search or an archive, are not recorded.
 - A download that is resumed or seeked makes many range requests, only the one starting at the first byte counts.
 - `auth.login` is recorded for a new OIDC session. When the access token has a session ID (`sid`), as with Keycloak, only the first token of a session and OIDC client is a login; renewed tokens are not. The proxy keeps the sessions it recorded for a day, in the database `audit-logins` of the store of the userinfo cache (`PROXY_OIDC_USERINFO_CACHE_STORE`). With the `memory` store every proxy replica records the login once, use `nats-js-kv` with more than one proxy. Without a session ID, e.g. with the built-in identity provider, every new access token is recorded as a login, also the ones a client gets by renewing its token. Basic auth and app tokens authenticate every single request, for them only failed logins are recorded. Expired OIDC tokens are part of the normal token renewal and are not recorded as failed logins.
+- A `PATCH` of a group that renames it and then fails on the members records a successful `group.update` for the rename and a failed one for the request: the rename did happen.
 - `public_link.access` is recorded once per link and client within 30 minutes, every failed attempt is recorded. The web client asking whether a link needs a password is not an attempt.
 - Shares accepted automatically, see `SHARING_AUTO_ACCEPT_SHARES`, are not recorded as `share.accept`. The `share.create` of the sharer is the record.
 
@@ -152,4 +153,6 @@ As long as `OC_AUDIT_ENABLED` is not `true`, the audit service runs the audit lo
 {"RemoteAddr":"","User":"user_id","URL":"","Method":"","UserAgent":"","Time":"","App":"admin_audit","Message":"user 'user_id' trashed file 'item_id'","Action":"file_delete","CLI":false,"Level":1,"Path":"path","Owner":"user_id","FileID":"item_id"}
 ```
 
-To move to the audit stream, set `OC_AUDIT_ENABLED=true` for all services. The records then have the format described above, and there is no output to a file: point a log agent at stdout or set `AUDIT_OUTPUT_OTLP_ENDPOINT` before you switch.
+To move to the audit stream, set `OC_AUDIT_ENABLED=true` for all services. The records then have the format described above, and there is no output to a file: point a log agent at stdout or set `AUDIT_OUTPUT_OTLP_ENDPOINT` before you switch. With `OC_AUDIT_ENABLED=true` the audit service ignores `AUDIT_LOG_TO_FILE` and `AUDIT_FILEPATH` and logs an error at startup while they are set.
+
+The release that removes the legacy audit log will refuse to start the audit service without `OC_AUDIT_ENABLED=true`, so an audit log never stops without notice.

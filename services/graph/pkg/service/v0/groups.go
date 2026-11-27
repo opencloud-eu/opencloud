@@ -239,6 +239,16 @@ func (g Graph) PatchGroup(w http.ResponseWriter, r *http.Request) {
 			errorcode.RenderError(w, r, err)
 			return
 		}
+		// the same event as adding a member with POST /members/$ref, the audit
+		// log and the other consumers see no difference between the two
+		currentUser, _ := revactx.ContextGetUser(r.Context())
+		for _, id := range memberIDs {
+			g.publishEvent(r.Context(), events.GroupMemberAdded{
+				GroupID:   groupID,
+				UserID:    id,
+				Executant: currentUser.GetId(),
+			})
+		}
 	}
 
 	render.Status(r, http.StatusNoContent) // TODO StatusNoContent when prefer=minimal is used, otherwise OK and the resource in the body
