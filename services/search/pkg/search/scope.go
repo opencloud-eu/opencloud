@@ -13,6 +13,7 @@ import (
 var (
 	ErrNestedScope   = errors.New("scope: must be a top-level restriction")
 	ErrRepeatedScope = errors.New("scope: must be given once")
+	ErrScopeOperator = errors.New("scope: cannot be negated or joined with OR")
 )
 
 // ExtractScope takes the scope restriction out of the query, together with
@@ -41,11 +42,14 @@ func ExtractScope(nodes []ast.Node) ([]ast.Node, string, error) {
 			continue
 		}
 
-		rest := append(append([]ast.Node{}, nodes[:i]...), nodes[i+1:]...)
-		if i > 0 && isOperator(rest[i-1], kql.BoolNOT) {
-			rest = append(rest[:i-1], rest[i:]...)
-			i--
+		if i > 0 && (isOperator(nodes[i-1], kql.BoolNOT) || isOperator(nodes[i-1], kql.BoolOR)) {
+			return nil, "", ErrScopeOperator
 		}
+		if i+1 < len(nodes) && isOperator(nodes[i+1], kql.BoolOR) {
+			return nil, "", ErrScopeOperator
+		}
+
+		rest := append(append([]ast.Node{}, nodes[:i]...), nodes[i+1:]...)
 		switch {
 		case i < len(rest) && isBooleanOperator(rest[i]):
 			rest = append(rest[:i], rest[i+1:]...)

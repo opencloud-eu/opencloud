@@ -24,9 +24,6 @@ var _ = DescribeTable("ExtractScope",
 	Entry("joined implicitly", `name:x scope:1$2!3`, `name:x`, `1$2!3`),
 	Entry("joined implicitly at the start", `scope:1$2!3 name:x`, `name:x`, `1$2!3`),
 	Entry("between free text", `foo scope:1$2!3 bar`, `foo bar`, `1$2!3`),
-	Entry("joined with OR", `name:x OR scope:1$2!3`, `name:x`, `1$2!3`),
-	Entry("negated", `name:x AND NOT scope:1$2!3`, `name:x`, `1$2!3`),
-	Entry("negated at the start", `NOT scope:1$2!3 AND name:x`, `name:x`, `1$2!3`),
 	Entry("alone", `scope:1$2!3`, ``, `1$2!3`),
 	Entry("no scope", `name:x AND tag:y`, `name:x AND tag:y`, ``),
 	Entry("a quoted value is not a scope", `name:"scope:1$2!3"`, `name:"scope:1$2!3"`, ``),
@@ -42,6 +39,19 @@ var _ = DescribeTable("ExtractScope rejects a nested scope",
 	Entry("after a top-level scope", `scope:1$2!3 AND (scope:1$2!4)`),
 	Entry("as a group value", `name:x AND scope:(1$2!3)`),
 	Entry("as a group value inside a group", `name:x AND (tag:y OR scope:(1$2!3))`),
+)
+
+var _ = DescribeTable("ExtractScope rejects a scope that is negated or joined with OR",
+	func(query string) {
+		_, _, err := search.ExtractScope(parse(query).Nodes)
+		Expect(err).To(MatchError(search.ErrScopeOperator))
+	},
+	Entry("negated", `name:x AND NOT scope:1$2!3`),
+	Entry("negated at the start", `NOT scope:1$2!3 AND name:x`),
+	Entry("negated alone", `NOT scope:1$2!3`),
+	Entry("joined with OR", `name:x OR scope:1$2!3`),
+	Entry("joined with OR at the start", `scope:1$2!3 OR name:x`),
+	Entry("joined with OR in the middle", `name:x AND scope:1$2!3 OR tag:y`),
 )
 
 var _ = Describe("ExtractScope", func() {
