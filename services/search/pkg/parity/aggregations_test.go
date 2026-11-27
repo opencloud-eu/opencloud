@@ -390,7 +390,12 @@ func renderAggregation(prefix string, a *searchService.AggregationResult) []stri
 func cardinalityFixtures() []search.Resource {
 	docs := make([]search.Resource, 0, 10050)
 	for i := 0; i < 10050; i++ {
-		docs = append(docs, song(fmt.Sprintf("card-%05d.mp3", i), fmt.Sprintf("artist-%05d", i), "Singles", int32(1950+i%50)))
+		// tags only beyond the first 1000 songs, the page OpenSearch returns for "all matches"
+		var tagged []fixtureOption
+		if i >= 2000 {
+			tagged = append(tagged, withTags(fmt.Sprintf("tag-%03d", i%150)))
+		}
+		docs = append(docs, song(fmt.Sprintf("card-%05d.mp3", i), fmt.Sprintf("artist-%05d", i), "Singles", int32(1950+i%50), tagged...))
 	}
 	return docs
 }
@@ -406,7 +411,11 @@ func nested(fields ...string) *searchService.AggregationOption {
 
 func cardinalityCases() []aggCase {
 	count := 10050
+	tags := 150
 	return []aggCase{
+		{id: 47, query: "Tags:*", reads: "one bucket per tag, whichever match carries it",
+			aggs:      []*searchService.AggregationOption{{Field: "Tags"}},
+			wantCount: &tags},
 		{id: 17, query: "mediatype:audio", reads: "one bucket per artist, cardinality above the page size",
 			aggs:      []*searchService.AggregationOption{{Field: "audio.artist"}},
 			wantCount: &count},

@@ -3,7 +3,6 @@ package svc_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 
@@ -15,7 +14,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
-	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	searchmocks "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
@@ -32,13 +30,13 @@ var _ = Describe("GetTags", func() {
 		tape          *httptest.ResponseRecorder
 	)
 
-	// matchesWithTags returns one search match per argument, with the given tags
-	matchesWithTags := func(tagsPerMatch ...[]string) []*searchmsg.Match {
-		matches := make([]*searchmsg.Match, 0, len(tagsPerMatch))
-		for _, tags := range tagsPerMatch {
-			matches = append(matches, &searchmsg.Match{Entity: &searchmsg.Entity{Tags: tags}})
+	// tagBuckets answers like the search does: one bucket per tag
+	tagBuckets := func(tags ...string) *searchsvc.SearchResponse {
+		buckets := make([]*searchsvc.Bucket, 0, len(tags))
+		for _, tag := range tags {
+			buckets = append(buckets, &searchsvc.Bucket{Key: tag, Count: 1})
 		}
-		return matches
+		return &searchsvc.SearchResponse{Aggregations: []*searchsvc.AggregationResult{{Field: "Tags", Buckets: buckets}}}
 	}
 
 	getTags := func() []string {
@@ -72,66 +70,31 @@ var _ = Describe("GetTags", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("asks the search for all tagged resources", func() {
+	It("asks the search for the first tags in byte order, without matches", func() {
 		searchService.EXPECT().Search(mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchRequest) bool {
-			return req.GetQuery() == "Tags:*" && req.GetPageSize() == -1
+			aggs := req.GetAggregations()
+			return req.GetQuery() == "Tags:*" && req.PageSize != nil && req.GetPageSize() == 0 &&
+				len(aggs) == 1 && aggs[0].GetField() == "Tags" &&
+				aggs[0].GetSize() == int32(service.MaxListedTagsForTest) &&
+				aggs[0].GetBucketDefinition().GetSortBy() == searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING &&
+				!aggs[0].GetBucketDefinition().GetIsDescending()
 		})).Return(&searchsvc.SearchResponse{}, nil)
 
 		Expect(getTags()).To(BeEmpty())
 	})
 
 	It("renders an empty list when no tags are in use", func() {
-		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{}, nil)
+		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(tagBuckets(), nil)
 
 		svc.GetTags(tape, httptest.NewRequest(http.MethodGet, "/graph/v1.0/extensions/org.libregraph/tags", nil))
 		Expect(tape.Code).To(Equal(http.StatusOK))
 		Expect(tape.Body.String()).To(MatchJSON(`{"value": []}`))
 	})
 
-	It("lists every tag once", func() {
-		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{
-			Matches: matchesWithTags([]string{"work", "draft"}, []string{"draft", ""}, nil, []string{"work"}),
-		}, nil)
-
-		Expect(getTags()).To(Equal([]string{"draft", "work"}))
-	})
-
-	It("sorts the tags in byte order, upper case before lower case", func() {
-		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{
-			Matches: matchesWithTags([]string{"apple", "cherry"}, []string{"Apple", "Banana"}),
-		}, nil)
+	It("lists the tags as the search orders them", func() {
+		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(tagBuckets("Apple", "Banana", "apple", "cherry"), nil)
 
 		Expect(getTags()).To(Equal([]string{"Apple", "Banana", "apple", "cherry"}))
-	})
-
-	It("returns the same list for the same tags, whatever the order of the search results", func() {
-		first := matchesWithTags([]string{"c", "a"}, []string{"b"})
-		reversed := matchesWithTags([]string{"b"}, []string{"a", "c"})
-
-		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{Matches: first}, nil).Once()
-		firstResult := getTags()
-
-		tape = httptest.NewRecorder()
-		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{Matches: reversed}, nil).Once()
-		Expect(getTags()).To(Equal(firstResult))
-	})
-
-	It("returns only the first tags in sort order when more tags are in use than it lists", func() {
-		limit := service.MaxListedTagsForTest
-		// one more tag than listed, spread over several matches, in descending order
-		all := make([]string, 0, limit+1)
-		for i := limit; i >= 0; i-- {
-			all = append(all, fmt.Sprintf("tag%03d", i))
-		}
-		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{
-			Matches: matchesWithTags(all[:limit/2], all[limit/2:]),
-		}, nil)
-
-		listed := getTags()
-		Expect(listed).To(HaveLen(limit))
-		Expect(listed[0]).To(Equal("tag000"))
-		Expect(listed[limit-1]).To(Equal(fmt.Sprintf("tag%03d", limit-1)))
-		Expect(listed).ToNot(ContainElement(fmt.Sprintf("tag%03d", limit)))
 	})
 
 	It("fails when the search fails", func() {

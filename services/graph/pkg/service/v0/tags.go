@@ -1,68 +1,43 @@
 package svc
 
 import (
-	"maps"
 	"net/http"
-	"slices"
 	"strings"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/render"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
-	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	revaCtx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/tags"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"go-micro.dev/v4/metadata"
 )
 
 // maxListedTags is the maximum number of tags that GetTags returns. It keeps
-// the response small when many distinct tags are in use. Since the tags are
-// sorted before the list is cut, the same tags are always the ones returned.
+// the response small when many distinct tags are in use.
 const maxListedTags = 100
 
-// listedTags returns the distinct tags of the given search matches, sorted in
-// byte order, and cut at maxListedTags.
-//
-// Byte order means that upper case comes before lower case ("Banana" before
-// "apple"). It is used on purpose instead of a case-insensitive order, which
-// would be nicer to read, because it is the order in which search engines sort
-// keyword values, e.g. an OpenSearch terms aggregation ordered by key. With the
-// same order here, the search can return just the first maxListedTags tags of
-// every space, and merging those lists still gives exactly the first
-// maxListedTags tags overall. With a case-insensitive order, that only works by
-// aggregating on a lowercased copy of the field, which needs a mapping change
-// and a reindex, and loses the original casing of the tags. Clients that want
-// another order for display can sort the list themselves.
-func listedTags(matches []*searchmsg.Match) []string {
-	distinct := make(map[string]struct{})
-	for _, match := range matches {
-		for _, tag := range match.GetEntity().GetTags() {
-			if tag != "" {
-				distinct[tag] = struct{}{}
-			}
-		}
-	}
-
-	// never nil: an empty list is rendered as "value": [], not left out
-	list := slices.AppendSeq(make([]string, 0, len(distinct)), maps.Keys(distinct))
-	slices.Sort(list)
-	return list[:min(len(list), maxListedTags)]
-}
-
-// GetTags returns the tags in use, see listedTags
+// GetTags returns the tags in use: the first maxListedTags in byte order,
+// upper case before lower case ("Banana" before "apple"). That is the order
+// of the keys of a terms aggregation, so the search can cut the list. Clients
+// that want another order for display can sort the list themselves.
 func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 	th := r.Header.Get(revaCtx.TokenHeader)
 	ctx := revaCtx.ContextSetToken(r.Context(), th)
 	ctx = metadata.Set(ctx, revaCtx.TokenHeader, th)
 	sr, err := g.searchService.Search(ctx, &searchsvc.SearchRequest{
 		Query:    "Tags:*",
-		PageSize: conversions.ToPointer(int32(-1)),
+		PageSize: conversions.ToPointer(int32(0)),
+		Aggregations: []*searchsvc.AggregationOption{{
+			Field:            "Tags",
+			Size:             maxListedTags,
+			BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING},
+		}},
 	})
 	if err != nil {
 		g.logger.Error().Err(err).Msg("Could not search for tags")
@@ -70,8 +45,16 @@ func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// never nil: an empty list is rendered as "value": [], not left out
+	list := []string{}
+	if aggs := sr.GetAggregations(); len(aggs) > 0 {
+		for _, bucket := range aggs[0].GetBuckets() {
+			list = append(list, bucket.GetKey())
+		}
+	}
+
 	tagCollection := libregraph.NewCollectionOfTags()
-	tagCollection.Value = listedTags(sr.GetMatches())
+	tagCollection.Value = list
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, tagCollection)

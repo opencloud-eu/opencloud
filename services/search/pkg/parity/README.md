@@ -919,6 +919,7 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
+| AGG-47 | `Tags:*` reads `one bucket per tag, whichever match carries it` | 150 items | Tags tag-000=53, Tags tag-001=53, Tags tag-002=53, Tags tag-003=53, Tags tag-004=53, Tags tag-005=53, Tags tag-006=53, Tags tag-007=53, … +142 more | Tags tag-000=53, Tags tag-001=53, Tags tag-002=53, Tags tag-003=53, Tags tag-004=53, Tags tag-005=53, Tags tag-006=53, Tags tag-007=53, … +142 more | ✅ |
 | AGG-17 | `mediatype:audio` reads `one bucket per artist, cardinality above the page size` | 10050 items | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | ✅ |
 | AGG-42 | `mediatype:audio` reads `the total counts every match` | 1 of 10050 matches | 1 of 10050 matches | 1 of 10050 matches | ✅ |
 | AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches` | 10001 of 10050 matches | 10001 of 10050 matches | bad request | ❌ known |
