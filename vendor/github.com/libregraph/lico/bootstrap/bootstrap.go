@@ -40,6 +40,7 @@ import (
 	"github.com/libregraph/lico/config"
 	"github.com/libregraph/lico/encryption"
 	"github.com/libregraph/lico/identity"
+	identityResources "github.com/libregraph/lico/identity/resources"
 	"github.com/libregraph/lico/managers"
 	oidcProvider "github.com/libregraph/lico/oidc/provider"
 	"github.com/libregraph/lico/utils"
@@ -216,6 +217,16 @@ func (bs *bootstrap) initialize(settings *Settings) error {
 		logger.Infoln("dynamic client registration is enabled")
 	}
 
+	bs.config.Config.RequirePKCE = settings.RequirePKCE
+	if bs.config.Config.RequirePKCE {
+		logger.Infoln("PKCE is required for all clients")
+	}
+
+	bs.config.Config.ClientIDMetadataDocumentHosts = settings.ClientIDMetadataDocumentHosts
+	if len(bs.config.Config.ClientIDMetadataDocumentHosts) > 0 {
+		logger.WithField("hosts", bs.config.Config.ClientIDMetadataDocumentHosts).Infoln("client id metadata documents are enabled")
+	}
+
 	encryptionSecretFn := settings.EncryptionSecretFile
 
 	if encryptionSecretFn != "" {
@@ -369,6 +380,18 @@ func (bs *bootstrap) setup(ctx context.Context, settings *Settings) error {
 	}
 	managers.Set("identity", identityManager)
 
+	// A registered resource can only require scopes this provider supports,
+	// since a request for anything else silently loses them.
+	if resourceRegistry, _ := managers.Get("resources"); resourceRegistry != nil {
+		resources := resourceRegistry.(*identityResources.Registry)
+		if !resources.Empty() {
+			if err := resources.ValidateScopes(identityManager.ScopesSupported(nil)); err != nil {
+				return fmt.Errorf("failed to validate resource registrations: %v", err)
+			}
+			bs.config.Config.Logger.WithField("scopes", resources.ScopesSupported()).Infoln("protected resources registered")
+		}
+	}
+
 	guestManager, err := bs.setupGuest(ctx, identityManager)
 	if err != nil {
 		return err
@@ -478,11 +501,14 @@ func (bs *bootstrap) setupOIDCProvider(ctx context.Context) (*oidcProvider.Provi
 		registrationPath = bs.MakeURIPath(APITypeKonnect, "/register")
 	}
 
+	wellKnownPath, wellKnownAliasPaths := getWellKnownPaths(bs.config.IssuerIdentifierURI.EscapedPath())
+
 	provider, err := oidcProvider.NewProvider(&oidcProvider.Config{
 		Config: bs.config.Config,
 
 		IssuerIdentifier:       bs.config.IssuerIdentifierURI.String(),
-		WellKnownPath:          "/.well-known/openid-configuration",
+		WellKnownPath:          wellKnownPath,
+		WellKnownAliasPaths:    wellKnownAliasPaths,
 		JwksPath:               bs.MakeURIPath(APITypeKonnect, "/jwks.json"),
 		AuthorizationPath:      bs.config.AuthorizationEndpointURI.EscapedPath(),
 		TokenPath:              bs.MakeURIPath(APITypeKonnect, "/token"),

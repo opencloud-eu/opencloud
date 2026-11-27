@@ -29,6 +29,13 @@ type Details struct {
 	RedirectURI string `json:"redirect_uri"`
 	Trusted     bool   `json:"trusted"`
 
+	// Unverified is true for a client nobody vouches for, one which registered
+	// itself or which is described by a metadata document at its client ID.
+	// For the latter DisplayName is the host of that client ID, and
+	// ClaimedName is the name the document gives.
+	Unverified  bool   `json:"unverified"`
+	ClaimedName string `json:"claimed_name,omitempty"`
+
 	Registration *ClientRegistration `json:"-"`
 }
 

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/libregraph/oidc-go"
 	"github.com/longsleep/rndm"
 	"github.com/mendsley/gojwk"
 	"golang.org/x/crypto/blake2b"
@@ -54,12 +55,25 @@ type ClientRegistration struct {
 	TrustedScopes []string `yaml:"trusted_scopes" json:"-"`
 	Insecure      bool     `yaml:"insecure" json:"-"`
 
+	// RequirePKCE refuses a code exchange for this client when the
+	// authorization request carried no code challenge. It is set for every
+	// dynamically registered client, since those have no relationship with the
+	// operator which could vouch for them.
+	RequirePKCE bool `yaml:"require_pkce" json:"require_pkce,omitempty"`
+
 	ImplicitScopes                []string `yaml:"implicit_scopes" json:"-"`
 	ExternalAuthorizeRedirectURIs []string `yaml:"external_authorize_redirect_uris,flow" json:"-"`
 
 	Dynamic         bool      `yaml:"-" json:"-"`
 	IDIssuedAt      time.Time `yaml:"-" json:"-"`
 	SecretExpiresAt time.Time `yaml:"-" json:"-"`
+
+	// MetadataDocument is true for a client described by the Client ID
+	// Metadata Document at its client ID URL. Its Name is then the host of
+	// that URL, and ClaimedName the client_name the document gives, which
+	// nobody vouches for.
+	MetadataDocument bool   `yaml:"-" json:"-"`
+	ClaimedName      string `yaml:"-" json:"-"`
 
 	Contacts        []string `yaml:"contacts,flow" json:"contacts,omitempty"`
 	Name            string   `yaml:"name" json:"name,omitempty"`
@@ -178,6 +192,9 @@ func (cr *ClientRegistration) SetDynamic(ctx context.Context, creator func(ctx c
 		cr.SecretExpiresAt = time.Now().Add(registry.dynamicClientSecretDuration)
 	}
 	cr.Dynamic = true
+	// A dynamically registered client is not vouched for by anyone, so the code
+	// it exchanges has to be bound to the request which produced it.
+	cr.RequirePKCE = true
 
 	sub, secret, err := cr.makeSecret(nil)
 	if err != nil {
@@ -189,11 +206,15 @@ func (cr *ClientRegistration) SetDynamic(ctx context.Context, creator func(ctx c
 	// for more information. We use a JWT as client_id.
 	claims := &RegistrationClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   sub,
-			IssuedAt:  jwt.NewNumericDate(cr.IDIssuedAt),
-			ExpiresAt: jwt.NewNumericDate(cr.SecretExpiresAt),
+			Subject:  sub,
+			IssuedAt: jwt.NewNumericDate(cr.IDIssuedAt),
 		},
 		ClientRegistration: cr,
+	}
+	if !cr.SecretExpiresAt.IsZero() {
+		// Only when one was configured. A zero time would be stamped as the
+		// year one, which expires the client_id the moment it is issued.
+		claims.ExpiresAt = jwt.NewNumericDate(cr.SecretExpiresAt)
 	}
 
 	// Create signed stateless client ID by help of the provided creator function.
@@ -202,9 +223,12 @@ func (cr *ClientRegistration) SetDynamic(ctx context.Context, creator func(ctx c
 		return nil
 	}
 
-	// Fill in ID and secret.
+	// Fill in ID and secret. A client which asked to authenticate with none is
+	// a public client and gets no secret, see validateSecret.
 	cr.ID = DynamicStatelessClientIDPrefix + id
-	cr.Secret = secret
+	if cr.RawTokenEndpointAuthMethod != oidc.AuthMethodNone {
+		cr.Secret = secret
+	}
 
 	return nil
 }
@@ -279,6 +303,12 @@ func (cr *ClientRegistration) makeSecret(secret []byte) (string, string, error) 
 }
 
 func (cr *ClientRegistration) validateSecret(clientSecret string) (bool, error) {
+	if cr.RawTokenEndpointAuthMethod == oidc.AuthMethodNone {
+		// A public client has no secret to present. Its code exchange is bound
+		// by PKCE and by the exact redirect URI instead.
+		return true, nil
+	}
+
 	if cr.Dynamic {
 		if cr.Secret == "" {
 			// Fail fast, since dynamic clients must have a secret.

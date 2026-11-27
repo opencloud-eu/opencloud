@@ -28,6 +28,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/libregraph/oidc-go"
 
+	"github.com/libregraph/lico/identity/resources"
 	konnectoidc "github.com/libregraph/lico/oidc"
 )
 
@@ -50,6 +51,11 @@ type AuthenticationRequest struct {
 	RawIDTokenHint  string         `schema:"id_token_hint"`
 	RawMaxAge       string         `schema:"max_age"`
 
+	// RawResources holds the resource indicators of
+	// https://www.rfc-editor.org/rfc/rfc8707.html, one per occurrence of the
+	// parameter. Resource is the single normalized value, if any.
+	RawResources []string `schema:"resource"`
+
 	RawRequest      string `schema:"request"`
 	RawRequestURI   string `schema:"request_uri"`
 	RawRegistration string `schema:"registration"`
@@ -63,6 +69,7 @@ type AuthenticationRequest struct {
 	RedirectURI   *url.URL        `schema:"-"`
 	IDTokenHint   *jwt.Token      `schema:"-"`
 	MaxAge        time.Duration   `schema:"-"`
+	Resource      string          `schema:"-"`
 	Request       *jwt.Token      `schema:"-"`
 
 	UseFragment bool   `schema:"-"`
@@ -336,6 +343,22 @@ func (ar *AuthenticationRequest) Validate(keyFunc jwt.Keyfunc) error {
 		return ar.NewBadRequest(oidc.ErrorCodeOAuth2InvalidRequest, "invalid or missing redirect_uri")
 	}
 
+	// Resource indicator validation, everything from here on can be reported to
+	// the client by redirect.
+	// https://www.rfc-editor.org/rfc/rfc8707.html#section-2
+	if len(ar.RawResources) > 0 {
+		if len(ar.RawResources) > 1 {
+			// An access token carries exactly one audience value, see
+			// konnect.AccessTokenClaims.
+			return ar.NewError(konnectoidc.ErrorCodeOAuth2InvalidTarget, "only a single resource is supported")
+		}
+		resource, resourceErr := resources.NormalizeResourceID(ar.RawResources[0])
+		if resourceErr != nil {
+			return ar.NewError(konnectoidc.ErrorCodeOAuth2InvalidTarget, "resource "+resourceErr.Error())
+		}
+		ar.Resource = resource
+	}
+
 	if ar.RawIDTokenHint != "" {
 		parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 		idTokenHint, err := parser.ParseWithClaims(ar.RawIDTokenHint, &konnectoidc.IDTokenClaims{}, func(token *jwt.Token) (interface{}, error) {
@@ -391,6 +414,7 @@ func (ar *AuthenticationRequest) NewError(id string, description string) *Authen
 		ErrorID:          id,
 		ErrorDescription: description,
 		State:            ar.State,
+		Iss:              ar.issuer(),
 	}
 }
 
@@ -401,7 +425,17 @@ func (ar *AuthenticationRequest) NewBadRequest(id string, description string) *A
 		ErrorID:          id,
 		ErrorDescription: description,
 		State:            ar.State,
+		Iss:              ar.issuer(),
 	}
+}
+
+// issuer returns the issuer identifier of the provider the associated request
+// was made to, as an error redirected back to the client has to carry it.
+func (ar *AuthenticationRequest) issuer() string {
+	if ar.providerMetadata == nil {
+		return ""
+	}
+	return ar.providerMetadata.Issuer
 }
 
 // AuthenticationSuccess holds the outgoind data for a successful OpenID
@@ -417,6 +451,11 @@ type AuthenticationSuccess struct {
 	State       string `url:"state"`
 	ExpiresIn   int64  `url:"expires_in,omitempty"`
 
+	// Iss identifies the issuer of the response, so a client talking to more
+	// than one authorization server can tell which one answered, as specified
+	// at https://www.rfc-editor.org/rfc/rfc9207.html#section-2.
+	Iss string `url:"iss,omitempty"`
+
 	Scope string `url:"scope,omitempty"`
 
 	SessionState string `url:"session_state,omitempty"`
@@ -430,6 +469,9 @@ type AuthenticationError struct {
 	ErrorID          string `url:"error" json:"error"`
 	ErrorDescription string `url:"error_description,omitempty" json:"error_description,omitempty"`
 	State            string `url:"state,omitempty" json:"state,omitempty"`
+	// Iss as in AuthenticationSuccess. It belongs to the redirect alone and
+	// has no place in an error rendered as a JSON body.
+	Iss string `url:"iss,omitempty" json:"-"`
 }
 
 // Error interface implementation.
@@ -449,6 +491,8 @@ type AuthenticationBadRequest struct {
 	ErrorID          string `url:"error" json:"error"`
 	ErrorDescription string `url:"error_description,omitempty" json:"error_description,omitempty"`
 	State            string `url:"state,omitempty" json:"state,omitempty"`
+	// Iss as in AuthenticationSuccess.
+	Iss string `url:"iss,omitempty" json:"-"`
 }
 
 // Error interface implementation.

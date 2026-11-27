@@ -119,7 +119,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	errCh := make(chan error, 2)
 	exitCh := make(chan bool, 1)
-	signalCh := make(chan os.Signal)
+	signalCh := make(chan os.Signal, 1)
 
 	router := mux.NewRouter()
 	s.AddRoutes(serveCtx, router)

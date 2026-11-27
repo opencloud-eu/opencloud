@@ -29,6 +29,7 @@ import (
 	"github.com/longsleep/rndm"
 	"github.com/sirupsen/logrus"
 
+	"github.com/libregraph/lico/identity"
 	"github.com/libregraph/lico/identity/authorities"
 	konnectoidc "github.com/libregraph/lico/oidc"
 
@@ -174,10 +175,11 @@ func (i *Identifier) writeSAML2AssertionConsumerService(rw http.ResponseWriter, 
 			user.logonRef = &logonRef
 		}
 		if authority.Trusted {
-			// Use external authority session, if the external authority is trusted.
+			// Use external authority session, if the external authority is
+			// trusted. It is tagged, since it is not a ref of our backend and
+			// must never be sent to one.
 			if sessionIndexString, ok := claims["SessionIndex"]; ok {
-				sessionIndex := sessionIndexString.(string)
-				user.sessionRef = &sessionIndex
+				user.sessionRef = identity.GetExternalSessionRef(sessionIndexString.(string))
 			}
 		}
 
@@ -324,17 +326,20 @@ func (i *Identifier) writeSAMLSingleLogoutServiceRequest(rw http.ResponseWriter,
 
 	user, _ := i.GetUserFromLogonCookie(req.Context(), req, 0, false)
 	if user != nil {
-		// Compare signed in SAML SessionIndex with the on provided in the LogoutRequest.
-		if user.SessionRef() != nil {
-			if lor.Request.SessionIndex == nil {
-				i.logger.Debugln("identifier saml2 slo request without session index")
-				i.ErrorPage(rw, http.StatusBadRequest, "", "slo request missing session index")
-				return
-			}
-			if lor.Request.SessionIndex.Value != *user.SessionRef() {
-				i.logger.Debugln("identifier saml2 slo request for other session index")
-				i.ErrorPage(rw, http.StatusBadRequest, "", "slo request session index mismatch")
-				return
+		// Compare the signed in SAML SessionIndex with the one provided in the
+		// LogoutRequest.
+		if sessionRef := user.SessionRef(); sessionRef != nil {
+			if sessionIndex, isExternal := identity.ParseExternalSessionRef(*sessionRef); isExternal {
+				if lor.Request.SessionIndex == nil {
+					i.logger.Debugln("identifier saml2 slo request without session index")
+					i.ErrorPage(rw, http.StatusBadRequest, "", "slo request missing session index")
+					return
+				}
+				if lor.Request.SessionIndex.Value != sessionIndex {
+					i.logger.Debugln("identifier saml2 slo request for other session index")
+					i.ErrorPage(rw, http.StatusBadRequest, "", "slo request session index mismatch")
+					return
+				}
 			}
 		}
 

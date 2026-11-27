@@ -39,6 +39,7 @@ import (
 	"github.com/libregraph/lico/identity"
 	"github.com/libregraph/lico/identity/clients"
 	identityManagers "github.com/libregraph/lico/identity/managers"
+	"github.com/libregraph/lico/identity/resources"
 	"github.com/libregraph/lico/managers"
 	konnectoidc "github.com/libregraph/lico/oidc"
 	"github.com/libregraph/lico/oidc/code"
@@ -51,8 +52,9 @@ type Provider struct {
 
 	issuerIdentifier string
 	metadata         *oidc.WellKnown
+	metadataDocument *konnectoidc.ProviderMetadata
 
-	wellKnownPath          string
+	wellKnownPaths         map[string]bool
 	jwksPath               string
 	authorizationPath      string
 	tokenPath              string
@@ -61,11 +63,14 @@ type Provider struct {
 	checkSessionIframePath string
 	registrationPath       string
 
+	requirePKCE bool
+
 	identityManager   identity.Manager
 	guestManager      identity.Manager
 	codeManager       code.Manager
 	encryptionManager *identityManagers.EncryptionManager
 	clients           *clients.Registry
+	resources         *resources.Registry
 
 	signingKeys          map[jwt.SigningMethod]*SigningKey
 	signingMethodDefault jwt.SigningMethod
@@ -93,7 +98,7 @@ func NewProvider(c *Config) (*Provider, error) {
 		Config: c,
 
 		issuerIdentifier:       c.IssuerIdentifier,
-		wellKnownPath:          c.WellKnownPath,
+		wellKnownPaths:         makePathSet(c.WellKnownPath, c.WellKnownAliasPaths),
 		jwksPath:               c.JwksPath,
 		authorizationPath:      c.AuthorizationPath,
 		tokenPath:              c.TokenPath,
@@ -101,6 +106,8 @@ func NewProvider(c *Config) (*Provider, error) {
 		endSessionPath:         c.EndSessionPath,
 		checkSessionIframePath: c.CheckSessionIframePath,
 		registrationPath:       c.RegistrationPath,
+
+		requirePKCE: c.Config.RequirePKCE,
 
 		signingKeys:    make(map[jwt.SigningMethod]*SigningKey),
 		validationKeys: make(map[string]crypto.PublicKey),
@@ -165,6 +172,11 @@ func (p *Provider) RegisterManagers(mgrs *managers.Managers) error {
 		p.guestManager.OnUnsetLogon(onUnsetLogon)
 	}
 
+	// Add resource registry if any can be found.
+	if resourceRegistry, _ := mgrs.Get("resources"); resourceRegistry != nil {
+		p.resources = resourceRegistry.(*resources.Registry)
+	}
+
 	if p.Config.RegistrationPath != "" {
 		// NOTE(longsleep): This is hackish. Find a better way to propagate our
 		// provides JWT stuff to the client registry.
@@ -173,6 +185,17 @@ func (p *Provider) RegisterManagers(mgrs *managers.Managers) error {
 	}
 
 	return nil
+}
+
+// getResource returns the registered protected resource for the provided
+// resource identifier. Nothing is registered when no registry was set up, in
+// which case no resource indicator can be honored.
+func (p *Provider) getResource(resourceID string) (*resources.Resource, bool) {
+	if p.resources == nil {
+		return nil, false
+	}
+
+	return p.resources.Get(resourceID)
 }
 
 func (p *Provider) makeIssURL(path string) string {
@@ -392,6 +415,7 @@ func (p *Provider) InitializeMetadata() error {
 			oidc.ScopeOpenID,
 		}, p.identityManager.ScopesSupported(nil)...)),
 		ResponseTypesSupported: []string{
+			oidc.ResponseTypeCode,
 			oidc.ResponseTypeIDTokenToken,
 			oidc.ResponseTypeIDToken,
 			oidc.ResponseTypeCodeIDToken,
@@ -432,24 +456,67 @@ func (p *Provider) InitializeMetadata() error {
 	}
 	p.metadata.TokenEndpointAuthMethodsSupported = []string{
 		oidc.AuthMethodClientSecretBasic,
+		oidc.AuthMethodClientSecretPost,
 		oidc.AuthMethodNone,
 	}
 	p.metadata.TokenEndpointAuthSigningAlgValuesSupported = p.metadata.IDTokenSigningAlgValuesSupported
 
+	// Create the extended document which is what gets served. It is a view onto
+	// the document above, adding the OAuth 2.0 Authorization Server Metadata
+	// (RFC 8414) fields this provider supports.
+	p.metadataDocument = &konnectoidc.ProviderMetadata{
+		WellKnown: p.metadata,
+
+		// Only the grant types the token endpoint implements. Leaving this out
+		// means authorization_code and implicit per OpenID Connect Discovery
+		// 1.0, which is not what it does.
+		GrantTypesSupported: []string{
+			oidc.GrantTypeAuthorizationCode,
+			oidc.GrantTypeRefreshToken,
+		},
+		ResponseModesSupported: []string{
+			oidc.ResponseModeQuery,
+			oidc.ResponseModeFragment,
+		},
+		// Plain is deliberately absent, it is not accepted, see
+		// payload.AuthenticationRequest.Validate.
+		CodeChallengeMethodsSupported: []string{
+			oidc.S256CodeChallengeMethod,
+		},
+		// Every authorization response redirected to a client carries iss,
+		// successes from AuthorizeResponse and errors from the constructors of
+		// payload.AuthenticationRequest. Clients reject a response without it
+		// once this is set, see RFC 9207 section 2.4.
+		AuthorizationResponseIssParameterSupported: true,
+		// Clients pick a Client ID Metadata Document only when this is set
+		// and none is among the token endpoint auth methods, which it is.
+		ClientIDMetadataDocumentSupported: p.clients.MetadataDocumentsSupported(),
+	}
+
 	return nil
 }
+
+// corsPostJSON is the policy of the endpoints a client posts to directly. The
+// default policy allows no request headers, which is enough for a form encoded
+// POST but not for a JSON body or for client credentials in an Authorization
+// header, both of which make a browser preflight the request.
+var corsPostJSON = cors.New(cors.Options{
+	AllowedOrigins: []string{"*"},
+	AllowedMethods: []string{http.MethodPost},
+	AllowedHeaders: []string{"Authorization", "Content-Type"},
+})
 
 // ServerHTTP implements the http.HandlerFunc interface.
 func (p *Provider) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	switch path := req.URL.Path; {
-	case path == p.wellKnownPath:
+	case p.wellKnownPaths[path]:
 		cors.Default().ServeHTTP(rw, req, p.WellKnownHandler)
 	case path == p.jwksPath:
 		cors.Default().ServeHTTP(rw, req, p.JwksHandler)
 	case path == p.authorizationPath:
 		p.AuthorizeHandler(rw, req)
 	case path == p.tokenPath:
-		cors.Default().ServeHTTP(rw, req, p.TokenHandler)
+		corsPostJSON.ServeHTTP(rw, req, p.TokenHandler)
 	case path == p.userInfoPath:
 		// TODO(longsleep): Use more strict CORS.
 		cors.AllowAll().ServeHTTP(rw, req, p.UserInfoHandler)
@@ -458,7 +525,7 @@ func (p *Provider) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	case path == p.checkSessionIframePath:
 		p.CheckSessionIframeHandler(rw, req)
 	case path == p.registrationPath:
-		p.RegistrationHandler(rw, req)
+		corsPostJSON.ServeHTTP(rw, req, p.RegistrationHandler)
 	default:
 		http.NotFound(rw, req)
 	}

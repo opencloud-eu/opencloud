@@ -4,18 +4,91 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="theme-color" content="#ffffff">
+    <!--
+      Light, and not to be overridden. Without this Chrome's Auto Dark Theme
+      machine-darkens the page whenever the OS asks for dark, which repaints an
+      operator's logo and every contrast ratio this design was measured for. The
+      "only" keyword is what forbids that, rather than merely stating a
+      preference. There is no dark scheme to offer instead: the card carries
+      artwork a deployment supplied for a light background.
+    -->
+    <meta name="color-scheme" content="only light">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <meta property="csp-nonce" content="__CSP_NONCE__">
+    <!--__BACKGROUND_PRELOAD__-->
     <title>Sign in to your account</title>
+    <!--
+      The page before any script has run, so the theme's values are duplicated
+      here. Nothing may style the body: the emotion cache prepends, so a rule
+      written here would outrank the theme for the life of the page. This block
+      ships as written, which is why it stays inside what edge 18 supports.
+    -->
+    <style nonce="__CSP_NONCE__">
+      #boot {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        /* Above the strip App shows while the card's chunk loads. */
+        z-index: 1302;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #eceff1;
+        transition: opacity 450ms ease-out;
+      }
+      #boot[data-done] {
+        opacity: 0;
+        /* Inert from the first frame of the fade, so a browser that never
+           reports the transition cannot leave a layer swallowing clicks. */
+        pointer-events: none;
+      }
+      #boot-mark {
+        position: relative;
+        width: 84px;
+        height: 84px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #boot-mark::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        border: 2px solid rgba(25, 118, 210, 0.14);
+        border-top-color: rgba(25, 118, 210, 0.7);
+        border-radius: 50%;
+        animation: boot-spin 900ms linear infinite;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-mark::after {
+          animation-duration: 2400ms;
+        }
+      }
+    </style>
   </head>
   <body>
     <noscript>
       You need to enable JavaScript to run this app.
     </noscript>
-    <div id="bg">
-      <div></div>
+    <div id="root" data-path-prefix="__PATH_PREFIX__" data-background-image="__BACKGROUND_IMAGE__"></div>
+    <div id="boot" aria-hidden="true">
+      <div id="boot-mark">
+        <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <path fill="#414141" d="M14.3,2.3c-3.9-0.9-7.5,0.5-9.7,3.1l7.5,0v0c0,0,0,0,0,0c3.7,0,6.7,3,6.7,6.6c0,3.7-3,6.6-6.7,6.6c0,0,0,0,0,0l-7.5,0C6.4,20.7,9,22,12,22c6.1,0,11-5.5,9.8-11.9C21.1,6.3,18.1,3.1,14.3,2.3z"/>
+          <polygon fill="#0072BC" points="15.8,12 10.8,7 10.8,10.3 2,10.3 2,13.7 10.8,13.7 10.8,17"/>
+        </svg>
+      </div>
     </div>
-    <div id="root" data-path-prefix="__PATH_PREFIX__"></div>
     <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>
