@@ -145,7 +145,6 @@ Feature: previews of files downloaded through the webdav API
       | sharee          | Brian       |
       | shareType       | user        |
       | permissionsRole | File Editor |
-    And user "Brian" has a share "<file-name>" synced
     When user "Brian" downloads the preview of shared resource "/Shares/<file-name>" with width "32" and height "32" using the WebDAV API
     Then the HTTP status code should be "200"
     And the downloaded image should be "32" pixels wide and "32" pixels high
@@ -225,7 +224,6 @@ Feature: previews of files downloaded through the webdav API
       | sharee          | Brian       |
       | shareType       | user        |
       | permissionsRole | File Editor |
-    And user "Brian" has a share "parent.txt" synced
     And user "Brian" has downloaded the preview of shared resource "/Shares/parent.txt" with width "32" and height "32"
     When user "Alice" uploads file with content "this is a file to upload" to "/parent.txt" using the WebDAV API
     Then the HTTP status code should be "204"
@@ -276,7 +274,6 @@ Feature: previews of files downloaded through the webdav API
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Alice" has downloaded the preview of "/FOLDER/lorem.txt" with width "32" and height "32"
     And user "Brian" has downloaded the preview of shared resource "Shares/FOLDER/lorem.txt" with width "32" and height "32"
     When user "Alice" uploads file "filesForUpload/lorem.txt" to "/FOLDER/lorem.txt" using the WebDAV API
@@ -309,8 +306,6 @@ Feature: previews of files downloaded through the webdav API
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
-    And user "Carol" has a share "FOLDER" synced
     And user "Alice" has downloaded the preview of "/FOLDER/lorem.txt" with width "32" and height "32"
     And user "Brian" has downloaded the preview of shared resource "Shares/FOLDER/lorem.txt" with width "32" and height "32"
     And user "Carol" has downloaded the preview of shared resource "Shares/FOLDER/lorem.txt" with width "32" and height "32"

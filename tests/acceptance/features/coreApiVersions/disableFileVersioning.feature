@@ -44,7 +44,6 @@ Feature: checking file versions
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | <role>   |
-    And user "Brian" has a share "text.txt" synced
     When user "Brian" tries to get the number of versions of file "/text.txt" from space "Shares"
     Then the HTTP status code should be "403"
     Examples:
@@ -62,7 +61,6 @@ Feature: checking file versions
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <permissionsRole> |
-    And user "Brian" has a share "text.txt" synced
     When user "Brian" tries to get the number of versions of file "/text.txt" from space "Shares"
     Then the HTTP status code should be "403"
     Examples:

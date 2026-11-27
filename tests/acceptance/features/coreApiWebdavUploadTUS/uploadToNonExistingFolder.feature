@@ -50,7 +50,6 @@ Feature: upload file
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "uploaded content" to "/Shares/FOLDER/nonExistentFolder/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Brian" folder "/Shares/FOLDER/nonExistentFolder" should not exist
     And as "Brian" file "/Shares/FOLDER/nonExistentFolder/textfile.txt" should not exist
@@ -71,7 +70,6 @@ Feature: upload file
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "uploaded content" to "/Shares/FOLDER/nonExistentFolder/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Brian" folder "/Shares/FOLDER/nonExistentFolder" should not exist
     And as "Brian" file "/Shares/FOLDER/nonExistentFolder/textfile.txt" should not exist

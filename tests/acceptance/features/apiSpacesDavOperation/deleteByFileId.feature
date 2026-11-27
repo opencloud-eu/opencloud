@@ -22,7 +22,6 @@ Feature: deleting resources using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Editor        |
-    And user "Brian" has a share "folderToShare" synced
     When user "Brian" deletes folder "folderToShare" from space "Personal" using file-id "<<FOLDERID>>"
     Then the HTTP status code should be "403"
     And as "Alice" folder "folderToShare" should exist

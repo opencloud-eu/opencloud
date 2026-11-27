@@ -89,14 +89,12 @@ Feature: propfind extracted props
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "testaudio.mp3" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | testavatar.jpg |
       | space           | Personal       |
       | sharee          | Brian          |
       | shareType       | user           |
       | permissionsRole | Viewer         |
-    And user "Brian" has a share "testavatar.jpg" synced
     When user "Brian" gets the following extracted properties of resource "testaudio.mp3" inside space "Shares" using the WebDAV API
       | propertyName |
       | oc:audio     |
@@ -376,7 +374,6 @@ Feature: propfind extracted props
       | sharee             | Brian                |
       | shareType          | user                 |
       | permissionsRole    | Viewer               |
-    And user "Brian" has a share "testaudio.mp3" synced
     When user "Brian" gets the file "testaudio.mp3" from space "Shares" using the Graph API
     Then the HTTP status code should be "200"
     And the JSON data of the response should eventually match
@@ -432,7 +429,6 @@ Feature: propfind extracted props
       | sharee             | Brian                |
       | shareType          | user                 |
       | permissionsRole    | Viewer               |
-    And user "Brian" has a share "testavatar.jpg" synced
     When user "Brian" gets the file "testavatar.jpg" from space "Shares" using the Graph API
     Then the HTTP status code should be "200"
     And the JSON data of the response should eventually match

@@ -191,7 +191,6 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp1        |
       | shareType       | group       |
       | permissionsRole | File Editor |
-    And user "Brian" has a share "lorem.txt" synced
     When the administrator adds user "Carol" to group "grp1" using the provisioning API
     Then the HTTP status code should be "204"
     And user "Carol" should be able to accept pending share "/lorem.txt" offered by user "Alice"
@@ -220,15 +219,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "child1" synced
-    And user "Brian" has a share "child1" synced
     And user "Brian" should be able to create folder "/Shares/parent/fo1"
     And user "Brian" should be able to create folder "/Shares/parent/child1/fo2"
     And user "Alice" should not be able to create folder "/Shares/child1/fo3"
@@ -251,15 +247,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "child1" synced
-    And user "Brian" has a share "child1" synced
     Then user "Brian" should be able to rename file "/Shares/parent/child1/child2/textfile-2.txt" to "/Shares/parent/child1/child2/rename.txt"
     And user "Brian" should be able to rename file "/Shares/child1/child2/rename.txt" to "/Shares/child1/child2/rename2.txt"
     And user "Alice" should not be able to rename file "/Shares/child1/child2/rename2.txt" to "/Shares/child1/child2/rename3.txt"
@@ -283,15 +276,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "child1" synced
-    And user "Brian" has a share "child1" synced
     And user "Brian" should be able to delete file "/Shares/parent/child1/child2/child3/textfile-2.txt"
     And user "Brian" should be able to delete folder "/Shares/child1/child2/child3"
     And user "Alice" should not be able to delete folder "/Shares/child1/child2"
@@ -313,15 +303,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Alice" has a share "parent" synced
-    And user "Brian" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Editor        |
-    And user "Brian" has a share "child1" synced
     Then user "Brian" should be able to create folder "/Shares/child1/fo1"
     And user "Brian" should be able to create folder "/Shares/child1/child2/fo2"
     But user "Brian" should not be able to create folder "/Shares/parent/fo3"
@@ -346,15 +333,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "parent" synced
-    And user "Alice" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Editor        |
-    And user "Brian" has a share "child1" synced
     And user "Brian" should be able to rename file "/Shares/child1/child2/textfile-2.txt" to "/Shares/child1/child2/rename.txt"
     And user "Brian" should be able to rename file "/Shares/parent/child1/child2/rename.txt" to "/Shares/parent/child1/child2/rename2.txt"
     And user "Alice" should not be able to rename file "/Shares/parent/child1/child2/rename2.txt" to "/Shares/parent/child1/child2/rename3.txt"
@@ -377,15 +361,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Alice" has a share "parent" synced
-    And user "Brian" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Editor        |
-    And user "Brian" has a share "child1" synced
     And user "Brian" should be able to delete file "/Shares/child1/child2/textfile-2.txt"
     And user "Brian" should be able to delete folder "/Shares/parent/child1/child2"
     And user "Alice" should not be able to delete folder "/Shares/parent/child1"
@@ -412,14 +393,12 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Alice" has a share "parent" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | parent/child1 |
       | space           | Personal      |
       | sharee          | grp2          |
       | shareType       | group         |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "child1" synced
     Then user "Alice" should be able to create folder "/Shares/parent/child1/fo1"
     And user "Alice" should be able to create folder "/Shares/parent/child1/child2/fo2"
     And user "Alice" should be able to delete folder "/Shares/parent/child1/fo1"
@@ -446,7 +425,6 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp      |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "parent" synced
     And user "Brian" should be able to rename folder "/Shares/parent" to "/Shares/sharedParent"
     And user "Alice" should be able to share folder "parent" with user "Brian" with permissions "read" using the sharing API
     # Note: Brian has already accepted the share of this resource as a member of "grp".
@@ -472,7 +450,6 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp      |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "parent" synced
     And user "Brian" has moved folder "/Shares/parent" to "/Shares/sharedParent"
     When user "Alice" shares folder "parent" with user "Brian" with permissions "all" using the sharing API
     # Note: Brian has already accepted the share of this resource as a member of "grp".
@@ -501,7 +478,6 @@ Feature: share resources where the sharee receives the share in multiple ways
       | sharee          | grp      |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "parent" synced
     And user "Brian" should be able to rename folder "/Shares/parent" to "/Shares/sharedParent"
     And user "Alice" should be able to share folder "parent" with user "Brian" with permissions "read" using the sharing API
     # Note: Brian has already accepted the share of this resource as a member of "grp".

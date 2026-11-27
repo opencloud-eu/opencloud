@@ -86,28 +86,24 @@ Feature: download multiple resources bundled into an archive
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile0.txt" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile1.txt |
       | space           | Personal      |
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile1.txt" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | my_data  |
       | space           | Personal |
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "my_data" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | more_data |
       | space           | Personal  |
       | sharee          | Brian     |
       | shareType       | user      |
       | permissionsRole | Viewer    |
-    And user "Brian" has a share "more_data" synced
     When user "Brian" downloads the archive of these items using the resource ids
       | /Shares/textfile0.txt |
       | /Shares/textfile1.txt |
@@ -136,28 +132,24 @@ Feature: download multiple resources bundled into an archive
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile0.txt" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile1.txt |
       | space           | Personal      |
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile1.txt" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | my_data  |
       | space           | Personal |
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "my_data" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | more_data |
       | space           | Personal  |
       | sharee          | Brian     |
       | shareType       | user      |
       | permissionsRole | Viewer    |
-    And user "Brian" has a share "more_data" synced
     When user "Brian" downloads the <archive-type> archive of "/Shares" using the resource id and setting these headers:
       | header     | value        |
       | User-Agent | <user-agent> |

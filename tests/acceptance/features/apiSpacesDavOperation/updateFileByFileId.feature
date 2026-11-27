@@ -54,7 +54,6 @@ Feature: update files using file id
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textfile.txt" synced
     When user "Brian" sends HTTP method "PUT" to URL "<dav-path>" with content "updated content"
     Then the HTTP status code should be "204"
     And for user "Alice" the content of the file "/textfile.txt" of the space "Personal" should be "updated content"
@@ -75,7 +74,6 @@ Feature: update files using file id
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Editor       |
-    And user "Brian" has a share "uploadFolder" synced
     When user "Brian" sends HTTP method "PUT" to URL "<dav-path>" with content "updated content"
     Then the HTTP status code should be "204"
     And for user "Alice" the content of the file "uploadFolder/textfile.txt" of the space "Personal" should be "updated content"

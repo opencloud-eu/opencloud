@@ -139,7 +139,6 @@ Feature: copying file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     When user "Brian" copies file with id "<<FILEID>>" as "test.txt" into folder "Shares/folder" inside space "Shares"
     Then the HTTP status code should be "201"
     And for user "Brian" folder "folder" of the space "Shares" should contain these files:
@@ -161,7 +160,6 @@ Feature: copying file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     And user "Brian" has uploaded file with content "some data" to "/test.txt"
     And we save it into "FILEID"
     And user "Brian" has a share "folder" synced
@@ -186,7 +184,6 @@ Feature: copying file using file id
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <permission-role> |
-    And user "Brian" has a share "folder" synced
     When user "Brian" copies file with id "<<FILEID>>" as "/test.txt" into folder "/" inside space "Personal"
     Then the HTTP status code should be "201"
     And for user "Brian" folder "folder" of the space "Shares" should contain these files:
@@ -214,7 +211,6 @@ Feature: copying file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Secure Viewer |
-    And user "Brian" has a share "folder" synced
     When user "Brian" copies file with id "<<FILEID>>" as "/test.txt" into folder "/" inside space "Personal"
     Then the HTTP status code should be "403"
     And for user "Brian" folder "folder" of the space "Shares" should contain these files:
@@ -235,7 +231,6 @@ Feature: copying file using file id
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <permission-role> |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has created a space "project-space" with the default quota using the Graph API
     And user "Alice" has sent the following space share invitation:
       | space           | project-space |
@@ -273,7 +268,6 @@ Feature: copying file using file id
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <permission-role> |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has created a space "project-space" with the default quota using the Graph API
     And user "Alice" has sent the following space share invitation:
       | space           | project-space |
@@ -310,14 +304,12 @@ Feature: copying file using file id
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <from-share-role> |
-    And user "Brian" has a share "share1" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | share2          |
       | space           | Personal        |
       | sharee          | Brian           |
       | shareType       | user            |
       | permissionsRole | <to-share-role> |
-    And user "Brian" has a share "share2" synced
     When user "Brian" copies file with id "<<FILEID>>" as "/test.txt" into folder "share2" inside space "Shares"
     Then the HTTP status code should be "201"
     And for user "Brian" folder "share1" of the space "Shares" should contain these files:
@@ -351,14 +343,12 @@ Feature: copying file using file id
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <from-share-role> |
-    And user "Brian" has a share "share1" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | share2          |
       | space           | Personal        |
       | sharee          | Brian           |
       | shareType       | user            |
       | permissionsRole | <to-share-role> |
-    And user "Brian" has a share "share2" synced
     When user "Brian" copies file with id "<<FILEID>>" as "test.txt" into folder "share2" inside space "Shares"
     Then the HTTP status code should be "403"
     And for user "Brian" folder "share1" of the space "Shares" should contain these files:
@@ -492,7 +482,6 @@ Feature: copying file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | <permissions> |
-    And user "Brian" has a share "testshare" synced
     When user "Brian" copies file with id "<<FILEID>>" as "textfile.txt" into folder "testshare" inside space "Shares"
     Then the HTTP status code should be "201"
     And for user "Brian" folder "/" of the space "project-space" should contain these files:
@@ -530,7 +519,6 @@ Feature: copying file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | <permissions> |
-    And user "Brian" has a share "testshare" synced
     When user "Brian" copies file with id "<<FILEID>>" as "textfile.txt" into folder "testshare" inside space "Shares"
     Then the HTTP status code should be "403"
     And for user "Brian" folder "/" of the space "project-space" should contain these files:

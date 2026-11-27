@@ -68,8 +68,6 @@ Feature: search for favorites
       | sharee          | Brian                        |
       | shareType       | user                         |
       | permissionsRole | Viewer                       |
-    And user "Brian" has a share "textfile.txt" synced
-    And user "Brian" has a share "parent" synced
     And user "Brian" has marked file "textfile.txt" as favorite from space "Shares"
     And user "Brian" has marked folder "parent/sub" as favorite from space "Shares"
     When user "Brian" searches for 'is:favorite' using the WebDAV API
@@ -157,7 +155,6 @@ Feature: search for favorites
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "textfile.txt" synced
     And user "Brian" has marked file "textfile.txt" as favorite from space "Shares"
     And user "Alice" has removed the access of user "Brian" from resource "textfile.txt" of space "Personal"
     When user "Brian" searches for 'is:favorite' using the WebDAV API

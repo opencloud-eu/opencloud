@@ -21,7 +21,6 @@ Feature: sharing
       | shareType       | user          |
       | permissionsRole | Viewer        |
     And using SharingNG
-    And user "Brian" has a share "textfile0.txt" synced
     When user "Brian" gets all the shares shared with him using the sharing API
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"
@@ -48,8 +47,6 @@ Feature: sharing
       | shareType       | user          |
       | permissionsRole | Viewer        |
     And using SharingNG
-    And user "Brian" has a share "textfile1.txt" synced
-    And user "Brian" has a share "textfile0.txt" synced
     When user "Brian" gets all the shares shared with him that are received as file "/Shares/textfile1.txt" using the provisioning API
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"
@@ -76,8 +73,6 @@ Feature: sharing
       | shareType       | user          |
       | permissionsRole | Viewer        |
     And using SharingNG
-    And user "Brian" has a share "textfile0.txt" synced
-    And user "Brian" has a share "textfile1.txt" synced
     When user "Brian" gets all the shares shared with him that are received as file "/Shares/textfile0.txt" using the provisioning API
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"
@@ -99,7 +94,6 @@ Feature: sharing
       | shareType       | group         |
       | permissionsRole | Viewer        |
     And using SharingNG
-    And user "Brian" has a share "textfile0.txt" synced
     When user "Brian" gets all the shares shared with him using the sharing API
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"

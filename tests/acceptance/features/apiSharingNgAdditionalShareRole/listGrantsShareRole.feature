@@ -1034,7 +1034,6 @@ Feature: ListGrants role
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Brian" has a share "folder" synced
     Then for user "Brian" folder "folder" of the space "Shares" should have the following activities:
       | {user} added {resource} to {folder}    |
       | {user} shared {resource} with {sharee} |

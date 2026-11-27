@@ -24,7 +24,6 @@ Feature: file versions of a shared resource
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | <role>   |
-    And user "Brian" has a share "text.txt" synced
     When user "Brian" gets the number of versions of shared resource "text.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "1"
@@ -44,7 +43,6 @@ Feature: file versions of a shared resource
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | <role>   |
-    And user "Brian" has a share "text.txt" synced
     When user "Brian" gets the number of versions of shared resource "text.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "1"

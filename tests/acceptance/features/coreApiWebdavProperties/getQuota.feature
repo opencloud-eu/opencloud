@@ -46,7 +46,6 @@ Feature: get quota
       | sharee          | Alice     |
       | shareType       | user      |
       | permissionsRole | Editor    |
-    And user "Alice" has a share "testquota" synced
     When user "Alice" gets the following properties of folder "<folder-name>" inside space "Shares" using the WebDAV API
       | propertyName            |
       | d:quota-available-bytes |
@@ -86,7 +85,6 @@ Feature: get quota
       | sharee          | Brian       |
       | shareType       | user        |
       | permissionsRole | File Editor |
-    And user "Brian" has a share "Alice.txt" synced
     When user "Brian" gets the following properties of folder "/" using the WebDAV API
       | propertyName            |
       | d:quota-available-bytes |

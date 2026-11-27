@@ -20,7 +20,6 @@ Feature: sharing
       | sharee          | Brian       |
       | shareType       | user        |
       | permissionsRole | File Editor |
-    And user "Brian" has a share "tmp.txt" synced
     When user "Brian" gets the following properties of file "/tmp.txt" inside space "Shares" using the WebDAV API
       | propertyName          |
       | ocs:share-permissions |
@@ -38,7 +37,6 @@ Feature: sharing
       | sharee          | grp1        |
       | shareType       | group       |
       | permissionsRole | File Editor |
-    And user "Brian" has a share "tmp.txt" synced
     When user "Brian" gets the following properties of file "/tmp.txt" inside space "Shares" using the WebDAV API
       | propertyName          |
       | ocs:share-permissions |
@@ -54,7 +52,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "tmp.txt" synced
     When user "Brian" gets the following properties of file "/tmp.txt" inside space "Shares" using the WebDAV API
       | propertyName          |
       | ocs:share-permissions |
@@ -72,7 +69,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "tmp.txt" synced
     When user "Brian" gets the following properties of file "/tmp.txt" inside space "Shares" using the WebDAV API
       | propertyName          |
       | ocs:share-permissions |
@@ -88,7 +84,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Brian" gets the following properties of folder "/tmp" inside space "Shares" using the WebDAV API
       | propertyName          |
       | ocs:share-permissions |
@@ -106,7 +101,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Brian" gets the following properties of folder "/tmp" inside space "Shares" using the WebDAV API
       | propertyName          |
       | ocs:share-permissions |
@@ -123,7 +117,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Alice" updates the last share using the sharing API with
       | permissions | delete,create,read |
     Then the HTTP status code should be "200"
@@ -141,7 +134,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Alice" updates the last share using the sharing API with
       | permissions | delete,create,read |
     Then the HTTP status code should be "200"
@@ -157,7 +149,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Alice" updates the last share using the sharing API with
       | permissions | delete,update,read |
     Then the HTTP status code should be "200"
@@ -175,7 +166,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Alice" updates the last share using the sharing API with
       | permissions | delete,update,read |
     Then the HTTP status code should be "200"
@@ -191,7 +181,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Alice" updates the last share using the sharing API with
       | permissions | create,update,read |
     Then the HTTP status code should be "200"
@@ -209,7 +198,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "tmp" synced
     When user "Alice" updates the last share using the sharing API with
       | permissions | create,update,read |
     Then the HTTP status code should be "200"
@@ -224,7 +212,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist
@@ -240,7 +227,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/FOLDER/textfile.txt" should not exist
@@ -254,7 +240,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "201"
     And the following headers should match these regular expressions for user "Brian"
@@ -275,7 +260,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "201"
     And the following headers should match these regular expressions for user "Brian"
@@ -294,7 +278,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "201"
     And the content of file "/FOLDER/textfile.txt" for user "Alice" should be:
@@ -313,7 +296,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "201"
     And the content of file "/FOLDER/textfile.txt" for user "Alice" should be:
@@ -330,7 +312,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
@@ -347,7 +328,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
@@ -362,7 +342,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     And user "Admin" has changed the quota of the personal space of user "Alice" to "1"
     When user "Brian" uploads a file inside space "Shares" with content "new description" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
@@ -379,7 +358,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     And user "Admin" has changed the quota of the personal space of user "Alice" to "10"
     When user "Brian" uploads a file inside space "Shares" with content "new descriptionfgshsywhhh" to "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "507"
@@ -394,7 +372,6 @@ Feature: sharing
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads a file inside space "Shares" with content "some content" to "/FOLDER/textfile.txt" using the WebDAV API
     And user "Alice" downloads file "/FOLDER/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "200"
@@ -415,7 +392,6 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Secure Viewer |
-    And user "Brian" has a share "textfile.txt" synced
     And user "Brian" downloads file "/Shares/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
 
@@ -431,7 +407,6 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Secure Viewer |
-    And user "Brian" has a share "FolderToShare" synced
     And user "Brian" downloads file "/Shares/FolderToShare/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
 

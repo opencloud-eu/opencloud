@@ -40,7 +40,6 @@ Feature: re-share resources
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Brian" has a share "test" synced
     When user "Brian" creates a share inside of space "Shares" with settings:
       | path      | test   |
       | shareWith | Carol  |
@@ -67,7 +66,6 @@ Feature: re-share resources
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Brian" has a share "textfile1.txt" synced
     When user "Brian" creates a share inside of space "Shares" with settings:
       | path      | textfile1.txt |
       | shareWith | Carol         |
@@ -93,7 +91,6 @@ Feature: re-share resources
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "test" synced
     When user "Brian" creates a public link share using the sharing API with settings
       | path        | /Shares/test |
       | permissions | 1            |

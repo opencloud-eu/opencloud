@@ -52,7 +52,6 @@ Feature: List a sharing permissions
       | sharee          | Carol        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "textfile.txt" synced
     When user "Brian" gets permissions list of shared resource "textfile.txt" using the Graph API
     Then the HTTP status code should be "200"
     And the permissions list of the response should contain a grant for user "Carol"
@@ -1802,7 +1801,6 @@ Feature: List a sharing permissions
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has created the following resource link share:
       | resource        | folder   |
       | space           | Personal |
@@ -1907,7 +1905,6 @@ Feature: List a sharing permissions
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile0.txt" synced
     And user "Alice" has created the following resource link share:
       | resource        | textfile0.txt |
       | space           | Personal      |
@@ -2011,7 +2008,6 @@ Feature: List a sharing permissions
       | sharee          | Brian     |
       | shareType       | user      |
       | permissionsRole | Viewer    |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has created the following resource link share:
       | resource        | folder    |
       | space           | new-space |
@@ -2119,7 +2115,6 @@ Feature: List a sharing permissions
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile0.txt" synced
     And user "Alice" has created the following resource link share:
       | resource        | textfile0.txt |
       | space           | new-space     |

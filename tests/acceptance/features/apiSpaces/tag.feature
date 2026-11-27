@@ -114,7 +114,6 @@ Feature: Tag
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Viewer     |
-    And user "Brian" has a share "folderMain" synced
     When user "Brian" lists all available tags via the Graph API
     Then the HTTP status code should be "200"
     And the response should contain following tags:
@@ -129,7 +128,6 @@ Feature: Tag
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Brian" has a share "folderMain" synced
     When user "Brian" creates the following tags for <resource-type> "<resource>" of space "Shares":
       | tag in a shared resource |
       | second tag               |
@@ -154,7 +152,6 @@ Feature: Tag
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Brian" has a share "folderMain" synced
     And user "Alice" has created the following tags for <resource-type> "<resource>" of the space "use-tag":
       | tag in a shared resource |
       | second tag               |

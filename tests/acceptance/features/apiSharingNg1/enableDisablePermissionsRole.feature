@@ -22,7 +22,6 @@ Feature: enable disable permissions role
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Secure Viewer |
-    And user "Brian" has a share "<resource>" synced
     And the administrator has disabled the permissions role "Secure Viewer"
     When user "Alice" lists the shares shared by her using the Graph API
     Then the HTTP status code should be "200"
@@ -232,7 +231,6 @@ Feature: enable disable permissions role
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Secure Viewer |
-    And user "Brian" has a share "<resource>" synced
     And the administrator has disabled the permissions role "Secure Viewer"
     When user "Alice" lists the shares shared by her using the Graph API
     Then the HTTP status code should be "200"

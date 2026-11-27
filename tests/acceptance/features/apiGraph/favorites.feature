@@ -179,7 +179,6 @@ Feature: favorites
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "textfile.txt" synced
     When user "Brian" marks file "textfile.txt" as favorite from space "Shares" using the Graph API
     Then the HTTP status code should be "201"
     And the JSON data of the response should match
@@ -271,7 +270,6 @@ Feature: favorites
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "parent" synced
     When user "Brian" marks folder "parent/sub" as favorite from space "Shares" using the Graph API
     Then the HTTP status code should be "201"
     And the JSON data of the response should match
@@ -545,7 +543,6 @@ Feature: favorites
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Viewer     |
-    And user "Brian" has a share "textfile.txt" synced
     And user "Brian" has marked file "textfile.txt" as favorite from space "Shares"
     When user "Brian" unmarks file "textfile.txt" as favorite from space "Shares" using the Graph API
     Then the HTTP status code should be "204"
@@ -562,7 +559,6 @@ Feature: favorites
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "parent" synced
     And user "Brian" has marked folder "parent/sub" as favorite from space "Shares"
     When user "Brian" unmarks folder "parent/sub" as favorite from space "Shares" using the Graph API
     Then the HTTP status code should be "204"

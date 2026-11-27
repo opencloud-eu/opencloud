@@ -59,7 +59,6 @@ Feature: files and folders exist in the trashbin after being deleted
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "shared" synced
     When user "Alice" deletes file "/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Alice" the file with original path "/shared/shared_file.txt" should exist in the trashbin
@@ -82,7 +81,6 @@ Feature: files and folders exist in the trashbin after being deleted
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "shared" synced
     When user "Alice" deletes folder "/shared" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Alice" the folder with original path "/shared" should exist in the trashbin

@@ -115,7 +115,6 @@ Feature: media type search
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "uploadFolder" synced
     When user "Brian" searches for "mediatype:<pattern>" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "1" entries

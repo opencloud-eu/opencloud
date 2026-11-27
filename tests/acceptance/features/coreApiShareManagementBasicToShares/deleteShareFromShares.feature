@@ -23,7 +23,6 @@ Feature: sharing
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile0.txt" synced
     And user "Brian" has moved file "/Shares/textfile0.txt" to "/Shares/anotherName.txt"
     When user "Alice" deletes the last share using the sharing API
     Then the OCS status code should be "<ocs-status-code>"
@@ -90,7 +89,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "shared" synced
     When user "Brian" deletes file "/Shares/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Brian" file "/Shares/shared/shared_file.txt" should not exist
@@ -116,7 +114,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "shared" synced
     When user "Brian" deletes folder "/Shares/shared/sub" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Brian" folder "/Shares/shared/sub" should not exist
@@ -168,7 +165,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "shared" synced
     When user "Brian" deletes file "/Shares/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/shared/shared_file.txt" should exist
@@ -191,7 +187,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "shared" synced
     When user "Brian" deletes file "/Shares/shared/shared_file.txt" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Alice" file "/shared/shared_file.txt" should exist
@@ -213,7 +208,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "shared" synced
     And user "Brian" has uploaded file "filesForUpload/textfile.txt" to "/Shares/shared/textfile.txt"
     When user "Brian" deletes file "/Shares/shared/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
@@ -243,7 +237,6 @@ Feature: sharing
       | sharee          | grp1              |
       | shareType       | group             |
       | permissionsRole | <permission-role> |
-    And user "Brian" has a share "<sync-entry>" synced
     When user "Brian" deletes the last share of user "Alice" using the sharing API
     Then the OCS status code should be "996"
     And the HTTP status code should be "<http-status-code>"
@@ -269,7 +262,6 @@ Feature: sharing
       | sharee          | Brian             |
       | shareType       | user              |
       | permissionsRole | <permission-role> |
-    And user "Brian" has a share "<sync-entry>" synced
     When user "Brian" deletes the last share of user "Alice" using the sharing API
     Then the OCS status code should be "996"
     And the HTTP status code should be "<http-status-code>"
@@ -292,7 +284,6 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile0.txt" synced
     When user "Alice" deletes the last share using the sharing API
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"
@@ -313,7 +304,6 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile0.txt" synced
     When user "Brian" tries to delete the last share of user "Alice" using the sharing API
     Then the HTTP status code should be "<http-status-code>"
     And the OCS status code should be "996"

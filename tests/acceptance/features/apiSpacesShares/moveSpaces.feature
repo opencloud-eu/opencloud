@@ -143,7 +143,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "project.txt" from space "Project" to "/testshare/project.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "502"
     And for user "Alice" the space "Project" should contain these entries:
@@ -193,7 +192,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     And user "Alice" has uploaded file with content "personal content" to "personal.txt"
     When user "Alice" moves file "personal.txt" from space "Personal" to "/testshare/personal.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "502"
@@ -217,7 +215,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "/testshare/testshare.txt" from space "Shares" to "testshare.txt" inside space "Personal" using the WebDAV API
     Then the HTTP status code should be "502"
     And for user "Alice" the space "Personal" should not contain these entries:
@@ -247,7 +244,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "/testshare/testshare.txt" from space "Shares" to "testshare.txt" inside space "Project" using the WebDAV API
     Then the HTTP status code should be "502"
     And for user "Alice" the space "Project" should not contain these entries:
@@ -277,14 +273,12 @@ Feature: move (rename) file
       | sharee          | Alice                   |
       | shareType       | user                    |
       | permissionsRole | <from-permissions-role> |
-    And user "Alice" has a share "testshare1" synced
     And user "Brian" has sent the following resource share invitation:
       | resource        | testshare2            |
       | space           | Personal              |
       | sharee          | Alice                 |
       | shareType       | user                  |
       | permissionsRole | <to-permissions-role> |
-    And user "Alice" has a share "testshare2" synced
     When user "Alice" moves file "/testshare1/testshare1.txt" from space "Shares" to "/testshare2/testshare1.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "502"
     And for user "Alice" folder "testshare1" of the space "Shares" should contain these entries:
@@ -313,7 +307,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Brian" moves file "/testshare/testfile.txt" from space "Personal" to "/testfile.txt" inside space "Personal" using the WebDAV API
     Then the HTTP status code should be "201"
     And the content of file "/testfile.txt" for user "Brian" should be "test data"
@@ -340,7 +333,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Brian" moves folder "/testshare/testsubfolder" from space "Personal" to "/testsubfolder" inside space "Personal" using the WebDAV API
     Then the HTTP status code should be "201"
     And the content of file "/testsubfolder/testfile.txt" for user "Brian" should be "test data"
@@ -365,7 +357,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "testshare/testfile.txt" from space "Shares" to "testshare/child/testfile.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "201"
     And for user "Alice" the content of the file "testshare/child/testfile.txt" of the space "Shares" should be "test file content"
@@ -386,7 +377,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "testshare/testfile.txt" from space "Shares" to "testshare/child/testfile.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "403"
     And for user "Alice" folder "testshare/child" of the space "Shares" should not contain these entries:
@@ -408,7 +398,6 @@ Feature: move (rename) file
       | sharee          | Alice              |
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
-    And user "Alice" has a share "testshare" synced
     When user "Alice" moves file "testshare/testfile.txt" from space "Shares" to "testshare/testfile.txt" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "403"
     And as "Brian" file "testfile.txt" should not exist in the trashbin of the space "Personal"

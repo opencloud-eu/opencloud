@@ -56,7 +56,6 @@ Feature: propagation of etags when creating folders
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has stored etag of element "/"
     And user "Alice" has stored etag of element "/folder"
     And user "Brian" has stored etag of element "/"
@@ -87,7 +86,6 @@ Feature: propagation of etags when creating folders
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has stored etag of element "/"
     And user "Alice" has stored etag of element "/folder"
     And user "Brian" has stored etag of element "/"

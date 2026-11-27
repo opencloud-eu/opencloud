@@ -20,7 +20,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "uploaded content" to "/Shares/FOLDER/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Alice" file "/FOLDER/textfile.txt" should exist
     And the content of file "/FOLDER/textfile.txt" for user "Alice" should be "uploaded content"
@@ -39,7 +38,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "uploaded content" to "/Shares/FOLDER/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Alice" file "/FOLDER/textfile.txt" should exist
     And the content of file "/FOLDER/textfile.txt" for user "Alice" should be "uploaded content"
@@ -60,7 +58,6 @@ Feature: upload file to shared folder
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "uploaded content" to "/Shares/FOLDER/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Alice" file "/FOLDER/textfile.txt" should exist
     And the content of file "/FOLDER/textfile.txt" for user "Alice" should be "uploaded content"
@@ -80,7 +77,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "overwritten content" to "/Shares/FOLDER/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Alice" file "/FOLDER/textfile.txt" should exist
     And the content of file "/FOLDER/textfile.txt" for user "Alice" should be "overwritten content"
@@ -99,7 +95,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "FOLDER" synced
     When user "Brian" uploads file with content "uploaded content" to "/Shares/FOLDER/textfile.txt" using the TUS protocol on the WebDAV API
     Then as "Brian" file "/Shares/FOLDER/textfile.txt" should not exist
     Examples:
@@ -118,7 +113,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Alice" has created a new TUS resource on the WebDAV API with these headers:
       | Upload-Length   | 5                                     |
       #    L0ZPTERFUi90ZXh0RmlsZS50eHQ= is the base64 encode of /FOLDER/textFile.txt
@@ -143,7 +137,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Alice" has created a new TUS resource on the WebDAV API with these headers:
       | Upload-Length   | 5                                     |
       #    L0ZPTERFUi90ZXh0RmlsZS50eHQ= is the base64 encode of /FOLDER/textFile.txt
@@ -172,7 +165,6 @@ Feature: upload file to shared folder
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textFile.txt" synced
     When user "Brian" requests the checksum of "/Shares/textFile.txt" via propfind
     Then the HTTP status code should be "207"
     And the webdav checksum should match "SHA1:8cb2237d0679ca88db6464eac60da96345513964 MD5:827ccb0eea8a706c4c34a16891f84e7b ADLER32:02f80100"
@@ -196,7 +188,6 @@ Feature: upload file to shared folder
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textFile.txt" synced
     When user "Brian" downloads file "/Shares/textFile.txt" using the WebDAV API
     Then the HTTP status code should be "200"
     And the header checksum should match "SHA1:8cb2237d0679ca88db6464eac60da96345513964"
@@ -216,7 +207,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Brian" has created a new TUS resource on the WebDAV API with these headers:
       | Tus-Resumable   | 1.0.0                                         |
       | Upload-Length   | 16                                            |
@@ -241,7 +231,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Brian" has created a new TUS resource on the WebDAV API with these headers:
       | Tus-Resumable   | 1.0.0                                         |
       | Upload-Length   | 16                                            |
@@ -265,7 +254,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Alice" has created a new TUS resource on the WebDAV API with these headers:
       | Upload-Length   | 16                                    |
       #    L0ZPTERFUi90ZXh0RmlsZS50eHQ= is the base64 encode of /FOLDER/textFile.txt
@@ -308,7 +296,6 @@ Feature: upload file to shared folder
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Brian" has created a new TUS resource on the WebDAV API with these headers:
       | Tus-Resumable   | 1.0.0                                         |
       | Upload-Length   | 10                                            |
@@ -338,7 +325,6 @@ Feature: upload file to shared folder
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textFile.txt" synced
     When user "Brian" overwrites recently shared file with offset "0" and data "overwritten content" with checksum "SHA1 fe990d2686a0fc86004efc31f5bf2475a45d4905" using the TUS protocol on the WebDAV API with these headers:
       | Upload-Length   | 19                                    |
         #    dGV4dEZpbGUudHh0 is the base64 encode of /Shares/textFile.txt
@@ -364,7 +350,6 @@ Feature: upload file to shared folder
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textFile.txt" synced
     When user "Brian" overwrites recently shared file with offset "0" and data "overwritten content" with checksum "SHA1 fe990d2686a0fc86004efc31f5bf2475a45d4906" using the TUS protocol on the WebDAV API with these headers:
       | Upload-Length   | 19                                    |
       #    dGV4dEZpbGUudHh0 is the base64 encode of /Shares/textFile.txt
