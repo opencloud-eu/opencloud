@@ -53,6 +53,8 @@ func NewService(opts ...Option) decorators.DecoratedService {
 		selector:     options.GatewaySelector,
 		preprocessorOpts: PreprocessorOpts{
 			TxtFontFileMap: options.Config.Thumbnail.FontMapFile,
+			MaxInputWidth:  options.Config.Thumbnail.MaxInputWidth,
+			MaxInputHeight: options.Config.Thumbnail.MaxInputHeight,
 		},
 		dataEndpoint:   options.Config.Thumbnail.DataEndpoint,
 		transferSecret: options.Config.Thumbnail.TransferSecret,
@@ -77,6 +79,8 @@ type Thumbnail struct {
 // PreprocessorOpts holds the options for the preprocessor
 type PreprocessorOpts struct {
 	TxtFontFileMap string
+	MaxInputWidth  int
+	MaxInputHeight int
 }
 
 // GetThumbnail retrieves a thumbnail for an image
@@ -164,11 +168,20 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 	}
 
 	defer r.Close()
-	ppOpts := map[string]interface{}{
-		"fontFileMap": g.preprocessorOpts.TxtFontFileMap,
+	ppOpts := map[string]any{
+		"fontFileMap":    g.preprocessorOpts.TxtFontFileMap,
+		"maxInputWidth":  g.preprocessorOpts.MaxInputWidth,
+		"maxInputHeight": g.preprocessorOpts.MaxInputHeight,
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
+	if errors.Is(err, terrors.ErrImageTooLarge) {
+		return "", merrors.Forbidden(g.serviceID, "%s", err.Error())
+	}
+	if err != nil {
+		g.logger.Error().Err(err).Msg("failed to convert image")
+	}
+
 	if img == nil || err != nil {
 		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}
@@ -256,11 +269,16 @@ func (g Thumbnail) handleWebdavSource(ctx context.Context, req *thumbnailssvc.Ge
 		return "", merrors.InternalServerError(g.serviceID, "could not get image from source: %s", err.Error())
 	}
 	defer r.Close()
-	ppOpts := map[string]interface{}{
-		"fontFileMap": g.preprocessorOpts.TxtFontFileMap,
+	ppOpts := map[string]any{
+		"fontFileMap":    g.preprocessorOpts.TxtFontFileMap,
+		"maxInputWidth":  g.preprocessorOpts.MaxInputWidth,
+		"maxInputHeight": g.preprocessorOpts.MaxInputHeight,
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
+	if errors.Is(err, terrors.ErrImageTooLarge) {
+		return "", merrors.Forbidden(g.serviceID, "%s", err.Error())
+	}
 	if img == nil || err != nil {
 		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}
