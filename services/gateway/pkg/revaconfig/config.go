@@ -113,8 +113,12 @@ func spacesProviders(cfg *config.Config, logger log.Logger) map[string]map[strin
 	if len(cfg.StorageRegistry.Rules) > 0 {
 		rules := map[string]map[string]any{}
 		for i := range cfg.StorageRegistry.Rules {
-			parts := strings.SplitN(cfg.StorageRegistry.Rules[i], "=", 2)
-			rules[parts[0]] = map[string]any{"address": parts[1]}
+			key, address, found := strings.Cut(cfg.StorageRegistry.Rules[i], "=")
+			if !found {
+				logger.Error().Str("rule", cfg.StorageRegistry.Rules[i]).Msg("Failed to parse storage registry rule. Expected key=address")
+				return nil
+			}
+			rules[key] = map[string]any{"address": address}
 		}
 		return rules
 	}
