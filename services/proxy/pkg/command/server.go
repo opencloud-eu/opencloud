@@ -208,7 +208,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				logger.Error().Err(err).Msg("Error initializing the audit emitter")
 				return err
 			}
-			defer auditemitter.Close(auditEmitter)
+			defer audit.CloseEmitter(auditEmitter)
 
 			lh := staticroutes.StaticRouteHandler{
 				Prefix:          cfg.HTTP.Root,
@@ -297,9 +297,15 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 		logger.Warn().Msg("OIDC access token audience validation is disabled. Configure PROXY_OIDC_AUDIENCES to enable it; this is recommended for production.")
 	}
 
+	var loginStore microstore.Store
+	if cfg.Audit.Enabled {
+		loginStore = auditLoginStore(cfg)
+	}
+
 	return middleware.NewOIDCAuthenticator(
 		middleware.Logger(logger),
 		middleware.UserInfoCache(userInfoCache),
+		middleware.AuditLoginStore(loginStore),
 		middleware.DefaultAccessTokenTTL(cfg.OIDC.UserinfoCache.TTL),
 		middleware.HTTPClient(httpClient),
 		middleware.OIDCIss(cfg.OIDC.Issuer),
@@ -308,6 +314,25 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 		middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
 		middleware.AuditEmitter(auditEmitter),
 	), nil
+}
+
+// auditLoginStore keeps the OIDC sessions already recorded as logins in the
+// audit log. It uses the store of the userinfo cache, but a database of its
+// own: nats-js-kv only supports a TTL per database (bucket), and the one of the
+// userinfo cache is far shorter than a session.
+func auditLoginStore(cfg *config.Config) microstore.Store {
+	c := cfg.OIDC.UserinfoCache
+	return store.Create(
+		store.Store(c.Store),
+		store.TTL(middleware.AuditLoginTTL),
+		microstore.Nodes(c.Nodes...),
+		microstore.Database("audit-logins"),
+		store.DisablePersistence(c.DisablePersistence),
+		store.Authentication(c.AuthUsername, c.AuthPassword),
+		store.TLSEnabled(c.EnableTLS),
+		store.TLSInsecure(c.TLSInsecure),
+		store.TLSRootCA(c.TLSRootCACertificate),
+	)
 }
 
 func loadMiddlewares(logger log.Logger, cfg *config.Config,

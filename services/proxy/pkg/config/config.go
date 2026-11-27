@@ -244,13 +244,13 @@ type ServiceAccount struct {
 	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;PROXY_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
 }
 
-// Events combines the configuration options for the event bus.
 // Audit configures the audit events of the service.
 type Audit struct {
-	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;PROXY_AUDIT_ENABLED" desc:"Emit audit events for logins and failed logins to the audit stream." introductionVersion:"%%NEXT%%"`
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;PROXY_AUDIT_ENABLED" desc:"Emit audit events for logins and failed logins, public link access and backchannel logouts to the audit stream." introductionVersion:"%%NEXT%%"`
 	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;PROXY_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort', the only mode for now, never blocks a request and counts dropped events." introductionVersion:"%%NEXT%%"`
 }
 
+// Events combines the configuration options for the event bus.
 type Events struct {
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;PROXY_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Set to a empty string to disable emitting events." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;PROXY_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`

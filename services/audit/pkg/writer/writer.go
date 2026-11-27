@@ -179,17 +179,35 @@ func (w *Writer) Run(ctx context.Context, js jetstream.JetStream, cfg audit.Stre
 		iter.Stop()
 	}()
 
+	var delay time.Duration
 	for {
 		msg, err := iter.Next()
 		if err != nil {
 			if errors.Is(err, jetstream.ErrMsgIteratorClosed) || ctx.Err() != nil {
 				return nil
 			}
-			w.log.Error().Err(err).Msg("reading the audit stream failed")
+			// without a pause a persistent error fills the log as fast as it repeats
+			delay = nextReadDelay(delay, w.RetryDelay)
+			w.log.Error().Err(err).Dur("retry_in", delay).Msg("reading the audit stream failed")
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(delay):
+			}
 			continue
 		}
+		delay = 0
 		w.Handle(ctx, msg)
 	}
+}
+
+// nextReadDelay is the pause after a failed read of the stream: 100ms after the
+// first failure, then doubled up to limit.
+func nextReadDelay(d, limit time.Duration) time.Duration {
+	if d == 0 {
+		return min(100*time.Millisecond, limit)
+	}
+	return min(2*d, limit)
 }
 
 func (w *Writer) reportLag(ctx context.Context, cons jetstream.Consumer) {

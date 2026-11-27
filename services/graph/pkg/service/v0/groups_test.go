@@ -61,6 +61,8 @@ var _ = Describe("Groups", func() {
 	)
 
 	BeforeEach(func() {
+		// a fresh mock per spec, otherwise the calls of earlier specs count too
+		eventsPublisher = mocks.Publisher{}
 		eventsPublisher.On("Publish", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")

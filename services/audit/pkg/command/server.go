@@ -50,12 +50,16 @@ func Server(cfg *config.Config) *cobra.Command {
 			defer svcCancel()
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			if cfg.Legacy.Enabled {
-				logger.Warn().Msg("the legacy audit log is deprecated, use the audit stream")
+			if !cfg.Stream.Enabled {
+				logger.Warn().Msg("the legacy audit log is deprecated and will be removed, set OC_AUDIT_ENABLED=true to switch to the audit stream")
 				if err := addLegacy(svcCtx, svcCancel, gr, cfg, connName, logger); err != nil {
 					return err
 				}
 			} else {
+				// the default log level is error, a warning would go unseen
+				for _, name := range ignoredLegacySettings(cfg.Auditlog) {
+					logger.Error().Str("setting", name).Msg("the setting of the legacy audit log is ignored with OC_AUDIT_ENABLED=true, the audit stream writes to stdout or an OpenTelemetry Collector, not to a file")
+				}
 				js, err := raw.JetStream(ctx, connName, raw.Config{
 					Endpoint:             cfg.Events.Endpoint,
 					Cluster:              cfg.Events.Cluster,
@@ -123,6 +127,19 @@ func Server(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// ignoredLegacySettings names the file settings of the legacy audit log that
+// are set although the audit stream runs, which never writes a file.
+func ignoredLegacySettings(c config.Auditlog) []string {
+	var names []string
+	if c.LogToFile {
+		names = append(names, "AUDIT_LOG_TO_FILE")
+	}
+	if c.FilePath != "" {
+		names = append(names, "AUDIT_FILEPATH")
+	}
+	return names
 }
 
 // addLegacy runs the legacy audit log on the domain events of the main queue.

@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 		e, err := New(context.Background(), "graph", Settings{}, raw.Config{}, logger)
 		require.NoError(t, err)
 		assert.IsType(t, audit.Discard{}, e)
-		assert.NotPanics(t, func() { Close(e) })
+		assert.NotPanics(t, func() { audit.CloseEmitter(e) })
 	})
 
 	t.Run("without endpoint", func(t *testing.T) {

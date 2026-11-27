@@ -10,7 +10,7 @@ The design is described in [ADR 0006](../../docs/adr/0006-audit-logging.md).
 
 Two things are needed:
 
-- The services must emit audit events. Set `OC_AUDIT_ENABLED=true`. It is read by the proxy, graph, frontend, sharing and storage-users services, each of them also has its own variable, e.g. `PROXY_AUDIT_ENABLED`.
+- Set `OC_AUDIT_ENABLED=true`. It makes the proxy, graph, frontend, sharing and storage-users services emit audit events, and switches the audit service from the [legacy audit log](#legacy-audit-log) to the audit stream. Each service also has its own variable, e.g. `PROXY_AUDIT_ENABLED`, and `AUDIT_STREAM_ENABLED` for the audit service. If you use those instead, set `AUDIT_STREAM_ENABLED=true` as well, otherwise the audit service keeps running the legacy audit log.
 - The audit service must run. It is not started automatically when running as single binary via `opencloud server` or as docker container. Add it with `OC_ADD_RUN_SERVICES=audit`.
 
 Events emitted while the audit service is not running are kept in the stream and written when it starts, see `AUDIT_STREAM_MAX_AGE`.
@@ -89,14 +89,15 @@ An update only lists what it changed, e.g. only `role`. `display_name`, `descrip
 
 `space.update` lists what changed in `change.after`: `name`, `description`, `alias`, and `image` and `readme` with the ID of the file. An empty value means the attribute was removed.
 
-The catalog is defined in reva's `pkg/audit`. Some of its events are not emitted yet: app and guest tokens, previews, open in app, copies, deleted versions, the malware finding, OCM, settings, configuration and CLI commands, app role and sharing role definitions, and `access.denied`. `group.update` is only recorded when it fails.
+The catalog is defined in reva's `pkg/audit`. Some of its events are not emitted yet: app and guest tokens, previews, open in app, copies, deleted versions, the malware finding, OCM, settings, configuration and CLI commands, app role and sharing role definitions, and `access.denied`.
 
 Some actions are left out on purpose:
 
 - Thumbnails are not audited. `file.preview` is opening a file in the preview app.
 - Uploads and downloads are recorded when the transfer is done. Uploads and downloads by OpenCloud itself, e.g. for a copy, thumbnails, search or an archive, are not recorded.
 - A download that is resumed or seeked makes many range requests, only the one starting at the first byte counts.
-- `auth.login` is recorded for a new OIDC session. When the access token has a session ID (`sid`), as with Keycloak, only the first token of a session and OIDC client is a login; renewed tokens are not. Without a session ID, e.g. with the built-in identity provider, every new access token is recorded as a login, also the ones a client gets by renewing its token. Basic auth and app tokens authenticate every single request, for them only failed logins are recorded. Expired OIDC tokens are part of the normal token renewal and are not recorded as failed logins.
+- `auth.login` is recorded for a new OIDC session. When the access token has a session ID (`sid`), as with Keycloak, only the first token of a session and OIDC client is a login; renewed tokens are not. The proxy keeps the sessions it recorded for a day, in the database `audit-logins` of the store of the userinfo cache (`PROXY_OIDC_USERINFO_CACHE_STORE`). With the `memory` store every proxy replica records the login once, use `nats-js-kv` with more than one proxy. Without a session ID, e.g. with the built-in identity provider, every new access token is recorded as a login, also the ones a client gets by renewing its token. Basic auth and app tokens authenticate every single request, for them only failed logins are recorded. Expired OIDC tokens are part of the normal token renewal and are not recorded as failed logins.
+- A `PATCH` of a group that renames it and then fails on the members records a successful `group.update` for the rename and a failed one for the request: the rename did happen.
 - `public_link.access` is recorded once per link and client within 30 minutes, every failed attempt is recorded. The web client asking whether a link needs a password is not an attempt.
 - Shares accepted automatically, see `SHARING_AUTO_ACCEPT_SHARES`, are not recorded as `share.accept`. The `share.create` of the sharer is the record.
 
@@ -104,7 +105,7 @@ Some actions are left out on purpose:
 
 The audit service writes to stdout, one record per line and nothing else, see `AUDIT_OUTPUT_STDOUT`. Any log agent can pick it up. When the audit service runs with other services in one process or container, their logs share the same stdout; run it in its own container to keep the audit log separate.
 
-With `AUDIT_OUTPUT_OTLP_ENDPOINT` the audit service also sends the records to an OpenTelemetry Collector as OTLP logs over gRPC. The endpoint is `host:port` without a scheme, the audit service does not start with an invalid value. Use `AUDIT_OUTPUT_OTLP_INSECURE` for a Collector without TLS. Every record is an OpenTelemetry event: the event name is `event.name`, the fields are attributes and the body is the record as JSON. The resource names the service that emitted the event, `service.name` and `service.version` are therefore no attributes; the instrumentation scope is the audit service. The Collector routes the records to the SIEM, e.g. with its Splunk HEC, Elasticsearch, OpenSearch or syslog exporters. Every record is sent on its own and acknowledged only after the Collector accepted it, so a Collector outage delays the records but loses none.
+With `AUDIT_OUTPUT_OTLP_ENDPOINT` the audit service also sends the records to an OpenTelemetry Collector as OTLP logs over gRPC. The endpoint is `host:port` without a scheme, the audit service does not start with an invalid value. Use `AUDIT_OUTPUT_OTLP_INSECURE` for a Collector without TLS. Every record is an OpenTelemetry event: the event name is `event.name`, the fields are attributes and the body is the record as JSON. Both on purpose: Collector processors filter and route on the attributes, exporters like syslog or Splunk HEC send the body. A record is about 1 KB, sending it twice costs little. The resource names the service that emitted the event, `service.name` and `service.version` are therefore no attributes; the instrumentation scope is the audit service. The Collector routes the records to the SIEM, e.g. with its Splunk HEC, Elasticsearch, OpenSearch or syslog exporters. Every record is sent on its own and acknowledged only after the Collector accepted it, so a Collector outage delays the records but loses none.
 
 At least one output must be enabled.
 
@@ -146,8 +147,12 @@ Alert on dropped events and on a growing consumer lag.
 
 ## Legacy Audit Log
 
-The audit log of earlier versions is still available with `AUDIT_LEGACY_ENABLED=true` and will be removed in a later version. It reads the domain events instead of the audit stream and uses the `AUDIT_LOG_TO_CONSOLE`, `AUDIT_LOG_TO_FILE`, `AUDIT_FILEPATH` and `AUDIT_FORMAT` settings. Its records have a different format:
+As long as `OC_AUDIT_ENABLED` is not `true`, the audit service runs the audit log of earlier versions, so an existing audit log keeps working after an upgrade. It is deprecated and will be removed in a later version. It reads the domain events instead of the audit stream and uses the `AUDIT_LOG_TO_CONSOLE`, `AUDIT_LOG_TO_FILE`, `AUDIT_FILEPATH` and `AUDIT_FORMAT` settings. Its records have a different format:
 
 ```json
 {"RemoteAddr":"","User":"user_id","URL":"","Method":"","UserAgent":"","Time":"","App":"admin_audit","Message":"user 'user_id' trashed file 'item_id'","Action":"file_delete","CLI":false,"Level":1,"Path":"path","Owner":"user_id","FileID":"item_id"}
 ```
+
+To move to the audit stream, set `OC_AUDIT_ENABLED=true` for all services. The records then have the format described above, and there is no output to a file: point a log agent at stdout or set `AUDIT_OUTPUT_OTLP_ENDPOINT` before you switch. With `OC_AUDIT_ENABLED=true` the audit service ignores `AUDIT_LOG_TO_FILE` and `AUDIT_FILEPATH` and logs an error at startup while they are set.
+
+The release that removes the legacy audit log will refuse to start the audit service without `OC_AUDIT_ENABLED=true`, so an audit log never stops without notice.
