@@ -47,6 +47,7 @@ type OpenCloudConfig struct {
 	Clientlog         Clientlog             `yaml:"clientlog"`
 	Activitylog       Activitylog           `yaml:"activitylog"`
 	Webfinger         InsecureService       `yaml:"webfinger"`
+	GRPCClientTLS     *GRPCClientTLS        `yaml:"grpc_client_tls,omitempty"`
 }
 
 // Activitylog is the configuration for the activitylog service
@@ -103,6 +104,11 @@ type Collaboration struct {
 // Events is the configuration for events
 type Events struct {
 	TLSInsecure bool `yaml:"tls_insecure"`
+}
+
+// GRPCClientTLS is the TLS configuration for the grpc clients
+type GRPCClientTLS struct {
+	Insecure bool `yaml:"insecure"`
 }
 
 // FrontendService is the configuration for the frontend service

@@ -17,9 +17,10 @@ import (
 
 // ClientOptions represent options (e.g. tls settings) for the grpc clients
 type ClientOptions struct {
-	tlsMode string
-	caCert  string
-	tp      trace.TracerProvider
+	tlsMode     string
+	caCert      string
+	tlsInsecure bool
+	tp          trace.TracerProvider
 }
 
 // Option is used to pass client options
@@ -39,6 +40,14 @@ func WithTLSCACert(v string) ClientOption {
 	}
 }
 
+// WithTLSInsecure allows the TLS mode 'insecure' for grpc clients, which
+// skips the verification of the server certificate
+func WithTLSInsecure(v bool) ClientOption {
+	return func(o *ClientOptions) {
+		o.tlsInsecure = v
+	}
+}
+
 // WithTraceProvider allows to set the trace Provider for grpc clients
 func WithTraceProvider(tp trace.TracerProvider) ClientOption {
 	return func(o *ClientOptions) {
@@ -54,6 +63,7 @@ func GetClientOptions(t *shared.GRPCClientTLS) []ClientOption {
 	opts := []ClientOption{
 		WithTLSMode(t.Mode),
 		WithTLSCACert(t.CACert),
+		WithTLSInsecure(t.Insecure),
 	}
 	return opts
 }
@@ -74,6 +84,11 @@ func NewClient(opts ...ClientOption) (client.Client, error) {
 	}
 	switch options.tlsMode {
 	case "insecure":
+		// Skipping the server certificate check is only meant for development
+		// setups, so it has to be allowed explicitly.
+		if !options.tlsInsecure {
+			return nil, errors.New("grpc client TLS mode 'insecure' disables server certificate verification and requires OC_INSECURE=true or grpc_client_tls.insecure: true in the config file; use OC_GRPC_CLIENT_TLS_MODE=on with a trusted certificate otherwise")
+		}
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
