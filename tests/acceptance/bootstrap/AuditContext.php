@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 /**
+ * @author Michael Barz <m.barz@opencloud.eu>
  * @copyright Copyright (c) 2026 OpenCloud GmbH <mail@opencloud.eu>
  * SPDX-License-Identifier: Apache-2.0
  */
