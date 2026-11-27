@@ -6,8 +6,27 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @micbar, @pbleser-oc, @v-scharf
 
+### 🐛 Bug Fixes
+
+- [full-ci] fix: audit log follow-ups from the review [[#4141](https://github.com/opencloud-eu/opencloud/pull/4141)]
+- fix(search): extract the metadata of files over the size limit [[#4133](https://github.com/opencloud-eu/opencloud/pull/4133)]
+- fix(web): serve the index fallback without recursion and handle file errors [[#4125](https://github.com/opencloud-eu/opencloud/pull/4125)]
+- fix(proxy): redirect to HTTPS on the host of OC_URL [[#4120](https://github.com/opencloud-eu/opencloud/pull/4120)]
+- fix(search): answer text on numeric and date fields the same on both engines [[#4122](https://github.com/opencloud-eu/opencloud/pull/4122)]
+- fix(mise): run the pinned golangci-lint in the check:lint task [[#4015](https://github.com/opencloud-eu/opencloud/pull/4015)]
+- fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
+- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
+- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
+- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
+- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
+- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
+- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
+- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
+- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
 ### 📈 Enhancement
 
+- feat(graph): accept user name or id in GetUserDrive [[#3243](https://github.com/opencloud-eu/opencloud/pull/3243)]
 - feat(graph): return the creator of a public link [[#4149](https://github.com/opencloud-eu/opencloud/pull/4149)]
 - refactor(config): extract BindSourcesToStructs into pkg/config/binder [[#3270](https://github.com/opencloud-eu/opencloud/pull/3270)]
 - feat(search): add a command to optimize the search index [[#4136](https://github.com/opencloud-eu/opencloud/pull/4136)]
@@ -34,23 +53,6 @@
 - test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
 - test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
 - fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
-
-### 🐛 Bug Fixes
-
-- fix(search): extract the metadata of files over the size limit [[#4133](https://github.com/opencloud-eu/opencloud/pull/4133)]
-- fix(web): serve the index fallback without recursion and handle file errors [[#4125](https://github.com/opencloud-eu/opencloud/pull/4125)]
-- fix(proxy): redirect to HTTPS on the host of OC_URL [[#4120](https://github.com/opencloud-eu/opencloud/pull/4120)]
-- fix(search): answer text on numeric and date fields the same on both engines [[#4122](https://github.com/opencloud-eu/opencloud/pull/4122)]
-- fix(mise): run the pinned golangci-lint in the check:lint task [[#4015](https://github.com/opencloud-eu/opencloud/pull/4015)]
-- fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
-- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
-- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
-- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
-- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
-- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
-- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
-- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
-- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
 
 ### 📦️ Dependencies
 
