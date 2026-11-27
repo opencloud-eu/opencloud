@@ -14,8 +14,11 @@ var (
 type Metrics struct {
 	BuildInfo *prometheus.GaugeVec
 	Counter   *prometheus.CounterVec
-	Latency   *prometheus.SummaryVec
-	Duration  *prometheus.HistogramVec
+	// Deprecated: Latency is a Summary, whose quantiles can't be aggregated across instances,
+	// and it will be removed in a future release; use Duration instead, which measures the same
+	// (https://github.com/opencloud-eu/opencloud/issues/3826).
+	Latency  *prometheus.SummaryVec
+	Duration *prometheus.HistogramVec
 }
 
 // New initializes the available metrics.
@@ -39,7 +42,7 @@ func New(opts ...Option) *Metrics {
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "webfinger_latency_microseconds",
-			Help:      "Webfinger request latencies in microseconds",
+			Help:      "Webfinger request latencies in microseconds (deprecated, use opencloud_webfinger_webfinger_duration_seconds instead)",
 		}, []string{}),
 		Duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: Namespace,
