@@ -67,6 +67,30 @@ When a shared space or directory got deleted, use the `shares cleanup` command t
 opencloud shares cleanup
 ```
 
+### Cleanup Orphaned Grants
+
+Detect and optionally delete storage grants that have no corresponding share-manager entry.
+
+Usage:
+```bash
+opencloud shares clean-orphaned-grants \
+  --service-account-id "<id>" \
+  --service-account-secret "<secret>" \
+  [--space-id "<storage-id>\$<space-id>" | --resource-id "<storage-id>\$<space-id>\!<node-id>" [--force]] \
+  [--shares-without-grants] \
+  [--dry-run=false]
+```
+
+Notes:
+- `--dry-run` defaults to `true` (no deletions). Set to `false` to remove orphaned grants.
+- The dry run is not free of side effects: listing the shares of a resource makes the jsoncs3 share manager remove expired shares and send the `ShareExpired` and `SpaceMembershipExpired` events for them.
+- `--space-id` limits the scan to one space and takes the full space id, e.g. `d419032c-65b9-4f4e-b1e4-0c69a946181d\$44b5a63b-540c-4002-a674-0e9c833bbe49`; omit it to scan all spaces.
+- `--resource-id` limits the scan to one resource; it can't be combined with `--space-id`.
+- With `--dry-run=false`, shares of deleted resources are removed from the whole share manager first (like `opencloud shares cleanup`), even when the scan is limited with `--space-id` or `--resource-id`.
+- Grants whose resource shares could not be listed are reported as `UNVERIFIED` and left alone. `--force` removes them anyway, and only works together with `--resource-id`: it removes every user and group grant of that resource, since there are no shares to compare them with.
+- `--shares-without-grants` also reports shares that have no storage grant for their grantee, and removes them with `--dry-run=false`. It lists the shares of each space once from the jsoncs3 share manager, so it is only available with that driver. Space memberships and expired shares are left alone.
+- Public links are not touched.
+
 ### Revisions CLI
 
 The revisions command allows removing the revisions of files in the storage.
