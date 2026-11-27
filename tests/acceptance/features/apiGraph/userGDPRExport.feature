@@ -593,7 +593,6 @@ Feature: user GDPR (General Data Protection Regulation) report
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Viewer     |
-    And user "Brian" has a share "folderMain" synced
     When user "Alice" exports her GDPR report to "/.personal_data_export.json" using the Graph API
     And user "Alice" downloads the content of GDPR report ".personal_data_export.json"
     Then the HTTP status code of responses on each endpoint should be "202, 200" respectively

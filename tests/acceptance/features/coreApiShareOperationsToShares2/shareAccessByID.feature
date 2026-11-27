@@ -109,7 +109,6 @@ Feature: share access by ID
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile0.txt" synced
     And using SharingNG
     When user "Brian" declines share with ID "%last_share_id%" using the sharing API
     Then the OCS status code should be "<ocs-status-code>"

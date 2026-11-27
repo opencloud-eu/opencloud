@@ -334,7 +334,6 @@ Feature: upload file
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textfile.txt" synced
     When user "Brian" uploads file with content "" to shared resource "Shares/textfile.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And for user "Brian" the content of the file "/test.txt" of the space "Shares" should be ""

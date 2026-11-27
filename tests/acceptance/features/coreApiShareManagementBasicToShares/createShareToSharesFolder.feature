@@ -481,8 +481,6 @@ Feature: sharing
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile0.txt" synced
-    And user "Carol" has a share "textfile0.txt" synced
     When user "Alice" sends HTTP method "GET" to OCS API endpoint "/apps/files_sharing/api/v1/shares"
     Then the OCS status code should be "<ocs-status-code>"
     And the HTTP status code should be "200"
@@ -523,15 +521,12 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "common" synced
-    And user "Carol" has a share "common" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile0.txt |
       | space           | Personal      |
       | sharee          | Carol         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
-    And user "Carol" has a share "textfile0.txt" synced
     And user "Alice" has moved file "/textfile0.txt" to "/common/textfile0.txt"
     And user "Alice" has moved file "/common/textfile0.txt" to "/common/sub/textfile0.txt"
     When user "Carol" uploads file "filesForUpload/file_to_overwrite.txt" to "/Shares/textfile0.txt" using the WebDAV API

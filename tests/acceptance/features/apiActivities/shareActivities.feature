@@ -507,7 +507,6 @@ Feature: check share activity
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And user "Brian" has uploaded file with content "some data" to "Shares/FOLDER/newfile.txt"
     And user "Brian" has uploaded file with content "edited data" to "Shares/FOLDER/newfile.txt"
     And user "Brian" has deleted file "Shares/FOLDER/newfile.txt"
@@ -1917,7 +1916,6 @@ Feature: check share activity
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "/FOLDER" synced
     And user "Brian" has uploaded file with content "some data" to "Shares/FOLDER/newfile.txt"
     And user "Brian" has uploaded file with content "edited data" to "Shares/FOLDER/newfile.txt"
     And user "Brian" has deleted file "Shares/FOLDER/newfile.txt"
@@ -1936,7 +1934,6 @@ Feature: check share activity
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "/FOLDER" synced
     When user "Brian" lists the activities of folder "FOLDER" from space "Shares" using the Graph API
     Then the HTTP status code should be "403"
 

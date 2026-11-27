@@ -54,7 +54,6 @@ Feature: accessing files using file id
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "textfile.txt" synced
     When user "Brian" sends HTTP method "GET" to URL "<dav-path>"
     Then the HTTP status code should be "200"
     And the downloaded content should be "some data"
@@ -74,7 +73,6 @@ Feature: accessing files using file id
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "uploadFolder" synced
     When user "Brian" sends HTTP method "GET" to URL "<dav-path>"
     Then the HTTP status code should be "200"
     And the downloaded content should be "some data"

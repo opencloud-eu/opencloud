@@ -24,14 +24,12 @@ Feature: updating shares to users and groups that have the same name
       | sharee          | Brian    |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Carol" has a share "TMP" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | TMP      |
       | space           | Personal |
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "TMP" synced
     And using SharingNG
     When user "Alice" updates the last share using the sharing API with
       | permissions | read |
@@ -55,14 +53,12 @@ Feature: updating shares to users and groups that have the same name
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "TMP" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | TMP      |
       | space           | Personal |
       | sharee          | Brian    |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Carol" has a share "TMP" synced
     And using SharingNG
     When user "Alice" updates the last share using the sharing API with
       | permissions | read |

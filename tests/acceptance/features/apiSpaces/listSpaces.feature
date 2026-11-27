@@ -83,7 +83,6 @@ Feature: List and create spaces
       | sharee          | Alice    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Alice" has a share "folder" synced
     When user "Alice" lists all available spaces via the Graph API with query "$filter=driveType eq 'personal'"
     Then the HTTP status code should be "200"
     And the JSON response should contain space called "Alice Hansen" and match

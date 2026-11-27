@@ -104,7 +104,6 @@ Feature: propfind a file using file id
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | File Editor  |
-    And user "Brian" has a share "textfile.txt" synced
     When user "Brian" sends HTTP method "PROPFIND" to URL "<dav-path>"
     Then the HTTP status code should be "207"
     And as user "Brian" the PROPFIND response should contain a resource "<<FILEID>>" with these key and value pairs:
@@ -125,7 +124,6 @@ Feature: propfind a file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     And user "Alice" has uploaded file with content "some data" to "/folder/textfile.txt"
     And we save it into "FILEID"
     When user "Brian" sends HTTP method "PROPFIND" to URL "<dav-path>"

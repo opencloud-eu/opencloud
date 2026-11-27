@@ -76,7 +76,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | <permissions> |
-    And user "Brian" has a share "folder" synced
     And user "Brian" has uploaded file with content "some data" to "/test.txt"
     And we save it into "FILEID"
     When user "Brian" moves file with id "<<FILEID>>" as "test.txt" into folder "folder" inside space "Shares"
@@ -310,7 +309,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | <permissions> |
-    And user "Brian" has a share "testshare" synced
     When user "Brian" moves file with id "<<FILEID>>" as "textfile.txt" into folder "testshare" inside space "Shares"
     Then the HTTP status code should be "502"
     And for user "Brian" folder "/" of the space "project-space" should contain these files:
@@ -377,7 +375,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     When user "Brian" moves file with id "<<FILEID>>" as "test.txt" into folder "folder/sub-folder" inside space "Shares"
     Then the HTTP status code should be "201"
     And for user "Brian" folder "folder/sub-folder" of the space "Shares" should contain these files:
@@ -401,7 +398,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "/folder" synced
     When user "Brian" moves file with id "<<FILEID>>" as "test.txt" into folder "folder" inside space "Shares"
     Then the HTTP status code should be "403"
     And as "Alice" file "test.txt" should not exist in the trashbin of the space "Personal"
@@ -421,7 +417,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "folder" synced
     When user "Brian" moves file with id "<<FILEID>>" as "test.txt" into folder "folder/sub-folder" inside space "Shares"
     Then the HTTP status code should be "502"
     And for user "Brian" folder "folder/sub-folder" of the space "Shares" should not contain these files:
@@ -446,14 +441,12 @@ Feature: moving/renaming file using file id
       | sharee          | Brian              |
       | shareType       | user               |
       | permissionsRole | <from-permissions> |
-    And user "Brian" has a share "testshare1" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | testshare2       |
       | space           | Personal         |
       | sharee          | Brian            |
       | shareType       | user             |
       | permissionsRole | <to-permissions> |
-    And user "Brian" has a share "testshare2" synced
     When user "Brian" moves file with id "<<FILEID>>" as "textfile.txt" into folder "testshare2" inside space "Shares"
     Then the HTTP status code should be "502"
     And for user "Brian" folder "testshare1" of the space "Shares" should contain these files:
@@ -483,14 +476,12 @@ Feature: moving/renaming file using file id
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Editor     |
-    And user "Brian" has a share "aliceShare" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | carolShare |
       | space           | Personal   |
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Editor     |
-    And user "Brian" has a share "carolShare" synced
     When user "Brian" moves file "aliceFile.txt" from share "aliceShare" to "carolFile.txt" in share "carolShare" using the WebDAV API
     Then the HTTP status code should be "502"
     And for user "Carol" the content of the file "carolShare/carolFile.txt" of the space "Personal" should be "from Carol"
@@ -508,7 +499,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | <permissions> |
-    And user "Brian" has a share "folder" synced
     When user "Brian" moves file with id "<<FILEID>>" as "test.txt" into folder "/" inside space "Personal"
     Then the HTTP status code should be "<http-status-code>"
     And for user "Brian" folder "folder" of the space "Shares" should contain these files:
@@ -539,7 +529,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | <permissions> |
-    And user "Brian" has a share "testshare" synced
     When user "Brian" moves file with id "<<FILEID>>" as "textfile.txt" into folder "/" inside space "project-space"
     Then the HTTP status code should be "<http-status-code>"
     And for user "Brian" folder "testshare" of the space "Shares" should contain these files:
@@ -629,7 +618,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "folder" synced
     When user "Brian" renames file with id "<<FILEID>>" to "folder/sub-folder/renamed.txt" inside space "Shares"
     Then the HTTP status code should be "201"
     And for user "Brian" folder "folder/sub-folder" of the space "Shares" should contain these files:
@@ -650,7 +638,6 @@ Feature: moving/renaming file using file id
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "folder" synced
     When user "Brian" renames file with id "<<FILEID>>" to "folder/sub-folder/renamed.txt" inside space "Shares"
     Then the HTTP status code should be "502"
     And for user "Brian" folder "folder" of the space "Shares" should contain these files:

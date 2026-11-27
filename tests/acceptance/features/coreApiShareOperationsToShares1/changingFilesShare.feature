@@ -23,14 +23,12 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "share1" synced
     And user "Alice" has sent the following resource share invitation:
       | resource        | /share2  |
       | space           | Personal |
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "share2" synced
     When user "Brian" moves file "/Shares/share1/textfile0.txt" to "/Shares/share2/textfile0.txt" using the WebDAV API
     Then the HTTP status code should be "502"
     And as "Brian" file "/Shares/share1/textfile0.txt" should exist
@@ -53,7 +51,6 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile1.txt" synced
     When user "Brian" uploads file with content "this is a new content" to "/Shares/textfile1.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And as "Brian" file "Shares/textfile1.txt" should exist

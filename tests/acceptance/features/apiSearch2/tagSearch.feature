@@ -123,7 +123,6 @@ Feature: tag search
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Editor       |
-    And user "Brian" has a share "uploadFolder" synced
     And user "Brian" has created the following tags for file "uploadFolder/file2.txt" of the space "Shares":
       | tag1 |
     When user "Brian" searches for "Tags:tag1" using the WebDAV API

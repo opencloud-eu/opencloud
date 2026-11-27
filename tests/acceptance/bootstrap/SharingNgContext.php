@@ -27,6 +27,7 @@ use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\GraphHelper;
 use TestHelpers\WebDavHelper;
+use TestHelpers\WaitHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
 use Behat\Step\Given;
@@ -529,6 +530,82 @@ class SharingNgContext implements Context {
 		);
 		$response = $this->sendShareInvitation($user, $rows);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
+		$this->waitUntilShareIsSynced($user, $rows, $response);
+	}
+
+	/**
+	 * Shares are synced (auto-accepted) asynchronously by the sharing service.
+	 * Waits until the share created with the given response is synced for each
+	 * user it was sent to (the members of a group, for a group share), so that
+	 * the following steps don't race with it, unless a user has auto-sync off.
+	 *
+	 * @param string $sharer
+	 * @param array $shareInfo
+	 * @param ResponseInterface $response
+	 *
+	 * @return void
+	 * @throws Exception
+	 * @throws GuzzleException
+	 */
+	private function waitUntilShareIsSynced(string $sharer, array $shareInfo, ResponseInterface $response): void {
+		if (!isset($shareInfo['sharee'], $shareInfo['shareType'])) {
+			return;
+		}
+		$shareIds = \array_column($this->featureContext->getJsonDecodedResponse($response)['value'] ?? [], 'id');
+		$sharees = \array_map('trim', \explode(',', $shareInfo['sharee']));
+		$shareTypes = \array_map('trim', \explode(',', $shareInfo['shareType']));
+
+		$users = [];
+		foreach ($sharees as $index => $sharee) {
+			$shareType = $shareTypes[$index] ?? '';
+			if ($shareType === 'user') {
+				$users[] = $this->featureContext->getActualUsername($sharee);
+			} elseif ($shareType === 'group') {
+				$members = $this->featureContext->graphContext
+					->theAdminHasRetrievedMembersListOfGroupUsingTheGraphApi($sharee);
+				foreach ($members as $member) {
+					$users[] = $member['onPremisesSamAccountName'];
+				}
+			}
+		}
+
+		$sharer = $this->featureContext->getActualUsername($sharer);
+		foreach (\array_unique($users) as $user) {
+			if (\strcasecmp($user, $sharer) === 0 || !$this->featureContext->getUserAutoSyncSetting($user)) {
+				continue;
+			}
+			$synced = WaitHelper::waitUntil(
+				fn () => $this->isAnyOfSharesSynced($user, $shareIds),
+				fn (bool $synced) => $synced
+			);
+			Assert::assertTrue($synced, "The share was not synced for user '$user'");
+		}
+	}
+
+	/**
+	 * Whether the item in the shared-with-me list of the user that holds one of
+	 * the given shares reports @client.synchronize.
+	 *
+	 * @param string $user
+	 * @param array $shareIds
+	 *
+	 * @return bool
+	 * @throws GuzzleException
+	 */
+	private function isAnyOfSharesSynced(string $user, array $shareIds): bool {
+		$response = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user)
+		);
+		foreach ($this->featureContext->getJsonDecodedResponse($response)['value'] ?? [] as $item) {
+			$itemShareIds = \array_column($item['remoteItem']['permissions'] ?? [], 'id');
+			if (\array_intersect($shareIds, $itemShareIds)) {
+				return $item['@client.synchronize'] === true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -2197,6 +2274,7 @@ class SharingNgContext implements Context {
 				];
 				$response = $this->sendShareInvitation($sharer, $shareData);
 				$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
+				$this->waitUntilShareIsSynced($sharer, $shareData, $response);
 			}
 		}
 	}

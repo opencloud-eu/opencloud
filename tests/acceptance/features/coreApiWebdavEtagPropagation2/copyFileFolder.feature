@@ -148,7 +148,6 @@ Feature: propagation of etags when copying files or folders
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "upload" synced
     And user "Alice" has stored etag of element "/"
     And user "Alice" has stored etag of element "/upload"
     And user "Alice" has stored etag of element "/upload/file.txt"
@@ -190,7 +189,6 @@ Feature: propagation of etags when copying files or folders
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "upload" synced
     And user "Alice" has stored etag of element "/"
     And user "Alice" has stored etag of element "/upload"
     And user "Alice" has stored etag of element "/upload/file.txt"

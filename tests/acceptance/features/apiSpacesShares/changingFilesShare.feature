@@ -23,14 +23,12 @@ Feature: change shared resource
       | sharee          | Carol    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Carol" has a share "PARENT" synced
     And user "Brian" has sent the following resource share invitation:
       | resource        | PARENT   |
       | space           | Personal |
       | sharee          | Carol    |
       | shareType       | user     |
       | permissionsRole | Editor   |
-    And user "Carol" has a share "PARENT (1)" synced
     When user "Carol" moves file "PARENT/from_alice.txt" to "PARENT (1)/from_alice.txt" in space "Shares" using the WebDAV API
     Then the HTTP status code should be "502"
     And for user "Carol" folder "PARENT" of the space "Shares" should contain these entries:
@@ -49,7 +47,6 @@ Feature: change shared resource
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile1.txt" synced
     When user "Brian" uploads a file inside space "Shares" with content "this is a new content" to "textfile1.txt" using the WebDAV API
     Then the HTTP status code should be "204"
     And for user "Brian" the space "Shares" should contain these entries:

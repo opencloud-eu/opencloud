@@ -27,7 +27,6 @@ Feature: Search
       | sharee          | Alice         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "BrianPersonal" synced
     When user "Alice" searches for "*inside*" inside space "project101" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "1" entries
@@ -55,7 +54,6 @@ Feature: Search
       | sharee          | Alice         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "BrianPersonal" synced
     When user "Alice" searches for "*inside*" inside space "Personal" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "1" entries
@@ -83,7 +81,6 @@ Feature: Search
       | sharee          | Alice         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "BrianPersonal" synced
     When user "Alice" searches for "*inside*" inside space "Shares" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "0" entries
@@ -166,7 +163,6 @@ Feature: Search
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Viewer     |
-    And user "Brian" has a share "folderMain" synced
     And user "Brian" has disabled sync of last shared resource
     When user "Brian" searches for "*folder*" using the WebDAV API
     Then the HTTP status code should be "207"
@@ -229,7 +225,6 @@ Feature: Search
       | sharee          | Brian      |
       | shareType       | user       |
       | permissionsRole | Viewer     |
-    And user "Brian" has a share "folderMain" synced
     When user "Brian" searches for "*folder*" inside folder "/folderMain" in space "Shares" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain only these entries:
@@ -312,7 +307,6 @@ Feature: Search
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Viewer   |
-    And user "Brian" has a share "foo" synced
     When user "Brian" searches for "shared*" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain these entries:
@@ -367,7 +361,6 @@ Feature: Search
       | sharee          | Alice         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Alice" has a share "BrianPersonal" synced
     When user "Alice" searches for "*inside*" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "3" entries

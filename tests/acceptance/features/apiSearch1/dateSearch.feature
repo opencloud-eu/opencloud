@@ -61,7 +61,6 @@ Feature: date search
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "sharedFolder" synced
     When user "Brian" searches for "Mtime:yesterday" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result of user "Brian" should contain these entries:

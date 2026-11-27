@@ -72,7 +72,6 @@ Feature: set file properties
       | sharee          | Brian                    |
       | shareType       | user                     |
       | permissionsRole | File Editor              |
-    And user "Brian" has a share "testcustompropshared.txt" synced
     When user "Alice" sets property "very-custom-prop" of file "testcustompropshared.txt" to "valueForSharetest"
     Then the HTTP status code should be "207"
     And the xml response should contain a property "very-custom-prop"

@@ -21,7 +21,6 @@ Feature: sharing
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | File Editor   |
-    And user "Brian" has a share "textfile0.txt" synced
     And using SharingNG
     And user "Brian" has moved file "/Shares/textfile0.txt" to "/Shares/textfile_new.txt"
     When user "Alice" updates the last share using the sharing API with
@@ -79,7 +78,6 @@ Feature: sharing
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile0.txt" synced
     And using SharingNG
     When user "Alice" updates the last share using the sharing API with
       | permissions | <permissions> |
@@ -109,7 +107,6 @@ Feature: sharing
       | sharee          | grp1          |
       | shareType       | group         |
       | permissionsRole | Viewer        |
-    And user "Brian" has a share "textfile0.txt" synced
     And using SharingNG
     When user "Alice" updates the last share using the sharing API with
       | permissions | <permissions> |
@@ -142,14 +139,12 @@ Feature: sharing
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Editor       |
-    And user "Brian" has a share "Alice-folder" synced
     And user "Carol" has sent the following resource share invitation:
       | resource        | Carol-folder |
       | space           | Personal     |
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Editor       |
-    And user "Brian" has a share "Carol-folder" synced
     When user "Brian" moves folder "/Shares/Alice-folder/folder2" to "/Shares/Carol-folder/folder2" using the WebDAV API
     Then the HTTP status code should be "502"
     Examples:
@@ -169,7 +164,6 @@ Feature: sharing
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | Viewer       |
-    And user "Brian" has a share "Alice-folder" synced
     And using SharingNG
     When user "Alice" updates the last share using the sharing API with
       | permissions | all |
@@ -223,7 +217,6 @@ Feature: sharing
       | sharee          | grp1     |
       | shareType       | group    |
       | permissionsRole | Editor   |
-    And user "Brian" has a share "FOLDER" synced
     And using SharingNG
     And user "Carol" has updated the last share with
       | permissions | read |
@@ -248,7 +241,6 @@ Feature: sharing
       | sharee          | Brian    |
       | shareType       | user     |
       | permissionsRole | Uploader |
-    And user "Brian" has a share "FOLDER" synced
     And user "Brian" has uploaded file with content "some content" to "/Shares/FOLDER/textFile.txt"
     When user "Alice" deletes file "/FOLDER/textFile.txt" using the WebDAV API
     Then the HTTP status code should be "204"

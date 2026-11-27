@@ -18,7 +18,6 @@ Feature: access the space of the share owner using the drive id
       | sharee          | Brian         |
       | shareType       | user          |
       | permissionsRole | Editor        |
-    And user "Brian" has a share "folderToShare" synced
 
 
   Scenario: sharee cannot access the space of the owner using its drive id
