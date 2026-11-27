@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -25,9 +26,11 @@ import (
 	"github.com/opencloud-eu/opencloud/opencloud/pkg/register"
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
 	mregistry "github.com/opencloud-eu/opencloud/pkg/registry"
-	gatewayparser "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/parser"
+	gatewayconfig "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
+	gatewaydefaults "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/defaults"
 	graphparser "github.com/opencloud-eu/opencloud/services/graph/pkg/config/parser"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -161,10 +164,10 @@ func ReportCommand(cfg *config.Config) *cobra.Command {
 				return configlog.ReturnError(err)
 			}
 
-			// Parse gateway config, it carries the address the report falls back
-			// to when the service registry holds no entry for the gateway
+			// Load the gateway config, it carries the address the report falls
+			// back to when the service registry holds no entry for the gateway
 			cfg.Gateway.Commons = cfg.Commons
-			return configlog.ReturnError(gatewayparser.ParseConfig(cfg.Gateway))
+			return configlog.ReturnError(loadGatewayConfig(cfg.Gateway))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			days, err := cmd.Flags().GetInt(_reportDaysFlagName)
@@ -405,26 +408,34 @@ func newLibregraphServiceAccountClient(ctx context.Context, cfg *config.Config, 
 	// Initialize registry to make service lookup work
 	reg := mregistry.GetRegistry()
 
-	gatewayClient, err := selectGateway(cfg)
+	gatewayConn, err := selectGateway(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	token, err := utils.GetServiceUserToken(
 		ctx,
-		gatewayClient,
+		gatewayConn.client,
 		cfg.Graph.ServiceAccount.ServiceAccountID,
 		cfg.Graph.ServiceAccount.ServiceAccountSecret,
 	)
 	if err != nil {
+		if gatewayConn.skippedErr != nil {
+			// The address that answered is the fallback. Without the error of
+			// the address before it, the failure reads like the gateway is
+			// down, while the registry lookup is the part that went wrong.
+			return nil, fmt.Errorf("could not authenticate the service account against the gateway at %s: %w. It was only used because the gateway could not be looked up: %v",
+				gatewayConn.address, err, gatewayConn.skippedErr)
+		}
 		return nil, fmt.Errorf("could not authenticate the service account: %w", err)
 	}
 
 	serviceName := cfg.Graph.HTTP.Namespace + "." + cfg.Graph.Service.Name
 	var baseURL string
 	// A lookup error means the registry holds no entry, which is not fatal:
-	// the fallback below covers it.
-	if services, err := reg.GetService(serviceName); err == nil {
+	// the fallback below covers it. It is kept to explain a missing fallback.
+	services, lookupErr := reg.GetService(serviceName)
+	if lookupErr == nil {
 		for _, s := range services {
 			for _, n := range s.Nodes {
 				baseURL = fmt.Sprintf("%s://%s%s", nodeProtocol(n.Metadata), n.Address, cfg.Graph.HTTP.Root)
@@ -439,7 +450,12 @@ func newLibregraphServiceAccountClient(ctx context.Context, cfg *config.Config, 
 		baseURL = configuredGraphURL(cfg)
 	}
 	if baseURL == "" {
-		return nil, fmt.Errorf("could not find the '%s' service, is OpenCloud running?", serviceName)
+		if lookupErr != nil {
+			return nil, fmt.Errorf("could not look the '%s' service up in the service registry: %w, and %q is not an address to fall back to",
+				serviceName, lookupErr, cfg.Graph.HTTP.Addr)
+		}
+		return nil, fmt.Errorf("the '%s' service is not registered and %q is not an address to fall back to",
+			serviceName, cfg.Graph.HTTP.Addr)
 	}
 
 	lgconf := libregraph.NewConfiguration()
@@ -468,51 +484,60 @@ func newGraphHTTPClient(opts reportOptions) *http.Client {
 	}
 }
 
+// gatewayConnection is a gateway client together with the address it talks to.
+type gatewayConnection struct {
+	client  gateway.GatewayAPIClient
+	address string
+	// skippedErr holds the error of an address that was tried before this one,
+	// typically the service registry lookup. A dns:/// selector connects
+	// lazily, so the fallback always succeeds here and the earlier error would
+	// otherwise be lost, leaving a later connection error without its cause.
+	skippedErr error
+}
+
 // selectGateway returns a CS3 gateway client. It first tries the configured
 // reva address, which is a service registry name by default, and falls back to
 // dialling the configured gateway address directly over dns:///. That covers a
 // deployment running the services with MICRO_REGISTRY=memory, where a separate
 // process finds an empty registry but the gateway still listens next to it.
-func selectGateway(cfg *config.Config) (gateway.GatewayAPIClient, error) {
+func selectGateway(cfg *config.Config) (*gatewayConnection, error) {
 	addresses := []string{cfg.Graph.Reva.Address}
 	if fallback := configuredGatewayAddress(cfg); fallback != "" {
 		addresses = append(addresses, fallback)
 	}
 
+	// The errors of the addresses that did not work. They name the address
+	// they are about themselves, e.g. "eu.opencloud.api.gateway: service not
+	// found", so they are kept as they are.
 	var lastErr error
 	for _, address := range addresses {
 		selector, err := pool.GatewaySelector(address)
 		if err != nil {
-			lastErr = err
+			lastErr = errors.Join(lastErr, err)
 			continue
 		}
 		client, err := selector.Next()
 		if err != nil {
-			lastErr = err
+			lastErr = errors.Join(lastErr, err)
 			continue
 		}
-		return client, nil
+		return &gatewayConnection{client: client, address: address, skippedErr: lastErr}, nil
 	}
 	return nil, lastErr
 }
 
 // configuredGatewayAddress renders the configured gateway bind address as a
 // dns:/// target, so that it is dialled directly instead of being looked up in
-// the service registry. A wildcard bind address is rewritten to loopback,
-// because the report runs next to the gateway it talks to.
+// the service registry.
 func configuredGatewayAddress(cfg *config.Config) string {
-	if cfg.Gateway == nil || cfg.Gateway.GRPC.Addr == "" {
+	if cfg.Gateway == nil {
 		return ""
 	}
-	host, port, err := net.SplitHostPort(cfg.Gateway.GRPC.Addr)
-	if err != nil {
+	address, ok := dialableHostPort(cfg.Gateway.GRPC.Addr)
+	if !ok {
 		return ""
 	}
-	switch host {
-	case "", "0.0.0.0", "::", "[::]":
-		host = "127.0.0.1"
-	}
-	return "dns:///" + net.JoinHostPort(host, port)
+	return "dns:///" + address
 }
 
 // configuredGraphURL builds the graph base URL from the local configuration.
@@ -522,14 +547,63 @@ func configuredGatewayAddress(cfg *config.Config) string {
 // services anyway, so the configured address of the local graph service is the
 // right answer rather than a guess.
 func configuredGraphURL(cfg *config.Config) string {
-	if cfg.Graph.HTTP.Addr == "" {
+	address, ok := dialableHostPort(cfg.Graph.HTTP.Addr)
+	if !ok {
 		return ""
 	}
 	scheme := "http"
 	if cfg.Commons != nil && cfg.Commons.HTTPServiceTLS.Enabled {
 		scheme = "https"
 	}
-	return fmt.Sprintf("%s://%s%s", scheme, cfg.Graph.HTTP.Addr, cfg.Graph.HTTP.Root)
+	return fmt.Sprintf("%s://%s%s", scheme, address, cfg.Graph.HTTP.Root)
+}
+
+// dialableHostPort turns a bind address into one that can be dialled. A
+// wildcard host is only a bind address and not a destination, so it becomes
+// loopback: the report runs next to the services it talks to. It reports false
+// when addr is empty or not a host:port pair, which leaves the decision what
+// to do without an address to the caller.
+func dialableHostPort(addr string) (string, bool) {
+	if addr == "" {
+		return "", false
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", false
+	}
+	// net.SplitHostPort strips the brackets of an IPv6 address, so "[::]" does
+	// not need a case of its own here.
+	switch host {
+	case "", "0.0.0.0", "::":
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, port), true
+}
+
+// loadGatewayConfig reads the gateway configuration the way the gateway
+// service does, but without validating it. The report only needs the gRPC
+// address of the gateway, while gatewayparser.ParseConfig also demands the
+// storage users mount ID. That one is not necessarily configured where the
+// report runs, and demanding it would stop the report even when the service
+// registry answers and the fallback address is never used.
+func loadGatewayConfig(cfg *gatewayconfig.Config) error {
+	if err := config.BindSourcesToStructs(cfg.Service.Name, cfg); err != nil {
+		return err
+	}
+
+	gatewaydefaults.EnsureDefaults(cfg)
+
+	// load all env variables relevant to the config in the current context.
+	if err := envdecode.Decode(cfg); err != nil {
+		// no environment variable set for this config is an expected "error"
+		if !errors.Is(err, envdecode.ErrNoTargetFieldsAreSet) {
+			return err
+		}
+	}
+
+	gatewaydefaults.Sanitize(cfg)
+
+	return nil
 }
 
 // nodeProtocol resolves the URL scheme to talk to a registry node with. The

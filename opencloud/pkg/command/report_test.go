@@ -13,6 +13,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	gatewayconfig "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
+	gatewaydefaults "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/defaults"
+	gatewayparser "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/parser"
 	graphconfig "github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 )
 
@@ -745,8 +747,33 @@ func TestConfiguredGraphURL(t *testing.T) {
 			expected: "https://127.0.0.1:9120/graph",
 		},
 		{
+			name:     "ipv4 wildcard becomes loopback",
+			cfg:      newCfg("0.0.0.0:9120", "/graph", false),
+			expected: "http://127.0.0.1:9120/graph",
+		},
+		{
+			name:     "ipv6 wildcard becomes loopback",
+			cfg:      newCfg("[::]:9120", "/graph", false),
+			expected: "http://127.0.0.1:9120/graph",
+		},
+		{
+			name:     "empty host becomes loopback",
+			cfg:      newCfg(":9120", "/graph", false),
+			expected: "http://127.0.0.1:9120/graph",
+		},
+		{
+			name:     "a real host is kept",
+			cfg:      newCfg("graph.internal:9120", "/graph", false),
+			expected: "http://graph.internal:9120/graph",
+		},
+		{
 			name:     "no address configured leaves it to the caller",
 			cfg:      newCfg("", "/graph", false),
+			expected: "",
+		},
+		{
+			name:     "not a host:port leaves it to the caller",
+			cfg:      newCfg("graph.internal", "/graph", false),
 			expected: "",
 		},
 	}
@@ -791,5 +818,36 @@ func TestConfiguredGatewayAddress(t *testing.T) {
 				t.Errorf("expected %q, got %q", tc.expected, got)
 			}
 		})
+	}
+}
+
+// TestLoadGatewayConfig makes sure the report reads the gateway address
+// without validating the rest of the gateway config. The storage users mount
+// ID is not necessarily configured where the report runs, and the report does
+// not need it.
+func TestLoadGatewayConfig(t *testing.T) {
+	// an empty config directory, so that only the defaults and the environment
+	// decide, not a config file of the machine running the test
+	t.Setenv("OC_CONFIG_DIR", t.TempDir())
+	t.Setenv("GATEWAY_GRPC_ADDR", "0.0.0.0:19142")
+
+	cfg := gatewaydefaults.DefaultConfig()
+	if err := loadGatewayConfig(cfg); err != nil {
+		t.Fatalf("expected the gateway config to load, got %v", err)
+	}
+
+	if cfg.GRPC.Addr != "0.0.0.0:19142" {
+		t.Errorf("expected the configured gateway address, got %q", cfg.GRPC.Addr)
+	}
+	if cfg.StorageRegistry.StorageUsersMountID != "" {
+		t.Fatalf("expected no mount ID in this setup, got %q", cfg.StorageRegistry.StorageUsersMountID)
+	}
+	// the same config does not pass the validation of the gateway service, so
+	// the report really is more permissive than gatewayparser.ParseConfig.
+	// The secret is set here to get past the check that comes before the
+	// mount ID.
+	cfg.TokenManager.JWTSecret = "not-a-real-secret"
+	if err := gatewayparser.Validate(cfg); err == nil {
+		t.Error("expected the gateway validation to reject the missing mount ID")
 	}
 }
