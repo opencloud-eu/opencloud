@@ -230,7 +230,7 @@ func (r *RootFs) logEscape(rel string) {
 	}
 	// only the requested path: where the symlink leads must not show up anywhere
 	r.logger.WithLevel(level).Str("dir", r.dir).Str("path", rel).
-		Msg("a symlink leads out of the directory, the file is treated as missing")
+		Msg("a symlink leads out of the directory or is absolute, the file is treated as missing")
 }
 
 // relative returns name relative to the root, and whether it stays inside it

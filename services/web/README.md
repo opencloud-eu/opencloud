@@ -171,6 +171,21 @@ This can be achieved using the path defined via `WEB_ASSET_APPS_PATH` and adding
 
 This also applies for the `manifest.json` file, if the administrator wants to provide a custom one.
 
+### Symlinks in the Asset Directories
+
+The web service only serves files from inside the asset directories (`WEB_ASSET_CORE_PATH`, `WEB_ASSET_APPS_PATH` and `WEB_ASSET_THEMES_PATH`), and the logo upload only writes there:
+
+*   A relative symlink that stays inside the directory works, also chains of them, like the ones of a Kubernetes ConfigMap or Secret mounted as a volume (`theme.json -> ..data/theme.json`), and symlinked directories inside it.
+*   The configured path itself may be a symlink, e.g. `WEB_ASSET_THEMES_PATH=/etc/opencloud/themes` with `themes -> /srv/themes`.
+*   A symlink that leads out of the directory, e.g. `WEB_ASSET_APPS_PATH/myapp -> /opt/opencloud-apps/myapp`, is not followed: the file is treated as missing, so the built-in file is used if there is one. An application installed that way is no longer listed.
+*   An absolute symlink is not followed either, even if it points inside the directory, e.g. `theme.json -> /var/lib/opencloud/web/assets/themes/opencloud/theme.json`. Use a relative one instead: `theme.json -> opencloud/theme.json`.
+
+The web service logs each such path once at the `warn` level, with the message "a symlink leads out of the directory or is absolute, the file is treated as missing".
+
+To provide files that are stored somewhere else, mount them into the asset directory (a bind mount, a Docker volume or a Kubernetes volume) or copy them there. Mount points inside the directory work like any other directory.
+
+A missing asset directory is fine: the built-in assets are used, and the logo upload creates the themes directory. If a configured path can't be used as a directory, e.g. because it is a file or not readable, the web service doesn't start.
+
 ## Miscellaneous
 
 Please note that OpenCloud, in particular the web service, needs a restart to load new applications or changes to the `apps.yaml` file.

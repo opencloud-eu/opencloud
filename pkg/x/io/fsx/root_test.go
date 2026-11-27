@@ -398,10 +398,10 @@ func TestNewRootFs_WarnsOncePerPath(t *testing.T) {
 		fSys, buf := newFs(t)
 
 		// any name below a symlinked directory outside escapes: clients can make up as many as they want
-		for i := range fsx.MaxWarnedPaths + 10 {
+		for i := range fsx.MaxWarnedPathsForTest + 10 {
 			_, _ = fSys.Stat(fmt.Sprintf("link-dir-outside/%d.txt", i))
 		}
-		g.Expect(warnings(buf)).To(gomega.Equal(fsx.MaxWarnedPaths))
+		g.Expect(warnings(buf)).To(gomega.Equal(fsx.MaxWarnedPathsForTest))
 		// the rest is still logged, at debug level
 		g.Expect(strings.Count(buf.String(), `"level":"debug"`)).To(gomega.Equal(10))
 	})

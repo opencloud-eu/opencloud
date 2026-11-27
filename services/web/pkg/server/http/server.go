@@ -18,8 +18,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/version"
-	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
-	"github.com/opencloud-eu/opencloud/services/web"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/announcement"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/apps"
 	svc "github.com/opencloud-eu/opencloud/services/web/pkg/service/v0"
@@ -61,24 +59,12 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, err
 	}
 
-	// the asset directories on disk are confined with os.Root: no symlink leads out of them
-	appsDirFS, err := fsx.NewRootFs(options.Config.Asset.AppsPath, options.Logger)
+	assets, err := newAssetFSs(options.Config.Asset, options.Logger)
 	if err != nil {
-		return http.Service{}, fmt.Errorf("could not open the apps asset directory: %w", err)
+		return http.Service{}, err
 	}
-	coreDirFS, err := fsx.NewRootFs(options.Config.Asset.CorePath, options.Logger)
-	if err != nil {
-		return http.Service{}, fmt.Errorf("could not open the core asset directory: %w", err)
-	}
-	themesDirFS, err := fsx.NewRootFs(options.Config.Asset.ThemesPath, options.Logger)
-	if err != nil {
-		return http.Service{}, fmt.Errorf("could not open the themes asset directory: %w", err)
-	}
+	appsFS, coreFS, themeFS := assets.apps, assets.core, assets.themes
 
-	appsFS := fsx.NewFallbackFS(
-		fsx.NewReadOnlyFs(appsDirFS),
-		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/apps"),
-	)
 	// build and inject the list of applications into the config
 	for _, application := range apps.List(options.Logger, options.Config.Apps, appsFS.Secondary().IOFS(), appsFS.Primary().IOFS()) {
 		options.Config.Web.Config.ExternalApps = append(
@@ -86,15 +72,6 @@ func Server(opts ...Option) (http.Service, error) {
 			application.ToExternal(path.Join(options.Config.HTTP.Root, _customAppsEndpoint)),
 		)
 	}
-
-	coreFS := fsx.NewFallbackFS(
-		coreDirFS,
-		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/core"),
-	)
-	themeFS := fsx.NewFallbackFS(
-		themesDirFS,
-		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/themes"),
-	)
 
 	// NATS JetStream key-value store for runtime managed web settings, e.g. the announcement banner.
 	// Connect eagerly and fail fast: an unreachable store means the feature would be broken, so a
