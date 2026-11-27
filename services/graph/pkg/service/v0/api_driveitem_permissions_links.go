@@ -86,7 +86,7 @@ func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID
 		return libregraph.Permission{}, errorcode.New(cs3StatusToErrCode(statusCode), createResp.Status.Message)
 	}
 	link := createResp.GetShare()
-	perm, err := s.libreGraphPermissionFromCS3PublicShare(link)
+	perm, err := s.libreGraphPermissionFromCS3PublicShare(ctx, link)
 	if err != nil {
 		return libregraph.Permission{}, errorcode.New(errorcode.GeneralException, err.Error())
 	}
@@ -384,7 +384,7 @@ func (s DriveItemPermissionsService) updatePublicLinkPassword(ctx context.Contex
 	if err := errorcode.FromCS3Status(changeLinkRes.GetStatus(), err); err != nil {
 		return nil, err
 	}
-	permission, err := s.libreGraphPermissionFromCS3PublicShare(changeLinkRes.GetShare())
+	permission, err := s.libreGraphPermissionFromCS3PublicShare(ctx, changeLinkRes.GetShare())
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +412,7 @@ func (s DriveItemPermissionsService) updatePublicLink(ctx context.Context, permi
 		return nil, err
 	}
 
-	permission, err := s.libreGraphPermissionFromCS3PublicShare(changeLinkRes.GetShare())
+	permission, err := s.libreGraphPermissionFromCS3PublicShare(ctx, changeLinkRes.GetShare())
 	if err != nil {
 		return nil, err
 	}
