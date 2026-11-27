@@ -121,6 +121,41 @@ var _ = Describe("createLinkTests", func() {
 			expected, err := libregraph.NewSharingLinkTypeFromValue("view")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(&respLinkType).To(Equal(expected))
+			Expect(perm.HasInvitation()).To(BeFalse())
+		})
+
+		It("returns the creator of the link as the inviter", func() {
+			createLinkResponse.Share.Creator = &userpb.UserId{OpaqueId: "creator", Type: userpb.UserType_USER_TYPE_PRIMARY}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("CreatePublicShare", mock.Anything, mock.Anything).Return(createLinkResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&userpb.GetUserResponse{
+				Status: status.NewOK(ctx),
+				User: &userpb.User{
+					Id:          &userpb.UserId{OpaqueId: "creator"},
+					DisplayName: "Link Creator",
+				},
+			}, nil)
+
+			perm, err := svc.CreateLink(context.Background(), driveItemId, driveItemCreateLink)
+			Expect(err).ToNot(HaveOccurred())
+			inviter := perm.GetInvitation().InvitedBy.GetUser()
+			Expect(inviter.GetId()).To(Equal("creator"))
+			Expect(inviter.GetDisplayName()).To(Equal("Link Creator"))
+		})
+
+		It("returns the id of a creator that can't be looked up", func() {
+			createLinkResponse.Share.Creator = &userpb.UserId{OpaqueId: "deleted", Type: userpb.UserType_USER_TYPE_PRIMARY}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("CreatePublicShare", mock.Anything, mock.Anything).Return(createLinkResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&userpb.GetUserResponse{
+				Status: status.NewNotFound(ctx, "user not found"),
+			}, nil)
+
+			perm, err := svc.CreateLink(context.Background(), driveItemId, driveItemCreateLink)
+			Expect(err).ToNot(HaveOccurred())
+			inviter := perm.GetInvitation().InvitedBy.GetUser()
+			Expect(inviter.GetId()).To(Equal("deleted"))
+			Expect(inviter.GetDisplayName()).To(BeEmpty())
 		})
 
 		It("handles a failing CreateLink", func() {
