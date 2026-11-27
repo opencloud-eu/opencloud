@@ -22,4 +22,23 @@ var _ = Describe("Engine", func() {
 		Entry("http stage", pMessage.Stage_STAGE_HTTP, engine.StageHTTP),
 		Entry("pp stage", pMessage.Stage_STAGE_PP, engine.StagePP),
 	)
+
+	It("NewEnvironmentFromPB keeps the request lengths", func() {
+		pEnv := &pMessage.Environment{
+			Stage: pMessage.Stage_STAGE_HTTP,
+			Request: &pMessage.Request{
+				Method:        "POST",
+				Path:          "/remote.php/dav/spaces/some-space-id",
+				ContentLength: 1024,
+				UploadLength:  20000000000,
+			},
+		}
+
+		env, err := engine.NewEnvironmentFromPB(pEnv)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(env.Request.Method).To(Equal("POST"))
+		Expect(env.Request.ContentLength).To(Equal(uint64(1024)))
+		Expect(env.Request.UploadLength).To(Equal(uint64(20000000000)))
+	})
 })
