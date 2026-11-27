@@ -35,6 +35,7 @@ const (
 	deleteResultSlotKey
 	deleteStorageSpaceResultSlotKey
 	itemSlotKey
+	metadataResultSlotKey
 )
 
 // --- space owner ---
@@ -212,4 +213,38 @@ func ContextSetItem(ctx context.Context, t provider.ResourceType, id *provider.R
 	if slot, ok := ctx.Value(itemSlotKey).(*ItemSlot); ok {
 		slot.Type, slot.ID, slot.Name = t, id, name
 	}
+}
+
+// --- metadata result ---
+
+type metadataResultSlot struct {
+	result *storage.MetadataResult
+}
+
+// ContextRegisterMetadataResultSlot installs an empty slot in ctx so that the
+// storageprovider can write the metadata result via ContextSetMetadataResult
+// and the events middleware can read it via ContextGetMetadataResult after the
+// handler returns. Subsequent registrations are no-ops; the first registration wins.
+func ContextRegisterMetadataResultSlot(ctx context.Context) context.Context {
+	if ctx.Value(metadataResultSlotKey) != nil {
+		return ctx
+	}
+	return context.WithValue(ctx, metadataResultSlotKey, &metadataResultSlot{})
+}
+
+// ContextSetMetadataResult writes r into the slot. Subsequent writes overwrite
+// the previous value. Does nothing if no slot was registered.
+func ContextSetMetadataResult(ctx context.Context, r *storage.MetadataResult) {
+	if slot, ok := ctx.Value(metadataResultSlotKey).(*metadataResultSlot); ok {
+		slot.result = r
+	}
+}
+
+// ContextGetMetadataResult returns the metadata result written by the
+// storageprovider, or nil if none was set.
+func ContextGetMetadataResult(ctx context.Context) *storage.MetadataResult {
+	if slot, ok := ctx.Value(metadataResultSlotKey).(*metadataResultSlot); ok {
+		return slot.result
+	}
+	return nil
 }

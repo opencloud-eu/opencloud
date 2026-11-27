@@ -124,13 +124,13 @@ func (fs *hellofs) UpdateGrant(ctx context.Context, ref *provider.Reference, g *
 // arbitrary metadata
 
 // SetArbitraryMetadata sets arbitraty metadata on a resource
-func (fs *hellofs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // UnsetArbitraryMetadata removes arbitraty metadata from a resource
-func (fs *hellofs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 func (fs *hellofs) AddLabel(ctx context.Context, ref *provider.Reference, userID *user.UserId, label string) error {

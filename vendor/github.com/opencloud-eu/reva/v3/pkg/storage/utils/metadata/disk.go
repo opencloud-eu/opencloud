@@ -30,7 +30,9 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	renameio "github.com/google/renameio/v2"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/filelocks"
 )
 
 // Disk represents a disk metadata storage
@@ -91,41 +93,22 @@ func (disk *Disk) SimpleUpload(ctx context.Context, uploadpath string, content [
 }
 
 // Upload stores a file on disk
-func (disk *Disk) Upload(_ context.Context, req UploadRequest) (*UploadResponse, error) {
+func (disk *Disk) Upload(_ context.Context, req UploadRequest) (_ *UploadResponse, err error) {
 	p := disk.targetPath(req.Path)
 
-	// IfNoneMatch: ["*"] means create the file only if it does not already
-	// exist. Use O_EXCL so the check and the create are atomic on the local
-	// filesystem.
-	for _, tag := range req.IfNoneMatch {
-		if tag != "*" {
-			continue
-		}
-		f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
-		if err != nil {
-			if errors.Is(err, os.ErrExist) {
-				return nil, errtypes.AlreadyExists(p)
-			}
-			return nil, err
-		}
-		if _, err := f.Write(req.Content); err != nil {
-			_ = f.Close()
-			return nil, err
-		}
-		if err := f.Close(); err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(p)
-		if err != nil {
-			return nil, err
-		}
-		res := &UploadResponse{}
-		res.Etag, err = calcEtag(info.ModTime(), info.Size())
-		if err != nil {
-			return nil, err
-		}
-		return res, nil
+	// Serialize check+write across processes to eliminate the TOCTOU race.
+	lock, err := filelocks.AcquireWriteLock(p)
+	if err != nil {
+		return nil, fmt.Errorf("acquiring write lock: %w", err)
 	}
+	defer func() {
+		rerr := filelocks.ReleaseLock(lock)
+
+		// if err is non nil we do not overwrite that
+		if err == nil {
+			err = rerr
+		}
+	}()
 
 	if req.IfMatchEtag != "" {
 		info, err := os.Stat(p)
@@ -151,12 +134,20 @@ func (disk *Disk) Upload(_ context.Context, req UploadRequest) (*UploadResponse,
 			}
 		}
 	}
-	err := os.WriteFile(p, req.Content, 0644)
-	if err != nil {
+	for _, v := range req.IfNoneMatch {
+		if v == "*" {
+			if _, err := os.Stat(p); err == nil {
+				return nil, errtypes.AlreadyExists(p)
+			}
+			break
+		}
+	}
+
+	if err := renameio.WriteFile(p, req.Content, 0644); err != nil {
 		return nil, err
 	}
 
-	info, err := os.Stat(disk.targetPath(req.Path))
+	info, err := os.Stat(p)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +183,12 @@ func (disk *Disk) Download(_ context.Context, req DownloadRequest) (*DownloadRes
 	res.Etag, err = calcEtag(info.ModTime(), info.Size())
 	if err != nil {
 		return nil, err
+	}
+
+	for _, tag := range req.IfNoneMatch {
+		if tag == res.Etag {
+			return nil, errtypes.NotModified(req.Path)
+		}
 	}
 
 	res.Content, err = io.ReadAll(f)

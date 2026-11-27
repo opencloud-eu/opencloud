@@ -912,33 +912,33 @@ func (fs *owncloudsqlfs) setMtime(ctx context.Context, ip string, mtime string) 
 	}
 	return nil
 }
-func (fs *owncloudsqlfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (err error) {
+func (fs *owncloudsqlfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (_ *storage.MetadataResult, err error) {
 	log := appctx.GetLogger(ctx)
 
 	var ip string
 	if ip, err = fs.resolve(ctx, ref); err != nil {
-		return errors.Wrap(err, "owncloudsql: error resolving reference")
+		return nil, errors.Wrap(err, "owncloudsql: error resolving reference")
 	}
 
 	// check permissions
 	if perm, err := fs.readPermissions(ctx, ip); err == nil {
 		if !perm.InitiateFileUpload { // TODO add dedicated permission?
-			return errtypes.PermissionDenied("")
+			return nil, errtypes.PermissionDenied("")
 		}
 	} else {
 		if isNotFound(err) {
-			return errtypes.NotFound(fs.toStoragePath(ctx, filepath.Dir(ip)))
+			return nil, errtypes.NotFound(fs.toStoragePath(ctx, filepath.Dir(ip)))
 		}
-		return errors.Wrap(err, "owncloudsql: error reading permissions")
+		return nil, errors.Wrap(err, "owncloudsql: error reading permissions")
 	}
 
 	var fi os.FileInfo
 	fi, err = os.Stat(ip)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errtypes.NotFound(fs.toStoragePath(ctx, ip))
+			return nil, errtypes.NotFound(fs.toStoragePath(ctx, ip))
 		}
-		return errors.Wrap(err, "owncloudsql: error stating "+ip)
+		return nil, errors.Wrap(err, "owncloudsql: error stating "+ip)
 	}
 
 	errs := []error{}
@@ -1035,12 +1035,12 @@ func (fs *owncloudsqlfs) SetArbitraryMetadata(ctx context.Context, ref *provider
 	}
 	switch len(errs) {
 	case 0:
-		return fs.propagate(ctx, ip)
+		return nil, fs.propagate(ctx, ip)
 	case 1:
-		return errs[0]
+		return nil, errs[0]
 	default:
 		// TODO how to return multiple errors?
-		return errors.New("multiple errors occurred, see log for details")
+		return nil, errors.New("multiple errors occurred, see log for details")
 	}
 }
 
@@ -1055,32 +1055,32 @@ func parseMTime(v string) (t time.Time, err error) {
 	return time.Unix(sec, nsec), err
 }
 
-func (fs *owncloudsqlfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (err error) {
+func (fs *owncloudsqlfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (_ *storage.MetadataResult, err error) {
 	log := appctx.GetLogger(ctx)
 
 	var ip string
 	if ip, err = fs.resolve(ctx, ref); err != nil {
-		return errors.Wrap(err, "owncloudsql: error resolving reference")
+		return nil, errors.Wrap(err, "owncloudsql: error resolving reference")
 	}
 
 	// check permissions
 	if perm, err := fs.readPermissions(ctx, ip); err == nil {
 		if !perm.InitiateFileUpload { // TODO add dedicated permission?
-			return errtypes.PermissionDenied("")
+			return nil, errtypes.PermissionDenied("")
 		}
 	} else {
 		if isNotFound(err) {
-			return errtypes.NotFound(fs.toStoragePath(ctx, ip))
+			return nil, errtypes.NotFound(fs.toStoragePath(ctx, ip))
 		}
-		return errors.Wrap(err, "owncloudsql: error reading permissions")
+		return nil, errors.Wrap(err, "owncloudsql: error reading permissions")
 	}
 
 	_, err = os.Stat(ip)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errtypes.NotFound(fs.toStoragePath(ctx, ip))
+			return nil, errtypes.NotFound(fs.toStoragePath(ctx, ip))
 		}
-		return errors.Wrap(err, "owncloudsql: error stating "+ip)
+		return nil, errors.Wrap(err, "owncloudsql: error stating "+ip)
 	}
 
 	errs := []error{}
@@ -1132,12 +1132,12 @@ func (fs *owncloudsqlfs) UnsetArbitraryMetadata(ctx context.Context, ref *provid
 
 	switch len(errs) {
 	case 0:
-		return fs.propagate(ctx, ip)
+		return nil, fs.propagate(ctx, ip)
 	case 1:
-		return errs[0]
+		return nil, errs[0]
 	default:
 		// TODO how to return multiple errors?
-		return errors.New("multiple errors occurred, see log for details")
+		return nil, errors.New("multiple errors occurred, see log for details")
 	}
 }
 

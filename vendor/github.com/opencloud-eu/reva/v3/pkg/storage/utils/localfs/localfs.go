@@ -575,15 +575,15 @@ func (fs *localfs) CreateStorageSpace(ctx context.Context, req *provider.CreateS
 	return nil, errtypes.NotSupported("unimplemented: CreateStorageSpace")
 }
 
-func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) error {
+func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Reference, md *provider.ArbitraryMetadata) (*storage.MetadataResult, error) {
 
 	np, err := fs.resolve(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "localfs: error resolving ref")
+		return nil, errors.Wrap(err, "localfs: error resolving ref")
 	}
 
 	if fs.isShareFolderRoot(ctx, np) {
-		return errtypes.PermissionDenied("localfs: cannot set metadata for the virtual share folder")
+		return nil, errtypes.PermissionDenied("localfs: cannot set metadata for the virtual share folder")
 	}
 
 	if fs.isShareFolderChild(ctx, np) {
@@ -595,9 +595,9 @@ func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 	fi, err := os.Stat(np)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errtypes.NotFound(fs.unwrap(ctx, np))
+			return nil, errtypes.NotFound(fs.unwrap(ctx, np))
 		}
-		return errors.Wrap(err, "localfs: error stating "+np)
+		return nil, errors.Wrap(err, "localfs: error stating "+np)
 	}
 
 	if md.Metadata != nil {
@@ -605,10 +605,10 @@ func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 			if mtime, err := parseMTime(val); err == nil {
 				// updating mtime also updates atime
 				if err := os.Chtimes(np, mtime, mtime); err != nil {
-					return errors.Wrap(err, "could not set mtime")
+					return nil, errors.Wrap(err, "could not set mtime")
 				}
 			} else {
-				return errors.Wrap(err, "could not parse mtime")
+				return nil, errors.Wrap(err, "could not parse mtime")
 			}
 			delete(md.Metadata, "mtime")
 		}
@@ -618,7 +618,7 @@ func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 			if etag != md.Metadata["etag"] {
 				err = fs.addToMetadataDB(ctx, np, "etag", etag)
 				if err != nil {
-					return errors.Wrap(err, "localfs: error adding entry to DB")
+					return nil, errors.Wrap(err, "localfs: error adding entry to DB")
 				}
 			}
 			delete(md.Metadata, "etag")
@@ -627,15 +627,15 @@ func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 		if _, ok := md.Metadata["favorite"]; ok {
 			u, err := getUser(ctx)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if uid := u.GetId(); uid != nil {
 				usr := fmt.Sprintf("u:%s@%s", uid.GetOpaqueId(), uid.GetIdp())
 				if err = fs.addToFavoritesDB(ctx, np, usr); err != nil {
-					return errors.Wrap(err, "localfs: error adding entry to DB")
+					return nil, errors.Wrap(err, "localfs: error adding entry to DB")
 				}
 			} else {
-				return errors.Wrap(errtypes.UserRequired("userrequired"), "user has no id")
+				return nil, errors.Wrap(errtypes.UserRequired("userrequired"), "user has no id")
 			}
 			delete(md.Metadata, "favorite")
 		}
@@ -644,11 +644,11 @@ func (fs *localfs) SetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 	for k, v := range md.Metadata {
 		err = fs.addToMetadataDB(ctx, np, k, v)
 		if err != nil {
-			return errors.Wrap(err, "localfs: error adding entry to DB")
+			return nil, errors.Wrap(err, "localfs: error adding entry to DB")
 		}
 	}
 
-	return fs.propagate(ctx, np)
+	return nil, fs.propagate(ctx, np)
 }
 
 func parseMTime(v string) (t time.Time, err error) {
@@ -662,15 +662,15 @@ func parseMTime(v string) (t time.Time, err error) {
 	return time.Unix(sec, nsec), err
 }
 
-func (fs *localfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) error {
+func (fs *localfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference, keys []string) (*storage.MetadataResult, error) {
 
 	np, err := fs.resolve(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "localfs: error resolving ref")
+		return nil, errors.Wrap(err, "localfs: error resolving ref")
 	}
 
 	if fs.isShareFolderRoot(ctx, np) {
-		return errtypes.PermissionDenied("localfs: cannot set metadata for the virtual share folder")
+		return nil, errtypes.PermissionDenied("localfs: cannot set metadata for the virtual share folder")
 	}
 
 	if fs.isShareFolderChild(ctx, np) {
@@ -682,9 +682,9 @@ func (fs *localfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Ref
 	_, err = os.Stat(np)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errtypes.NotFound(fs.unwrap(ctx, np))
+			return nil, errtypes.NotFound(fs.unwrap(ctx, np))
 		}
-		return errors.Wrap(err, "localfs: error stating "+np)
+		return nil, errors.Wrap(err, "localfs: error stating "+np)
 	}
 
 	for _, k := range keys {
@@ -692,29 +692,29 @@ func (fs *localfs) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Ref
 		case "favorite":
 			u, err := getUser(ctx)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if uid := u.GetId(); uid != nil {
 				usr := fmt.Sprintf("u:%s@%s", uid.GetOpaqueId(), uid.GetIdp())
 				if err = fs.removeFromFavoritesDB(ctx, np, usr); err != nil {
-					return errors.Wrap(err, "localfs: error removing entry from DB")
+					return nil, errors.Wrap(err, "localfs: error removing entry from DB")
 				}
 			} else {
-				return errors.Wrap(errtypes.UserRequired("userrequired"), "user has no id")
+				return nil, errors.Wrap(errtypes.UserRequired("userrequired"), "user has no id")
 			}
 		case "etag":
-			return errors.Wrap(errtypes.NotSupported("unsetting etag not supported"), "could not unset metadata")
+			return nil, errors.Wrap(errtypes.NotSupported("unsetting etag not supported"), "could not unset metadata")
 		case "mtime":
-			return errors.Wrap(errtypes.NotSupported("unsetting mtime not supported"), "could not unset metadata")
+			return nil, errors.Wrap(errtypes.NotSupported("unsetting mtime not supported"), "could not unset metadata")
 		default:
 			err = fs.removeFromMetadataDB(ctx, np, k)
 			if err != nil {
-				return errors.Wrap(err, "localfs: error adding entry to DB")
+				return nil, errors.Wrap(err, "localfs: error adding entry to DB")
 			}
 		}
 	}
 
-	return fs.propagate(ctx, np)
+	return nil, fs.propagate(ctx, np)
 }
 
 // GetLock returns an existing lock on the given reference

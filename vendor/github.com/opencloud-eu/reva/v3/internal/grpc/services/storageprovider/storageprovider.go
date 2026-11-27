@@ -232,7 +232,11 @@ func New(m map[string]interface{}, ss *grpc.Server, log *zerolog.Logger) (rgrpc.
 func (s *Service) SetArbitraryMetadata(ctx context.Context, req *provider.SetArbitraryMetadataRequest) (*provider.SetArbitraryMetadataResponse, error) {
 	ctx = ctxpkg.ContextSetLockID(ctx, req.LockId)
 
-	err := s.Storage.SetArbitraryMetadata(ctx, req.Ref, req.ArbitraryMetadata)
+	result, err := s.Storage.SetArbitraryMetadata(ctx, req.Ref, req.ArbitraryMetadata)
+	if err == nil && result != nil {
+		storagespace.ContextSetSpaceOwner(ctx, result.SpaceOwner)
+		storagespace.ContextSetMetadataResult(ctx, result)
+	}
 
 	return &provider.SetArbitraryMetadataResponse{
 		Status: status.NewStatusFromErrType(ctx, "set arbitrary metadata", err),
@@ -242,7 +246,11 @@ func (s *Service) SetArbitraryMetadata(ctx context.Context, req *provider.SetArb
 func (s *Service) UnsetArbitraryMetadata(ctx context.Context, req *provider.UnsetArbitraryMetadataRequest) (*provider.UnsetArbitraryMetadataResponse, error) {
 	ctx = ctxpkg.ContextSetLockID(ctx, req.LockId)
 
-	err := s.Storage.UnsetArbitraryMetadata(ctx, req.Ref, req.ArbitraryMetadataKeys)
+	result, err := s.Storage.UnsetArbitraryMetadata(ctx, req.Ref, req.ArbitraryMetadataKeys)
+	if err == nil && result != nil {
+		storagespace.ContextSetSpaceOwner(ctx, result.SpaceOwner)
+		storagespace.ContextSetMetadataResult(ctx, result)
+	}
 
 	return &provider.UnsetArbitraryMetadataResponse{
 		Status: status.NewStatusFromErrType(ctx, "unset arbitrary metadata", err),
