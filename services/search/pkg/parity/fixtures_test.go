@@ -72,6 +72,10 @@ func withExtractionFailure(count int, retryAt string) fixtureOption {
 	}
 }
 
+func withPreview(preview *content.Preview) fixtureOption {
+	return func(r *search.Resource) { r.Preview = preview }
+}
+
 func fixtureDoc(name string, opts ...fixtureOption) search.Resource {
 	mtime := fixtureNow
 	r := search.Resource{

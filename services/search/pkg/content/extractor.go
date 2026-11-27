@@ -47,6 +47,12 @@ func unreachable(err error) error {
 	return fmt.Errorf("%w: %w", ErrUnreachable, err)
 }
 
+// isStatus reports whether tika answered with the given http status
+func isStatus(err error, code int) bool {
+	var tikaErr tika.ClientError
+	return errors.As(err, &tikaErr) && tikaErr.StatusCode == code
+}
+
 // transientStatus tells an http status the next attempt may get past, a server
 // error or too many requests, from an answer about the request itself
 func transientStatus(code int) bool {

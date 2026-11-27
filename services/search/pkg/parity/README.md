@@ -838,3 +838,5 @@ Fixtures:
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
 | METADATA-04 | `*lost*` reads `Location` | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |
+| METADATA-04 | `*song*` reads `Preview` | 500x400 | 500x400 | 500x400 | ✅ |
+| METADATA-05 | `*team*` reads `Preview` | none | none | none | ✅ |
