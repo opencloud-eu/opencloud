@@ -17,7 +17,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1291
+  @issue-1291
   Scenario Outline: uploading a file with checksum should return the checksum in the propfind
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -29,7 +29,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @smokeTest @issue-1316
+  @issue-1316
   Scenario Outline: uploading a file with checksum should return the checksum in the download header
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/myChecksumFile.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -273,7 +273,7 @@ Feature: checksums
       | new              |
       | spaces           |
 
-  @skipOnStorage:ceph @skipOnStorage:scality @issue-1291
+  @issue-1291
   Scenario Outline: uploading a file with invalid SHA1 checksum overwriting an existing file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile0.txt"

@@ -1,4 +1,4 @@
-@env-config @skipOnOpencloud-decomposed-Storage @skipOnOpencloud-decomposeds3-Storage
+@env-config @skipOnOpencloud-decomposed-Storage
 Feature: clean up old file versions that changes on the POSIX filesystem created
   As an administrator
   I want versions created by changes on the POSIX filesystem to be cleaned up like any other version

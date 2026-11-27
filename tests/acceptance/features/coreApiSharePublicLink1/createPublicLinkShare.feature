@@ -8,7 +8,7 @@ Feature: create a public link share
   Background:
     Given user "Alice" has been created with default attributes
 
-  @smokeTest @skipOnReva
+  @skipOnReva
   Scenario Outline: creating public link share of a file or a folder using the default permissions without password using the public WebDAV API
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "Random data" to "/randomfile.txt"
@@ -26,7 +26,7 @@ Feature: create a public link share
       | 1               | 200              |
       | 2               | 400              |
 
-  @smokeTest @issue-10331 @issue-9724
+  @issue-10331 @issue-9724
   Scenario Outline: creating a new public link share of a file with password using the public WebDAV API
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "Random data" to "/randomfile.txt"
@@ -122,7 +122,7 @@ Feature: create a public link share
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest
+
   Scenario Outline: getting the share information of public link share from the OCS API does not expose sensitive information
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "Random data" to "/randomfile.txt"
@@ -392,7 +392,7 @@ Feature: create a public link share
     Then the HTTP status code should be "207"
     And the value of the item "//d:href" in the response should match "/\/dav\/public-files\/%public_token%\/file.txt$/"
 
-  @issue-6929 @@skipOnReva
+  @issue-6929 @skipOnReva
   Scenario Outline: create a password-protected public link on a file with the name same to the previously deleted one
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "test data 1" to "/test.txt"

@@ -6,7 +6,7 @@ Feature: delete file
   Background:
     Given user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: delete a file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "to delete" to "/textfile0.txt"

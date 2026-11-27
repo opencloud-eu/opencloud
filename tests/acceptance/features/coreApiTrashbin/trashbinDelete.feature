@@ -13,7 +13,7 @@ Feature: files and folders can be deleted from the trashbin
     And user "Alice" has uploaded file with content "to delete" to "/PARENT/parent.txt"
     And user "Alice" has uploaded file with content "to delete" to "/PARENT/CHILD/child.txt"
 
-  @smokeTest
+
   Scenario Outline: trashbin can be emptied
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "file with comma" to "sample,0.txt"
@@ -31,7 +31,7 @@ Feature: files and folders can be deleted from the trashbin
       | spaces           | textfile0.txt | textfile1.txt |
       | spaces           | sample,0.txt  | sample,1.txt  |
 
-  @smokeTest
+
   Scenario Outline: delete a single file from the trashbin
     Given using <dav-path-version> DAV path
     And user "Alice" has deleted file "/textfile0.txt"
@@ -49,7 +49,7 @@ Feature: files and folders can be deleted from the trashbin
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: delete multiple files from the trashbin and make sure the correct ones are gone
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/PARENT/textfile0.txt"

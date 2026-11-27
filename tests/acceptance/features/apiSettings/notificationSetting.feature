@@ -1,4 +1,3 @@
-@notification
 Feature: Disable notifications for individual events
   As a user
   I want to disable notifications for specific events

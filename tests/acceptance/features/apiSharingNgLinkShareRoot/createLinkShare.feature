@@ -347,7 +347,7 @@ Feature: Create a link share for a resource
       | upload           |
       | createOnly       |
 
-  @issue-7879 @skip-local-run
+  @issue-7879
   Scenario Outline: try to create a link share of a project-space drive with a password that is listed in the Banned-Password-List using root endpoint
     Given the config "OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST" has been set to path "config/woodpecker/banned-password-list.txt"
     And using spaces DAV path

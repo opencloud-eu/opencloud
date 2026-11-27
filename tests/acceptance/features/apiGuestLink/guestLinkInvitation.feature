@@ -136,6 +136,83 @@ Feature: share a resource with a guest via email address
       }
       """
 
+
+  Scenario: sharer lists the permissions of a resource shared with a guest
+    Given user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt      |
+      | space           | Personal          |
+      | sharee          | guest@example.org |
+      | shareType       | guest             |
+      | permissionsRole | Viewer            |
+    When user "Alice" gets permissions list for file "textfile.txt" of the space "Personal" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["value"],
+        "properties": {
+          "value": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "roles", "grantedToV2", "invitation"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^%permissions_id_pattern%$"
+                },
+                "roles": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": { "const": "b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5" }
+                },
+                "grantedToV2": {
+                  "type": "object",
+                  "required": ["user"],
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "required": ["@libre.graph.userType", "displayName", "id"],
+                      "properties": {
+                        "@libre.graph.userType": { "const": "Guest" },
+                        "displayName": { "const": "guest@example.org" },
+                        "id": { "const": "guest@example.org" }
+                      }
+                    }
+                  }
+                },
+                "invitation": {
+                  "type": "object",
+                  "required": ["invitedBy"],
+                  "properties": {
+                    "invitedBy": {
+                      "type": "object",
+                      "required": ["user"],
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "required": ["@libre.graph.userType", "displayName", "id"],
+                          "properties": {
+                            "@libre.graph.userType": { "const": "Member" },
+                            "displayName": { "const": "Alice Hansen" },
+                            "id": { "type": "string", "pattern": "^%user_id_pattern%$" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      """
+
   @email
   Scenario: guest receives an email with a guest link
     When user "Alice" sends the following resource share invitation using the Graph API:

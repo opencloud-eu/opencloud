@@ -102,7 +102,7 @@ Feature: upload to a public link share
     When the public uploads file "test.txt" with password "%public%" and content "test2" using the public WebDAV API
     Then the HTTP status code should be "507"
 
-  @smokeTest @issue-10331
+  @issue-10331
   Scenario: uploading to a public upload-write and no edit and no overwrite share with public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:
@@ -114,7 +114,7 @@ Feature: upload to a public link share
     Then the HTTP status code should be "201"
     And the content of file "/FOLDER/test.txt" for user "Alice" should be "test2"
 
-  @smokeTest @issue-1267 @issue-10331
+  @issue-1267 @issue-10331
   Scenario: uploading same file to a public upload-write and no edit and no overwrite share multiple times with new public API
     Given using SharingNG
     And user "Alice" has created the following resource link share:

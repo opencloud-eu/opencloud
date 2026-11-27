@@ -30,7 +30,7 @@ Feature: dav-versions
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: upload a file twice and versions are available
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file "filesForUpload/davtest.txt" to "/davtest.txt" using the WebDAV API
@@ -57,7 +57,7 @@ Feature: dav-versions
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: remove a file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/davtest.txt" to "/davtest.txt"
@@ -73,7 +73,7 @@ Feature: dav-versions
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario: restore a file and check its content
     Given user "Alice" has uploaded file with content "Test Content." to "/davtest.txt"
     And user "Alice" has uploaded file with content "Content Test Updated." to "/davtest.txt"
@@ -82,7 +82,7 @@ Feature: dav-versions
     Then the HTTP status code should be "204"
     And the content of file "/davtest.txt" for user "Alice" should be "Test Content."
 
-  @smokeTest @skipOnStorage:ceph @skipOnStorage:scality
+
   Scenario: restore a file back to bigger content and check its content
     And user "Alice" has uploaded file with content "Back To The Future." to "/davtest.txt"
     And user "Alice" has uploaded file with content "Update Content." to "/davtest.txt"
@@ -91,7 +91,7 @@ Feature: dav-versions
     Then the HTTP status code should be "204"
     And the content of file "/davtest.txt" for user "Alice" should be "Back To The Future."
 
-  @smokeTest @skipOnStorage:ceph
+
   Scenario: uploading a chunked file does create the correct version that can be restored
     Given user "Alice" has uploaded file with content "textfile0" to "textfile0.txt"
     When user "Alice" uploads file "filesForUpload/davtest.txt" to "/textfile0.txt" in 2 chunks using the WebDAV API
@@ -102,7 +102,7 @@ Feature: dav-versions
     Then the HTTP status code should be "204"
     And the content of file "/textfile0.txt" for user "Alice" should be "Dav-Test"
 
-  @skipOnStorage:ceph @skipOnStorage:scality
+
   Scenario: restore a file and check the content and checksum
     Given user "Alice" has uploaded file with content "AAAAABBBBBCCCCC" and checksum "MD5:45a72715acdd5019c5be30bdbb75233e" to "/davtest.txt"
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/davtest.txt" with checksum "MD5:d70b40f177b14b470d1756a3c12b963a"
@@ -194,7 +194,7 @@ Feature: dav-versions
       | Content-Disposition | attachment; filename*=UTF-8''textfile0.txt; filename="textfile0.txt" |
     And the downloaded content should be "uploaded content"
 
-  @skipOnStorage:ceph @skipOnStorage:scality
+
   Scenario: download an old version of a restored file
     Given user "Alice" has uploaded file with content "uploaded content" to "textfile0.txt"
     And user "Alice" has uploaded file with content "version 1" to "textfile0.txt"
@@ -486,7 +486,7 @@ Feature: dav-versions
     Then the HTTP status code should be "404"
     And the value of the item "//s:exception" in the response about user "Alice" should be "Sabre\DAV\Exception\NotFound"
 
-  @skipOnStorage:ceph @skipOnReva
+  @skipOnReva
   Scenario: receiver tries get file versions of shared file from the sharer
     Given user "Brian" has been created with default attributes
     And user "Alice" has uploaded file with content "textfile0" to "textfile0.txt"

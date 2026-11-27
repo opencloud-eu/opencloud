@@ -435,7 +435,7 @@ Feature: Search
       | new              |
       | spaces           |
 
-  @skip @issue-3501 @issue-9780
+  @issue-3501
   Scenario Outline: report extra properties in search entries for a file
     Given using <dav-path-version> DAV path
     When user "Alice" searches for "*insideTheFo*" using the WebDAV API requesting these properties:
@@ -444,27 +444,23 @@ Feature: Search
       | d:getlastmodified     |
       | d:getetag             |
       | d:getcontenttype      |
-      | oc:size               |
-      | oc:owner-id           |
-      | oc:owner-display-name |
+      | d:getcontentlength    |
     Then the HTTP status code should be "207"
     And file "insideTheFolder.txt" in the search result of user "Alice" should contain these properties:
       | name                  | value                                                                                             |
-      | oc:fileid             | \d*                                                                                               |
+      | oc:fileid             | ^[0-9a-f-]+\$[0-9a-f-]+![0-9a-f-]+$                                                               |
       | oc:permissions        | ^(RDNVW\|RMDNVW)$                                                                                 |
       | d:getlastmodified     | ^[MTWFS][uedhfriatno]{2},\s(\d){2}\s[JFMAJSOND][anebrpyulgctov]{2}\s\d{4}\s\d{2}:\d{2}:\d{2} GMT$ |
       | d:getetag             | ^\"[a-f0-9:\.]{1,32}\"$                                                                           |
-      | d:getcontenttype      | text\/plain                                                                                       |
-      | oc:size               | 15                                                                                                |
-      | oc:owner-id           | %username%                                                                                        |
-      | oc:owner-display-name | %displayname%                                                                                     |
+      | d:getcontenttype      | ^text\/plain$                                                                                     |
+      | d:getcontentlength    | ^12$                                                                                              |
     Examples:
       | dav-path-version |
       | old              |
       | new              |
       | spaces           |
 
-  @skip @issue-3501 @issue-9780
+  @issue-3501
   Scenario Outline: report extra properties in search entries for a folder
     Given using <dav-path-version> DAV path
     When user "Alice" searches for "*folderMain*" using the WebDAV API requesting these properties:
@@ -474,18 +470,14 @@ Feature: Search
       | d:getetag             |
       | d:getcontenttype      |
       | oc:size               |
-      | oc:owner-id           |
-      | oc:owner-display-name |
     Then the HTTP status code should be "207"
     And folder "folderMain" in the search result of user "Alice" should contain these properties:
       | name                  | value                                                                                             |
-      | oc:fileid             | \d*                                                                                               |
+      | oc:fileid             | ^[0-9a-f-]+\$[0-9a-f-]+![0-9a-f-]+$                                                               |
       | oc:permissions        | ^(RDNVCK\|RMDNVCK)$                                                                               |
       | d:getlastmodified     | ^[MTWFS][uedhfriatno]{2},\s(\d){2}\s[JFMAJSOND][anebrpyulgctov]{2}\s\d{4}\s\d{2}:\d{2}:\d{2} GMT$ |
       | d:getetag             | ^\"[a-f0-9:\.]{1,32}\"$                                                                           |
-      | oc:size               | 0                                                                                                 |
-      | oc:owner-id           | %username%                                                                                        |
-      | oc:owner-display-name | %displayname%                                                                                     |
+      | oc:size               | ^12$                                                                                              |
     Examples:
       | dav-path-version |
       | old              |

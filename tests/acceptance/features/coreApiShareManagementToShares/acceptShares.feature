@@ -24,7 +24,7 @@ Feature: accept/decline shares coming from internal users
     And user "Brian" has uploaded file "filesForUpload/textfile.txt" to "textfile0.txt"
     And user "Brian" has uploaded file "filesForUpload/textfile.txt" to "PARENT/parent.txt"
 
-  @smokeTest  @issue-2540
+  @issue-2540
   Scenario: share a file & folder with another internal group when auto accept is disabled
     Given user "Brian" has disabled auto-accepting
     And user "Carol" has disabled auto-accepting
@@ -80,7 +80,7 @@ Feature: accept/decline shares coming from internal users
       | /PARENT/       |
       | /textfile0.txt |
 
-  @smokeTest @issue-2131
+  @issue-2131
   Scenario: accept a pending share
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has sent the following resource share invitation:
@@ -150,7 +150,7 @@ Feature: accept/decline shares coming from internal users
       | path            |
       | /Shares/shared/ |
 
-  @smokeTest  @issue-2540
+  @issue-2540
   Scenario: declines a pending share
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has sent the following resource share invitation:
@@ -182,7 +182,7 @@ Feature: accept/decline shares coming from internal users
       | /PARENT/       |
       | /textfile0.txt |
 
-  @smokeTest @issue-2128 @issue-2540
+  @issue-2128 @issue-2540
   Scenario: decline an accepted share
     Given user "Brian" has disabled auto-accepting
     And user "Alice" has sent the following resource share invitation:

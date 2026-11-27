@@ -7,7 +7,7 @@ Feature: sharing
   Background:
     Given user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: creating a share of a file with a user, the default permissions are read(1)+update(2)
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -34,7 +34,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest @issue-2133
+  @issue-2133
   Scenario Outline: creating a share of a file containing commas in the filename, with a user, the default permissions are read(1)+update(2)+can-share(16)
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes
@@ -202,7 +202,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest
+
   Scenario: share of folder to a group
     Given these users have been created with default attributes:
       | username |
@@ -232,7 +232,7 @@ Feature: sharing
     Then user "Alice" should see the following elements
       | /Shares/PARENT |
 
-  @smokeTest
+
   Scenario: user included in multiple groups, shares a folder with a group
     Given these users have been created with default attributes:
       | username |
@@ -548,7 +548,7 @@ Feature: sharing
       | old              |
       | new              |
 
-  @smokeTest
+
   Scenario Outline: creating a share of a renamed file
     Given using OCS API version "<ocs-api-version>"
     And user "Brian" has been created with default attributes

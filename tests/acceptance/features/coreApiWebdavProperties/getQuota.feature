@@ -20,7 +20,7 @@ Feature: get quota
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: retrieving folder quota when quota is set
     Given using <dav-path-version> DAV path
     When user "Admin" changes the quota of the personal space of user "Alice" to "10000" using the Graph API

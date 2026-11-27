@@ -11,7 +11,7 @@ Feature: sharing
       | Brian    |
     And user "Alice" has uploaded file with content "some data" to "/textfile0.txt"
 
-  @smokeTest
+
   Scenario Outline: sharee can see the share
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has sent the following resource share invitation:
@@ -31,7 +31,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest
+
   Scenario Outline: sharee can see the filtered share
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "some data" to "/textfile1.txt"
@@ -59,7 +59,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest @issue-1257
+  @issue-1257
   Scenario Outline: sharee can't see the share that is filtered out
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has uploaded file with content "some data" to "/textfile1.txt"
@@ -87,7 +87,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest @issue-1289
+  @issue-1289
   Scenario Outline: sharee can see the group share
     Given using OCS API version "<ocs-api-version>"
     And group "grp1" has been created

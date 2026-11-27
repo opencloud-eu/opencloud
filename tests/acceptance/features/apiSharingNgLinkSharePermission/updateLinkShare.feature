@@ -784,7 +784,7 @@ Feature: Update a link share for a resource
       | createOnly       | edit                 |
       | createOnly       | upload               |
 
-  @issues-8405
+  @issue-8405
   Scenario Outline: remove expiration date of a resource link share using permissions endpoint
     Given user "Alice" has uploaded file with content "other data" to "textfile1.txt"
     And user "Alice" has created folder "folder"

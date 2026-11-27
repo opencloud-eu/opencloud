@@ -1,4 +1,4 @@
-@env-config @skipOnOpencloud-decomposed-Storage @skipOnOpencloud-decomposeds3-Storage
+@env-config @skipOnOpencloud-decomposed-Storage
 Feature: posixfs scan CLI command
   As an administrator
   I want to scan the posix filesystem for files that were added outside of OpenCloud
