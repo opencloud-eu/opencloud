@@ -2,13 +2,18 @@ package opensearch_test
 
 import (
 	"context"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
@@ -190,4 +195,43 @@ var _ = Describe("Backend", func() {
 			Expect(err).To(MatchError(search.ErrResourceNotFound))
 		})
 	})
+
+	Describe("Search", func() {
+		const indexName = "opencloud-test-engine-search-preference"
+
+		It("sends every search of a user to the same shard copies", func() {
+			physical := opensearch.VersionedIndexName(indexName)
+			cfg := defaultConfig.Engine.OpenSearch.Client
+			tc := opensearchtest.NewDefaultTestClient(GinkgoTB(), cfg)
+			tc.Require.IndicesReset([]string{physical})
+			deleteIndexOnCleanup(tc, physical)
+
+			searches := &searchRecorder{}
+			client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{Client: opensearchgo.Config{
+				Addresses: cfg.Addresses, Username: cfg.Username, Password: cfg.Password, Transport: searches,
+			}})
+			Expect(err).ToNot(HaveOccurred())
+			backend, err := opensearch.NewBackend(context.Background(), indexName, client, log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+
+			ctx := revactx.ContextSetUser(context.Background(), &userv1beta1.User{Id: &userv1beta1.UserId{OpaqueId: "einstein"}})
+			_, err = backend.Search(ctx, &search.IndexQuery{Query: "name:a"})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = backend.Search(context.Background(), &search.IndexQuery{Query: "name:a"})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(searches.preferences).To(Equal([]string{"user-einstein", ""}))
+		})
+	})
 })
+
+type searchRecorder struct {
+	preferences []string
+}
+
+func (r *searchRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	if strings.HasSuffix(req.URL.Path, "/_search") {
+		r.preferences = append(r.preferences, req.URL.Query().Get("preference"))
+	}
+	return http.DefaultTransport.RoundTrip(req)
+}

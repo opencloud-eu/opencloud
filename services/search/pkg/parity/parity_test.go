@@ -11,6 +11,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -287,7 +288,10 @@ var _ = Describe("Queries", func() {
 								Skip(e.unavailable)
 							}
 
-							request := &search.IndexQuery{Query: c.query, PageSize: c.limit, Ref: c.ref}
+							request := &search.IndexQuery{Query: c.query, Ref: c.ref}
+							if c.limit != 0 {
+								request.PageSize = conversions.ToPointer(c.limit)
+							}
 
 							expected := override{want: c.want, wantCount: c.wantCount, wantBadRequest: c.wantBadRequest}
 							_, overridden := c.engineOverrides[name]
