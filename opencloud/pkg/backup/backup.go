@@ -3,8 +3,17 @@ package backup
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Inconsistency describes the type of inconsistency
@@ -44,6 +53,13 @@ type Consistency struct {
 
 	nodeToLink map[string]string
 	blobToNode map[string]string
+
+	// recheck drops findings that are resolved by now, nil disables the re-check
+	recheck *rechecker
+	// resolved counts the findings that disappeared when re-checked
+	resolved int
+	// inFlight counts the nodes that still process an upload, their missing blobs are not reported
+	inFlight int
 }
 
 // NewConsistency creates a new Consistency object
@@ -59,6 +75,15 @@ func NewConsistency() *Consistency {
 	}
 }
 
+func newRechecker(storagepath string, lbs ListBlobstore) *rechecker {
+	sep := string(filepath.Separator)
+	return &rechecker{
+		localPrefix: strings.TrimSuffix(filepath.Clean(storagepath), sep) + sep,
+		fsys:        os.DirFS(storagepath),
+		lbs:         lbs,
+	}
+}
+
 // CheckProviderConsistency checks the consistency of a space
 func CheckProviderConsistency(storagepath string, lbs ListBlobstore, fail bool) error {
 	fsys := os.DirFS(storagepath)
@@ -69,6 +94,7 @@ func CheckProviderConsistency(storagepath string, lbs ListBlobstore, fail bool) 
 	}
 
 	c := NewConsistency()
+	c.recheck = newRechecker(storagepath, lbs)
 	c.GatherData(p.Events)
 
 	return c.PrintResults(storagepath, fail)
@@ -117,18 +143,43 @@ func (c *Consistency) GatherData(events <-chan any) {
 		}
 	}
 
-	for n := range c.Nodes {
-		if len(c.Nodes[n]) == 0 {
-			c.Nodes[n] = append(c.Nodes[n], InconsistencySymlinkMissing)
+	for n, incs := range c.Nodes {
+		if len(incs) == 0 {
+			incs = append(incs, InconsistencySymlinkMissing)
 		}
+		found := len(incs)
+		incs = slices.DeleteFunc(incs, func(inc Inconsistency) bool {
+			return c.recheck.nodeInconsistencyResolved(n, inc)
+		})
+		c.resolved += found - len(incs)
+		if len(incs) == 0 {
+			delete(c.Nodes, n)
+			continue
+		}
+		c.Nodes[n] = incs
 	}
 	for l := range c.LinkedNodes {
+		if c.recheck.nodeExists(l) {
+			delete(c.LinkedNodes, l)
+			c.resolved++
+			continue
+		}
 		c.LinkedNodes[l] = append(c.LinkedNodes[l], InconsistencyNodeMissing)
 	}
 	for b := range c.Blobs {
 		c.Blobs[b] = append(c.Blobs[b], InconsistencyBlobOrphaned)
 	}
 	for b := range c.BlobReferences {
+		if c.recheck.blobExists(b) {
+			delete(c.BlobReferences, b)
+			c.resolved++
+			continue
+		}
+		if c.recheck.nodeProcessing(c.blobToNode[b]) {
+			delete(c.BlobReferences, b)
+			c.inFlight++
+			continue
+		}
 		c.BlobReferences[b] = append(c.BlobReferences[b], InconsistencyBlobMissing)
 	}
 }
@@ -159,6 +210,12 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 	for b := range c.BlobReferences {
 		fmt.Printf("\t👉️ %v\tblob: %s\n\t\t\t\treferencing node:%s\n", c.BlobReferences[b], b, c.blobToNode[b])
 	}
+	if c.resolved > 0 {
+		fmt.Printf("\nℹ️  %d finding(s) resolved on re-check: the storage changed during the scan. For a reliable result run on a quiet system or on a filesystem snapshot.\n", c.resolved)
+	}
+	if c.inFlight > 0 {
+		fmt.Printf("\nℹ️  %d node(s) still processing an upload, their blobs are skipped.\n", c.inFlight)
+	}
 	if len(c.Nodes) == 0 && len(c.LinkedNodes) == 0 && len(c.Blobs) == 0 && len(c.BlobReferences) == 0 {
 		fmt.Printf("💚 No inconsistency found. The backup in '%s' seems to be valid.\n", discpath)
 	} else if fail {
@@ -166,6 +223,135 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 	}
 	return nil
 
+}
+
+// rechecker checks if a finding is resolved by now. All methods are safe to call on a nil rechecker.
+type rechecker struct {
+	localPrefix string
+	fsys        fs.FS
+	lbs         ListBlobstore
+
+	// the blobs are listed at most once and only if a blob outside of the storagepath needs a re-check
+	hasListed bool
+	blobs     map[string]struct{}
+}
+
+func (r *rechecker) blobExists(path string) bool {
+	if r == nil {
+		return false
+	}
+
+	if strings.HasPrefix(path, r.localPrefix) {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+
+	if r.lbs == nil {
+		return false
+	}
+	if !r.hasListed {
+		r.hasListed = true
+		nodes, err := r.lbs.List()
+		if err == nil {
+			r.blobs = make(map[string]struct{}, len(nodes))
+			for _, n := range nodes {
+				r.blobs[r.lbs.Path(n)] = struct{}{}
+			}
+		}
+	}
+	_, ok := r.blobs[path]
+	return ok
+}
+
+func (r *rechecker) nodeExists(path string) bool {
+	if r == nil {
+		return false
+	}
+
+	_, err := os.Lstat(path)
+	return err == nil
+}
+
+func (r *rechecker) nodeInconsistencyResolved(nodePath string, inc Inconsistency) bool {
+	if r == nil {
+		return false
+	}
+
+	mpkPath := nodePath + ".mpk"
+	switch inc {
+	case InconsistencySymlinkMissing:
+		return r.symlinkExists(nodePath)
+	case InconsistencyFilesMissing:
+		_, nodeErr := os.Stat(nodePath)
+		_, mpkErr := os.Stat(mpkPath)
+		return nodeErr == nil && mpkErr == nil
+	case InconsistencyMalformedFile:
+		_, err := r.readMetadata(nodePath)
+		return err == nil
+	default:
+		return false
+	}
+}
+
+// symlinkExists checks if the symlink of a child node exists in its parent
+func (r *rechecker) symlinkExists(nodePath string) bool {
+	if _trashRegex.MatchString(nodePath) {
+		return false
+	}
+
+	m, err := r.readMetadata(nodePath)
+	if err != nil {
+		return false
+	}
+	parentID := string(m[prefixes.ParentidAttr])
+	name := string(m[prefixes.NameAttr])
+	if parentID == "" || name == "" {
+		return false
+	}
+
+	const (
+		nodesDir     = "/nodes/"
+		pathifyDepth = 4
+		pathifyWidth = 2
+	)
+	idx := strings.LastIndex(nodePath, nodesDir)
+	if idx < 0 {
+		return false
+	}
+
+	_, err = os.Lstat(filepath.Join(nodePath[:idx+len(nodesDir)], lookup.Pathify(parentID, pathifyDepth, pathifyWidth), name))
+	return err == nil
+}
+
+// nodeProcessing checks if the node still processes an upload, meaning its blob may not be written yet.
+// A processing marker without an upload session is stale and does not count.
+func (r *rechecker) nodeProcessing(nodePath string) bool {
+	if r == nil {
+		return false
+	}
+
+	m, err := r.readMetadata(nodePath)
+	if err != nil {
+		return false
+	}
+	id, ok := strings.CutPrefix(string(m[prefixes.StatusPrefix]), node.ProcessingStatus)
+	if !ok || id == "" {
+		return false
+	}
+
+	_, err = os.Stat(filepath.Join(r.localPrefix, "uploads", id+".info"))
+	return err == nil
+}
+
+// readMetadata reads the metadata of a node below the storage root
+func (r *rechecker) readMetadata(nodePath string) (map[string][]byte, error) {
+	b, err := fs.ReadFile(r.fsys, strings.TrimPrefix(nodePath, r.localPrefix)+".mpk")
+	if err != nil {
+		return nil, err
+	}
+
+	m := map[string][]byte{}
+	return m, msgpack.Unmarshal(b, &m)
 }
 
 func deleteInconsistency(incs map[string][]Inconsistency, path string) {
