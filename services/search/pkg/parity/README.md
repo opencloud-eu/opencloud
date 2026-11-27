@@ -856,7 +856,7 @@ Fixtures:
 - `b.jpg`, MimeType = image/jpeg
 - `c.jpg`, MimeType = image/jpeg
 - `d.jpg`, MimeType = image/jpeg
-- `live.txt`
+- `live.txt`, Tags = Apple, apple, Banana
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -879,6 +879,7 @@ Fixtures:
 | AGG-20 | `mediatype:audio` reads `album buckets in audio.year ranges in artist buckets` | audio.arti... Steel=2, audio.arti.....1980=0, audio.arti.....1980=2, audio.arti...1980..=0, audio.arti...1980..=3, audio.arti...Bomber=2, audio.arti...Spades=1, audio.artist Motörhead=3, … +1 more | audio.arti... Steel=2, audio.arti.....1980=0, audio.arti.....1980=2, audio.arti...1980..=0, audio.arti...1980..=3, audio.arti...Bomber=2, audio.arti...Spades=1, audio.artist Motörhead=3, … +1 more | audio.arti... Steel=2, audio.arti.....1980=0, audio.arti.....1980=2, audio.arti...1980..=0, audio.arti...1980..=3, audio.arti...Bomber=2, audio.arti...Spades=1, audio.artist Motörhead=3, … +1 more | ✅ |
 | AGG-21 | `mediatype:image` reads `a metric without a single value has none` | audio.year avg none, audio.year min none, audio.year sum none | audio.year avg none, audio.year min none, audio.year sum none | audio.year avg none, audio.year min none, audio.year sum none | ✅ |
 | AGG-22 | `mediatype:audio` reads `filtered to the Saxon bucket, as many matches as the bucket counted` | a.mp3, audio.artist Saxon=2, b.mp3 | a.mp3, audio.artist Saxon=2, b.mp3 | a.mp3, audio.artist Saxon=2, b.mp3 | ✅ |
+| AGG-49 | `name:live.txt` reads `tags keep their case, Apple and apple are two buckets` | Tags Apple=1, Tags Banana=1, Tags apple=1 | Tags Apple=1, Tags Banana=1, Tags apple=1 | Tags Apple=1, Tags Banana=1, Tags apple=1 | ✅ |
 | AGG-23 | `mediatype:audio` reads `filtered to saxon, a bucket key matches case-sensitively` | no match | no match | no match | ✅ |
 | AGG-46 | `mediatype:audio` reads `filtered to a fractional key on a whole-number field, no match and no error` | no match | no match | no match | ✅ |
 | AGG-24 | `mediatype:audio` reads `filtered to the Saxon or the Motörhead bucket` | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | ✅ |
@@ -919,6 +920,7 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
+| AGG-47 | `Tags:*` reads `one bucket per tag, whichever match carries it` | 150 items | Tags tag-000=53, Tags tag-001=53, Tags tag-002=53, Tags tag-003=53, Tags tag-004=53, Tags tag-005=53, Tags tag-006=53, Tags tag-007=53, … +142 more | Tags tag-000=53, Tags tag-001=53, Tags tag-002=53, Tags tag-003=53, Tags tag-004=53, Tags tag-005=53, Tags tag-006=53, Tags tag-007=53, … +142 more | ✅ |
 | AGG-17 | `mediatype:audio` reads `one bucket per artist, cardinality above the page size` | 10050 items | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | ✅ |
 | AGG-42 | `mediatype:audio` reads `the total counts every match` | 1 of 10050 matches | 1 of 10050 matches | 1 of 10050 matches | ✅ |
 | AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches` | 10001 of 10050 matches | 10001 of 10050 matches | bad request | ❌ known |

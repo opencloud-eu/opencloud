@@ -95,7 +95,7 @@ func aggregationFixtures() []search.Resource {
 		photo("c.jpg", "2018-09-01T12:00:00Z"),
 		photo("d.jpg", "2021-08-11T08:00:00Z"),
 		// no audio mime type: stays out of the mediatype:audio cases
-		fixtureDoc("live.txt", withAudio(&libregraph.Audio{Artist: libregraph.PtrString(`Wh*t? "Live"`)})),
+		fixtureDoc("live.txt", withAudio(&libregraph.Audio{Artist: libregraph.PtrString(`Wh*t? "Live"`)}), withTags("Apple", "apple", "Banana")),
 	}
 }
 
@@ -271,6 +271,9 @@ func aggregationCases() []aggCase {
 			filters: []*searchService.AggregationFilter{terms("audio.artist", "Saxon")},
 			aggs:    []*searchService.AggregationOption{{Field: "audio.artist"}},
 			want:    []string{"a.mp3", "b.mp3", "audio.artist Saxon=2"}},
+		{id: 49, query: "name:live.txt", reads: "tags keep their case, Apple and apple are two buckets",
+			aggs: []*searchService.AggregationOption{{Field: "Tags"}},
+			want: []string{"Tags Apple=1", "Tags Banana=1", "Tags apple=1"}},
 		{id: 23, query: "mediatype:audio", reads: "filtered to saxon, a bucket key matches case-sensitively",
 			filters: []*searchService.AggregationFilter{terms("audio.artist", "saxon")}},
 		{id: 46, query: "mediatype:audio", reads: "filtered to a fractional key on a whole-number field, no match and no error",
@@ -390,7 +393,12 @@ func renderAggregation(prefix string, a *searchService.AggregationResult) []stri
 func cardinalityFixtures() []search.Resource {
 	docs := make([]search.Resource, 0, 10050)
 	for i := 0; i < 10050; i++ {
-		docs = append(docs, song(fmt.Sprintf("card-%05d.mp3", i), fmt.Sprintf("artist-%05d", i), "Singles", int32(1950+i%50)))
+		// tags only beyond the first 1000 songs, the page OpenSearch returns for "all matches"
+		var tagged []fixtureOption
+		if i >= 2000 {
+			tagged = append(tagged, withTags(fmt.Sprintf("tag-%03d", i%150)))
+		}
+		docs = append(docs, song(fmt.Sprintf("card-%05d.mp3", i), fmt.Sprintf("artist-%05d", i), "Singles", int32(1950+i%50), tagged...))
 	}
 	return docs
 }
@@ -406,7 +414,11 @@ func nested(fields ...string) *searchService.AggregationOption {
 
 func cardinalityCases() []aggCase {
 	count := 10050
+	tags := 150
 	return []aggCase{
+		{id: 47, query: "Tags:*", reads: "one bucket per tag, whichever match carries it",
+			aggs:      []*searchService.AggregationOption{{Field: "Tags"}},
+			wantCount: &tags},
 		{id: 17, query: "mediatype:audio", reads: "one bucket per artist, cardinality above the page size",
 			aggs:      []*searchService.AggregationOption{{Field: "audio.artist"}},
 			wantCount: &count},

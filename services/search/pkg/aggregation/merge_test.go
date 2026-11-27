@@ -284,6 +284,16 @@ var _ = Describe("Merge and Finalize", func() {
 			Expect(render(got)).To(Equal([]string{"audio.artist Saxon=2"}))
 		})
 
+		It("cuts to the first keys in byte order across spaces, upper case before lower case", func() {
+			opts := []*searchsvc.AggregationOption{{
+				Field: "Tags", Size: 3,
+				BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING},
+			}}
+			a := []*searchsvc.AggregationResult{buckets("Tags", bucket("cherry", 1), bucket("apple", 1), bucket("Banana", 1))}
+			b := []*searchsvc.AggregationResult{buckets("Tags", bucket("apple", 1), bucket("Apple", 1))}
+			Expect(render(merged(opts, a, b))).To(Equal([]string{"Tags Apple=1", "Tags Banana=1", "Tags apple=2"}))
+		})
+
 		It("shapes the buckets of a sub-aggregation by its own definition", func() {
 			opts := []*searchsvc.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{{
 				Field: "audio.album", Size: 2,
