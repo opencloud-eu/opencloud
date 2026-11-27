@@ -7,6 +7,7 @@ import (
 	"html"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -190,6 +191,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, err
 	}
 	req.Query = query
+	var excludeID *searchmsg.ResourceID
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
 		if err != nil {
@@ -221,6 +223,17 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 				OpaqueId:  statRes.GetInfo().GetSpace().GetRoot().GetOpaqueId(),
 			},
 			Path: gpRes.Path,
+		}
+
+		// The scope folder itself matches its own path term, it is dropped from the results
+		// after the search (not at query level). A scope file and the space root are not affected.
+		isFolder := statRes.GetInfo().GetType() == provider.ResourceType_RESOURCE_TYPE_CONTAINER
+		if isFolder && utils.MakeRelativePath(gpRes.GetPath()) != "." {
+			excludeID = &searchmsg.ResourceID{
+				StorageId: statRes.GetInfo().GetId().GetStorageId(),
+				SpaceId:   statRes.GetInfo().GetId().GetSpaceId(),
+				OpaqueId:  statRes.GetInfo().GetId().GetOpaqueId(),
+			}
 		}
 	}
 	// drive-pinned queries only need that space's index; the restriction
@@ -310,7 +323,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	for i := 0; i < numWorkers; i++ {
 		errg.Go(func() error {
 			for space := range work {
-				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId])
+				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId], excludeID)
 				if err != nil && err != errSkipSpace {
 					return err
 				}
@@ -369,7 +382,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}, nil
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (res *searchsvc.SearchIndexResponse, err error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string, excludeID *searchmsg.ResourceID) (res *searchsvc.SearchIndexResponse, err error) {
 	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
 	defer func() {
 		if r := recover(); r != nil {
@@ -487,6 +500,17 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	if err != nil {
 		s.logger.Error().Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
 		return nil, err
+	}
+	if excludeID != nil {
+		for i, match := range res.GetMatches() {
+			if match.GetEntity().GetId().GetStorageId() == excludeID.GetStorageId() &&
+				match.GetEntity().GetId().GetSpaceId() == excludeID.GetSpaceId() &&
+				match.GetEntity().GetId().GetOpaqueId() == excludeID.GetOpaqueId() {
+				res.Matches = slices.Delete(res.GetMatches(), i, i+1)
+				res.TotalMatches--
+				break
+			}
+		}
 	}
 	if duration > _slowQueryDuration {
 		s.logger.Info().Interface("searchRequest", searchRequest).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Int("hits", len(res.Matches)).Msg("slow space search")

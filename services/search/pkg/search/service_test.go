@@ -875,27 +875,36 @@ var _ = Describe("Searchprovider", func() {
 		})
 
 		Context("with a personal space with a filter", func() {
+			var scopeInfo *sprovider.ResourceInfo
+
 			BeforeEach(func() {
 				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&sprovider.ListStorageSpacesResponse{
 					Status:        status.NewOK(ctx),
 					StorageSpaces: []*sprovider.StorageSpace{personalSpace},
 				}, nil)
+				scopeInfo = &sprovider.ResourceInfo{
+					Id: &sprovider.ResourceId{
+						StorageId: "storageid",
+						SpaceId:   "personalspace",
+						OpaqueId:  "scope-id",
+					},
+					Type: sprovider.ResourceType_RESOURCE_TYPE_CONTAINER,
+					Space: &sprovider.StorageSpace{Root: &sprovider.ResourceId{
+						StorageId: "storageid",
+						SpaceId:   "personalspace",
+						OpaqueId:  "personalspace",
+					}},
+				}
 				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
 					Status: status.NewOK(context.Background()),
-					Info: &sprovider.ResourceInfo{
-						Space: &sprovider.StorageSpace{Root: &sprovider.ResourceId{
-							StorageId: "storageid",
-							SpaceId:   "personalspace",
-							OpaqueId:  "personalspace",
-						}},
-					},
+					Info:   scopeInfo,
 				}, nil)
 				gatewayClient.On("GetPath", mock.Anything, mock.Anything).Return(&sprovider.GetPathResponse{
 					Status: status.NewOK(ctx),
 					Path:   "/path",
 				}, nil)
 				indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{
-					TotalMatches: 1,
+					TotalMatches: 2,
 					Matches: []*searchmsg.Match{
 						{
 							Score: 1,
@@ -913,6 +922,25 @@ var _ = Describe("Searchprovider", func() {
 									OpaqueId:  "foo-id",
 								},
 								Name: "Foo.pdf",
+							},
+						},
+						{
+							Score: 1,
+							Entity: &searchmsg.Entity{
+								Ref: &searchmsg.Reference{
+									ResourceId: &searchmsg.ResourceID{
+										StorageId: personalSpace.Root.StorageId,
+										SpaceId:   personalSpace.Root.SpaceId,
+										OpaqueId:  personalSpace.Root.OpaqueId,
+									},
+									Path: "./path",
+								},
+								Id: &searchmsg.ResourceID{
+									StorageId: "storageid",
+									SpaceId:   "personalspace",
+									OpaqueId:  "scope-id",
+								},
+								Name: "scope-folder",
 							},
 						},
 					},
@@ -940,6 +968,29 @@ var _ = Describe("Searchprovider", func() {
 				Expect(match.Entity.Name).To(Equal("Foo.pdf"))
 				Expect(match.Entity.Ref.ResourceId.OpaqueId).To(Equal(personalSpace.Root.OpaqueId))
 				Expect(match.Entity.Ref.Path).To(Equal("./path/to/Foo.pdf"))
+			})
+
+			It("omits the scope folder from the results", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "foo scope:storageid$personalspace!scope-id",
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.TotalMatches).To(Equal(int32(1)))
+				Expect(len(res.Matches)).To(Equal(1))
+				Expect(res.Matches[0].Entity.Name).To(Equal("Foo.pdf"))
+			})
+
+			It("keeps the scope when it is a file", func() {
+				scopeInfo.Type = sprovider.ResourceType_RESOURCE_TYPE_FILE
+
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "foo scope:storageid$personalspace!scope-id",
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.TotalMatches).To(Equal(int32(2)))
+				Expect(len(res.Matches)).To(Equal(2))
 			})
 		})
 
