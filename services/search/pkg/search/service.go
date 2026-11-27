@@ -365,6 +365,9 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		aggregations = aggregation.Merge(req.GetAggregations(), aggregations, res.Aggregations)
 	}
 	aggregation.Finalize(req.GetAggregations(), aggregations)
+	if err := aggregation.CheckBuckets(aggregations); err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 
 	// compile one sorted list of matches from all spaces and apply from/limit if needed
 	sort.Sort(matches)

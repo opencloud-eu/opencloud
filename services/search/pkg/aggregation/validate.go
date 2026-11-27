@@ -7,10 +7,34 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
-// ValidateOptions holds aggregations to what the index can answer: a field it
-// knows, a kind that fits the type of the field. fieldType returns the mapping
-// type of a field, empty for one a client may not aggregate on.
+// ValidateOptions holds aggregations to MaxAggregations and MaxDepth and to
+// what the index can answer: a field it knows, a kind that fits the type of
+// the field. fieldType returns the mapping type of a field, empty for one a
+// client may not aggregate on.
 func ValidateOptions(opts []*searchsvc.AggregationOption, fieldType func(string) string) error {
+	count, depth := shape(opts)
+	if count > MaxAggregations {
+		return fmt.Errorf("a request takes at most %d aggregations, sub-aggregations included", MaxAggregations)
+	}
+	if depth > MaxDepth {
+		return fmt.Errorf("aggregations nest at most %d levels deep", MaxDepth)
+	}
+	return validateOptions(opts, fieldType)
+}
+
+func shape(opts []*searchsvc.AggregationOption) (count, depth int) {
+	for _, opt := range opts {
+		subCount, subDepth := shape(opt.GetSubAggregations())
+		if KindOf(opt) != KindMetric {
+			subDepth++
+		}
+		count += 1 + subCount
+		depth = max(depth, subDepth)
+	}
+	return count, depth
+}
+
+func validateOptions(opts []*searchsvc.AggregationOption, fieldType func(string) string) error {
 	for _, opt := range opts {
 		field, t := opt.GetField(), fieldType(opt.GetField())
 		if t == "" {
@@ -37,7 +61,7 @@ func ValidateOptions(opts []*searchsvc.AggregationOption, fieldType func(string)
 				return err
 			}
 		}
-		if err := ValidateOptions(opt.GetSubAggregations(), fieldType); err != nil {
+		if err := validateOptions(opt.GetSubAggregations(), fieldType); err != nil {
 			return err
 		}
 	}

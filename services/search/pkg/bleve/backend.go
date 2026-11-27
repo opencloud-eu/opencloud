@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -133,6 +134,9 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 
 	bleveReq.Fields = []string{"*"}
 	res, err := b.index.SearchInContext(ctx, bleveReq)
+	if errors.Is(err, aggregation.ErrTooManyBuckets) {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 	if err != nil {
 		return nil, err
 	}

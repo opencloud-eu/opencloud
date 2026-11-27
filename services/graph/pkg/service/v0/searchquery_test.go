@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	// ginkgo qualified: the svc package declares Context (option.go), which
 	// would collide with a dot-import.
@@ -422,6 +423,14 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("a nested geohash aggregation",
 			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]}]`, "geohashDefinition"),
 	)
+
+	ginkgo.It("rejects more than 5 requests with 400", func() {
+		one := `{"entityTypes": ["driveItem"], "query": {"queryString": "a"}}`
+		body := `{"requests": [` + strings.Repeat(one+",", 5) + one + `]}`
+		rr := postSearchQuery(graphWithoutSearch(), body)
+		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+		Expect(rr.Body.String()).To(ContainSubstring("at most 5 requests"))
+	})
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {
 		req := httptest.NewRequest(http.MethodPost, "/search/query?$expand=thumbnails,permissions", bytes.NewBufferString(searchQueryBody(`"from": 0`)))

@@ -18,6 +18,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
+const maxSearchRequests = 5
+
 // SearchQuery handles POST /v1beta1/search/query (MS Graph searchQuery).
 func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 	var req libregraph.SearchQueryRequest
@@ -29,6 +31,10 @@ func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 
 	if len(req.Requests) == 0 {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "requests array must not be empty")
+		return
+	}
+	if len(req.Requests) > maxSearchRequests {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, fmt.Sprintf("requests array takes at most %d requests", maxSearchRequests))
 		return
 	}
 

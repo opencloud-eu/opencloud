@@ -958,6 +958,31 @@ var _ = Describe("Searchprovider", func() {
 			})
 		})
 
+		Context("with two personal spaces whose buckets exceed the limit together", func() {
+			artists := func(space string) []*searchsvc.Bucket {
+				buckets := make([]*searchsvc.Bucket, 40000)
+				for i := range buckets {
+					buckets[i] = &searchsvc.Bucket{Key: fmt.Sprintf("%s-%d", space, i), Count: 1}
+				}
+				return buckets
+			}
+
+			It("refuses the merged result as a bad request", func() {
+				listsSpacesAB()
+				for _, space := range []string{"a", "b"} {
+					searchOfSpace(space).Return(&search.IndexResult{
+						Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: artists(space)}},
+					}, nil)
+				}
+				_, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query:        "mediatype:audio",
+					Aggregations: []*searchsvc.AggregationOption{{Field: "audio.artist"}},
+				})
+				Expect(err).To(BeAssignableToTypeOf(errtypes.BadRequest("")))
+				Expect(err).To(MatchError(ContainSubstring("65535 buckets")))
+			})
+		})
+
 		Context("with two personal spaces returning matches of the same score", func() {
 			match := func(space, name string) *searchmsg.Match {
 				return &searchmsg.Match{Score: 1, Entity: &searchmsg.Entity{

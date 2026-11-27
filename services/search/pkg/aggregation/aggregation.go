@@ -31,16 +31,24 @@ func KindOf(opt *searchsvc.AggregationOption) Kind {
 	return KindTerms
 }
 
-// MaxBuckets is how many buckets the aggregations of one request may have in
-// one space, all levels counted: the search.max_buckets default of OpenSearch,
-// held on every engine.
+// MaxBuckets is how many buckets the aggregations of one request may have,
+// all levels counted, in one space and in the merged result: the
+// search.max_buckets default of OpenSearch, held on every engine.
 const MaxBuckets = math.MaxUint16
+
+// MaxAggregations is how many aggregations one request may carry, all levels
+// counted. MaxDepth is how deep buckets may nest; a metric is a leaf and adds
+// no level.
+const (
+	MaxAggregations = 16
+	MaxDepth        = 3
+)
 
 // ErrTooManyBuckets is what an engine answers beyond MaxBuckets; the service
 // layer turns it into a bad request.
 var ErrTooManyBuckets = fmt.Errorf("the aggregations have more than %d buckets, narrow the query or the aggregations", MaxBuckets)
 
-// CheckBuckets holds the results of one space to MaxBuckets.
+// CheckBuckets holds results to MaxBuckets.
 func CheckBuckets(results []*searchsvc.AggregationResult) error {
 	if countBuckets(results) > MaxBuckets {
 		return ErrTooManyBuckets

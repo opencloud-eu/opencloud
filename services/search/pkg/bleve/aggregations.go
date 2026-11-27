@@ -97,6 +97,8 @@ type aggCollector struct {
 	fields     map[string]*fieldValues
 	fieldNames []string
 	roots      []*aggRoot
+	buckets    int
+	overflow   bool
 }
 
 type aggRoot struct {
@@ -174,6 +176,9 @@ func (c *aggCollector) collect(dvr index.DocValueReader, d *bleveSearch.Document
 	for _, root := range c.roots {
 		c.fold(root.acc, root.level)
 	}
+	if c.overflow {
+		return aggregation.ErrTooManyBuckets
+	}
 	return nil
 }
 
@@ -233,6 +238,16 @@ func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
 }
 
 func (c *aggCollector) foldBucket(a *bucketAcc, l *aggLevel, key string) {
+	if c.overflow {
+		return
+	}
+	if _, ok := a.counts[key]; !ok {
+		if c.buckets == aggregation.MaxBuckets {
+			c.overflow = true
+			return
+		}
+		c.buckets++
+	}
 	a.counts[key]++
 	if len(l.children) == 0 {
 		return

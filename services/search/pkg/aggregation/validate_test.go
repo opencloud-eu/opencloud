@@ -67,4 +67,39 @@ var _ = Describe("ValidateOptions", func() {
 			{Field: "audio.album", SubAggregations: []*searchsvc.AggregationOption{{Field: "photo.takenDateTime"}}},
 		}}),
 	)
+
+	chain := func(levels int, leaf *searchsvc.AggregationOption) *searchsvc.AggregationOption {
+		opt := leaf
+		for range levels {
+			var subs []*searchsvc.AggregationOption
+			if opt != nil {
+				subs = append(subs, opt)
+			}
+			opt = &searchsvc.AggregationOption{Field: "audio.artist", SubAggregations: subs}
+		}
+		return opt
+	}
+	flat := func(n int) []*searchsvc.AggregationOption {
+		opts := make([]*searchsvc.AggregationOption, n)
+		for i := range opts {
+			opts[i] = &searchsvc.AggregationOption{Field: "audio.artist"}
+		}
+		return opts
+	}
+
+	It("holds the nesting to MaxDepth, a metric adds no level", func() {
+		metric := &searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: sum}
+		Expect(aggregation.MaxDepth).To(Equal(3))
+		Expect(aggregation.ValidateOptions([]*searchsvc.AggregationOption{chain(3, nil)}, fieldTypes)).To(Succeed())
+		Expect(aggregation.ValidateOptions([]*searchsvc.AggregationOption{chain(3, metric)}, fieldTypes)).To(Succeed())
+		Expect(aggregation.ValidateOptions([]*searchsvc.AggregationOption{chain(4, nil)}, fieldTypes)).To(MatchError(ContainSubstring("3 levels")))
+	})
+
+	It("holds a request to MaxAggregations, all levels counted", func() {
+		Expect(aggregation.MaxAggregations).To(Equal(16))
+		Expect(aggregation.ValidateOptions(flat(16), fieldTypes)).To(Succeed())
+		Expect(aggregation.ValidateOptions(flat(17), fieldTypes)).To(MatchError(ContainSubstring("16 aggregations")))
+		nested := append(flat(14), chain(3, nil))
+		Expect(aggregation.ValidateOptions(nested, fieldTypes)).To(MatchError(ContainSubstring("16 aggregations")))
+	})
 })
