@@ -6,7 +6,7 @@ Feature: auth
   Background:
     Given user "Alice" has been created with default attributes
 
-  @issue-1337 @smokeTest
+  @issue-1337
   Scenario: using OCS anonymously
     When a user requests these endpoints with "GET" and no authentication
       | endpoint                                                    |
@@ -67,7 +67,7 @@ Feature: auth
       | /ocs/v2.php/cloud/users  |
     Then the HTTP status code of responses on all endpoints should be "404"
 
-  @issue-1338 @issue-1337 @smokeTest
+  @issue-1338 @issue-1337
   Scenario: using OCS as normal user with wrong password
     When user "Alice" requests these endpoints with "GET" using password "invalid"
       | endpoint                                                    |

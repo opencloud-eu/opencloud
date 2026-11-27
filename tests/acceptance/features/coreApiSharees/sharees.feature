@@ -12,7 +12,7 @@ Feature: search sharees
     And group "ShareeGroup2" has been created
     And user "Alice" has been added to group "ShareeGroup2"
 
-  @smokeTest
+
   Scenario Outline: search without exact match
     Given using OCS API version "<ocs-api-version>"
     When user "Alice" gets the sharees using the sharing API with parameters

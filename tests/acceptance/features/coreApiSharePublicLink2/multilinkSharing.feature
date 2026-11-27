@@ -7,7 +7,7 @@ Feature: multi-link sharing
   Background:
     Given user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: creating three public shares of a folder
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has created folder "FOLDER"

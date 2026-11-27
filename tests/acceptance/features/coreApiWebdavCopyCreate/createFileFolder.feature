@@ -50,7 +50,7 @@ Feature: create files and folder
       | spaces           | "'single'"       |
       | spaces           | '"double"'       |
 
-  @smokeTest
+
   Scenario Outline: get resourcetype property of a folder
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/test_folder"
@@ -122,7 +122,7 @@ Feature: create files and folder
       | new              |
       | spaces           |
 
-  @web-issue-1893
+  @issue-web-1893
   Scenario Outline: create a file
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "some text" to <file-name> using the WebDAV API

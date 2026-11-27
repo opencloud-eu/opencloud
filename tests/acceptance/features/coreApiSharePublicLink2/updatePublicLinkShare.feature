@@ -52,7 +52,7 @@ Feature: update a public link share
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest
+
   Scenario Outline: change expiration date of a newly created public link share and get its info
     Given using OCS API version "<ocs-api-version>"
     And user "Alice" has created folder "FOLDER"

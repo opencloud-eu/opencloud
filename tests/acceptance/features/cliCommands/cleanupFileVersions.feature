@@ -138,7 +138,7 @@ Feature: clean up old file versions according to a cleanup strategy
     Then the HTTP status code should be "207"
     And the number of versions should be "1"
 
-  @skipOnOpencloud-decomposed-Storage @skipOnOpencloud-decomposeds3-Storage
+  @skipOnOpencloud-decomposed-Storage
   Scenario: clean up a folder given by its path on the POSIX filesystem
     Given user "Alice" has created folder "folder"
     And user "Alice" has uploaded file with content "version 1" to "folder/inFolder.txt"

@@ -10,7 +10,7 @@ Feature: copy file
     And user "Alice" has uploaded file with content "OpenCloud test text file 1" to "/textfile1.txt"
     And user "Alice" has created folder "/FOLDER"
 
-  @smokeTest
+
   Scenario Outline: copying a file
     Given using <dav-path-version> DAV path
     When user "Alice" copies file "/textfile0.txt" to "/FOLDER/textfile0.txt" using the WebDAV API
@@ -22,7 +22,7 @@ Feature: copy file
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: copying and overwriting a file
     Given using <dav-path-version> DAV path
     When user "Alice" copies file "/textfile0.txt" to "/textfile1.txt" using the WebDAV API

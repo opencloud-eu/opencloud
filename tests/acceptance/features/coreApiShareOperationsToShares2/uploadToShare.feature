@@ -110,7 +110,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: uploading file to a user read/write share folder works
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -164,7 +164,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: check quota of owners parent directory of a shared file
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

@@ -8,7 +8,7 @@ Feature: propagation of etags when restoring a version of a file
     Given using OCS API version "2"
     And user "Alice" has been created with default attributes
 
-  @skipOnStorage:ceph @skipOnStorage:scality
+
   Scenario: restoring a file changes the etags of all parents
     Given user "Alice" has created folder "/upload"
     And user "Alice" has created folder "/upload/sub"

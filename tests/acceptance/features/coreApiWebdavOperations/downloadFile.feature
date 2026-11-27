@@ -6,7 +6,7 @@ Feature: download file
   Background:
     Given user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: download a file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "OpenCloud test text file 0" to "/textfile0.txt"
@@ -215,7 +215,7 @@ Feature: download file
       | new              |
       | spaces           |
 
-  @smokeTest @issue-8361 @skipOnReva
+  @issue-8361 @skipOnReva
   Scenario Outline: downloading a file should serve security headers
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "test file" to "/<file-name>"
@@ -243,7 +243,7 @@ Feature: download file
       | spaces           | comma,.txt         | comma%2C.txt             |
       | spaces           | 'quote'single'.txt | %27quote%27single%27.txt |
 
-  @smokeTest @issue-8361 @skipOnReva
+  @issue-8361 @skipOnReva
   Scenario Outline: downloading a file should serve security headers (file with double quotes)
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "test file" to '/"quote"double".txt'
@@ -292,7 +292,7 @@ Feature: download file
       | new              |
       | spaces           |
 
-  @web-issue-1893
+  @issue-web-1893
   Scenario Outline: download a file with special characters in the filename
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "test file" to <file-name>
