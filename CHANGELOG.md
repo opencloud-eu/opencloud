@@ -1,5 +1,64 @@
 # Changelog
 
+## [9.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.3.0) - 2026-11-27
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @micbar, @pbleser-oc, @v-scharf
+
+### 📈 Enhancement
+
+- feat(proxy): accept lists and globs for the CSP config file locations [[#3686](https://github.com/opencloud-eu/opencloud/pull/3686)]
+- feat(graph): accept user name or id in GetUserDrive [[#3243](https://github.com/opencloud-eu/opencloud/pull/3243)]
+- feat(graph): return the creator of a public link [[#4149](https://github.com/opencloud-eu/opencloud/pull/4149)]
+- refactor(config): extract BindSourcesToStructs into pkg/config/binder [[#3270](https://github.com/opencloud-eu/opencloud/pull/3270)]
+- feat(search): add a command to optimize the search index [[#4136](https://github.com/opencloud-eu/opencloud/pull/4136)]
+- [full-ci] feat: new audit log [[#3864](https://github.com/opencloud-eu/opencloud/pull/3864)]
+- [full-ci] build: bump reva to the first part of the audit log [[#4134](https://github.com/opencloud-eu/opencloud/pull/4134)]
+- feat(search): retry extractions tika could not answer during a walk [[#4123](https://github.com/opencloud-eu/opencloud/pull/4123)]
+- fix(proxy): add includeSubDomains to the Strict-Transport-Security header [[#4116](https://github.com/opencloud-eu/opencloud/pull/4116)]
+- feat(search): keep tika out of tag updates and retry incomplete extractions [[#4113](https://github.com/opencloud-eu/opencloud/pull/4113)]
+- feat(audit): log the space name when a space is deleted [[#4112](https://github.com/opencloud-eu/opencloud/pull/4112)]
+- feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
+- fix(proxy): set Secure, HttpOnly and SameSite=Strict on the policy selector cookie [[#4101](https://github.com/opencloud-eu/opencloud/pull/4101)]
+- feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
+- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
+- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
+### 🐛 Bug Fixes
+
+- [full-ci] fix: audit log follow-ups from the review [[#4141](https://github.com/opencloud-eu/opencloud/pull/4141)]
+- fix(search): extract the metadata of files over the size limit [[#4133](https://github.com/opencloud-eu/opencloud/pull/4133)]
+- fix(web): serve the index fallback without recursion and handle file errors [[#4125](https://github.com/opencloud-eu/opencloud/pull/4125)]
+- fix(proxy): redirect to HTTPS on the host of OC_URL [[#4120](https://github.com/opencloud-eu/opencloud/pull/4120)]
+- fix(search): answer text on numeric and date fields the same on both engines [[#4122](https://github.com/opencloud-eu/opencloud/pull/4122)]
+- fix(mise): run the pinned golangci-lint in the check:lint task [[#4015](https://github.com/opencloud-eu/opencloud/pull/4015)]
+- fix(cli): pass --root and --node on to the decomposedfs metadata subcommands [[#4087](https://github.com/opencloud-eu/opencloud/pull/4087)]
+- test: log all headers of requests and responses in the acceptance tests [[#4105](https://github.com/opencloud-eu/opencloud/pull/4105)]
+- fix: return 404 when creating an app token for an unknown user [[#4097](https://github.com/opencloud-eu/opencloud/pull/4097)]
+- fix(search): descend into unchanged folders and skip failed uploads [[#4094](https://github.com/opencloud-eu/opencloud/pull/4094)]
+- fix(ocs): never hand out signing keys to link visitors [[#4093](https://github.com/opencloud-eu/opencloud/pull/4093)]
+- fix(graph): list the tags in use sorted and cut at a fixed limit [[#3891](https://github.com/opencloud-eu/opencloud/pull/3891)]
+- fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
+- fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
+- fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
+
+### ✅ Tests
+
+- test(guest-link): check share types of resources shared with a guest [[#4128](https://github.com/opencloud-eu/opencloud/pull/4128)]
+- tests: remove unused tags, run the search properties scenarios as expected failures [[#4142](https://github.com/opencloud-eu/opencloud/pull/4142)]
+- tests: use mailpit instead of inbucket as the email server [[#4138](https://github.com/opencloud-eu/opencloud/pull/4138)]
+- tests: renew the bearer token on 401 instead of checking it before each request [[#4126](https://github.com/opencloud-eu/opencloud/pull/4126)]
+- tests: set the response only in When steps [[#4121](https://github.com/opencloud-eu/opencloud/pull/4121)]
+- tests: check access of guests and sharees outside of the shared resource [[#3771](https://github.com/opencloud-eu/opencloud/pull/3771)]
+- test(auth-app): cover custom labels of app tokens and document the label parameter [[#4114](https://github.com/opencloud-eu/opencloud/pull/4114)]
+- test(proxy): cover the authentication challenges for basic auth and app tokens [[#4092](https://github.com/opencloud-eu/opencloud/pull/4092)]
+- fix(ci): let the openldap image import the test LDIF files [[#4057](https://github.com/opencloud-eu/opencloud/pull/4057)]
+
+### 📦️ Dependencies
+
+- [full-ci] build: bump reva to the ocm share permission fixes [[#4065](https://github.com/opencloud-eu/opencloud/pull/4065)]
+
 ## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-17
 
 ### ❤️ Thanks to all contributors! ❤️
@@ -9,6 +68,16 @@
 ### 🔒 Security
 
 - Bump reva to v3.0.1 [[#4031](https://github.com/opencloud-eu/opencloud/pull/4031)]
+
+### 📈 Enhancement
+
+- feat(graph): add logging and tracing to the single-permission GET endpoints [[#4038](https://github.com/opencloud-eu/opencloud/pull/4038)]
+- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
+- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
+- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
+- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
+- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
+- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
 ### 📚 Documentation
 
@@ -36,15 +105,6 @@
 - Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
 - fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
 - fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
-
-### 📈 Enhancement
-
-- graph: rate limit the personal data export [[#3973](https://github.com/opencloud-eu/opencloud/pull/3973)]
-- feat(graph): add the v1beta1 endpoints for a single drive [[#3941](https://github.com/opencloud-eu/opencloud/pull/3941)]
-- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
-- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
-- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
-- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
 ### 📦️ Dependencies
 
