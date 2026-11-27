@@ -1,6 +1,7 @@
 package activitylog_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
@@ -18,6 +19,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/command"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -411,6 +413,29 @@ var _ = Describe("ConnectNatsKV", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(metadata()).ToNot(HaveKey(activitylog.ActivityLogVersionMetadataKey))
 	})
+
+	It("keeps the current settings when the stream update fails", func() {
+		kv, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		// a version exceeding the stream metadata size limit makes the stream update fail
+		_, err = kv.Put(activitylog.ActivityLogVersionKey, bytes.Repeat([]byte("1"), 200*1024))
+		Expect(err).ToNot(HaveOccurred())
+
+		// other packages can raise the global zerolog level above error
+		globalLevel := zerolog.GlobalLevel()
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+		DeferCleanup(zerolog.SetGlobalLevel, globalLevel)
+
+		var logs bytes.Buffer
+		cfg.TTL = time.Hour
+		kv, _, err = command.ConnectNatsKV(cfg, log.Logger{Logger: zerolog.New(&logs)})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(kv).ToNot(BeNil())
+		Expect(maxAge()).To(Equal(time.Duration(0)))
+		Expect(metadata()).ToNot(HaveKey(activitylog.ActivityLogVersionMetadataKey))
+		Expect(logs.String()).To(ContainSubstring(`"level":"error"`))
+		Expect(logs.String()).To(ContainSubstring("could not update the stream config of the existing bucket"))
+	})
 })
 
 var _ = Describe("migrations", func() {
@@ -512,6 +537,80 @@ var _ = Describe("migrations", func() {
 		entry, err := kv.Get("second-legacy-key")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(entry.Value())).To(Equal("not migrated"))
+	})
+
+	It("does not migrate after the server expired the version key of a bucket upgraded to a TTL", func() {
+		const ttl = 200 * time.Millisecond
+		cfg := config.Store{
+			Nodes:    []string{server.Addr().String()},
+			Database: db,
+			TTL:      ttl,
+		}
+
+		// other packages can raise the global zerolog level above info
+		globalLevel := zerolog.GlobalLevel()
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		DeferCleanup(zerolog.SetGlobalLevel, globalLevel)
+
+		// negative control: the captured logger sees the migration of a bucket without a version
+		var controlLogs bytes.Buffer
+		controlKV, _, err := command.ConnectNatsKV(config.Store{
+			Nodes:    []string{server.Addr().String()},
+			Database: "activitylog-migration-test-" + uuid.New().String(),
+		}, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		_, err = activitylog.New(
+			controlKV,
+			activitylog.Logger(log.Logger{Logger: zerolog.New(&controlLogs)}),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(controlLogs.String()).To(ContainSubstring("Running migration to V1"))
+
+		// the old bucket has no expiry and the legacy version key
+		_, err = kv.PutString(activitylog.ActivityLogVersionKey, "1")
+		Expect(err).ToNot(HaveOccurred())
+
+		// restart 1: the TTL is applied and the version is copied to the stream metadata
+		var firstLogs bytes.Buffer
+		kv, js, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		info, err := js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Config.MaxAge).To(Equal(ttl))
+		Expect(info.Config.Metadata).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
+
+		_, err = activitylog.New(
+			kv,
+			activitylog.JetStream(js),
+			activitylog.Logger(log.Logger{Logger: zerolog.New(&firstLogs)}),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(firstLogs.String()).ToNot(ContainSubstring("Running migration to V1"))
+
+		// the server expires the legacy version key
+		Eventually(func() error {
+			_, err := kv.Get(activitylog.ActivityLogVersionKey)
+			return err
+		}, 10*time.Second, 100*time.Millisecond).Should(MatchError(nats.ErrKeyNotFound))
+
+		// restart 2: the version is read from the stream metadata
+		var secondLogs bytes.Buffer
+		kv, js, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+		_, err = activitylog.New(
+			kv,
+			activitylog.JetStream(js),
+			activitylog.Logger(log.Logger{Logger: zerolog.New(&secondLogs)}),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(secondLogs.String()).ToNot(ContainSubstring("Running migration to V1"))
+
+		info, err = js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Config.MaxAge).To(Equal(ttl))
+		Expect(info.Config.Metadata).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
+		_, err = kv.Get(activitylog.ActivityLogVersionKey)
+		Expect(err).To(MatchError(nats.ErrKeyNotFound))
 	})
 
 	It("fails when the stream metadata has an unexpected version", func() {

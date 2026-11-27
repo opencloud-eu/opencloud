@@ -15,6 +15,7 @@ const ActivityLogVersionKey = "activitylog.version"
 
 // ActivityLogVersionMetadataKey is the stream metadata key holding the activitylog data version.
 const ActivityLogVersionMetadataKey = "opencloud.activitylog.version"
+
 const currentMigrationVersion = "1"
 
 // RunMigrations checks the activitylog data version and runs migrations if necessary.

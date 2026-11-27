@@ -286,6 +286,7 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, nats.Jet
 		case err == nil:
 			version = string(entry.Value())
 		case errors.Is(err, nats.ErrKeyNotFound):
+			// no legacy version key, nothing to copy
 		default:
 			logger.Error().
 				Err(err).
