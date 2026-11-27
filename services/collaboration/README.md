@@ -65,6 +65,10 @@ The WOPI requests reach the collaboration service either directly from your reve
 
 Behind the proxy service, the address of the proxy service must be trusted, which the default does when both run on the same host or in the same network. The proxy service passes the client address in `X-Forwarded-For` and in the header set in `PROXY_CLIENT_IP_HEADER`.
 
+## Fonts
+
+The fonts that administrators upload for the office applications are stored in `COLLABORATION_FONT_ASSET_PATH`, which is created at startup if it doesn't exist. Symlinks in that directory are handled as in the asset directories of the web service: relative symlinks that stay inside the directory work, symlinks that lead out of it and absolute symlinks are treated as missing fonts, and an upload never writes through them. Deleting a font that is a symlink removes the symlink, not its target. See [Symlinks in the Asset Directories](../web/README.md#symlinks-in-the-asset-directories) for details.
+
 ## Storing
 
 The `collaboration` service persists information via the configured store in `COLLABORATION_STORE`. Possible stores are:

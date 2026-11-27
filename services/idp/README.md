@@ -8,6 +8,10 @@ By default, it is configured to use the OpenCloud IDM service as its LDAP backen
 
 Note that translations provided by the IDP service are not maintained via OpenCloud but part of the embedded  [LibreGraph Connect Identifier](https://github.com/libregraph/lico/tree/master/identifier) package.
 
+## Custom Assets
+
+With `IDP_ASSET_PATH`, the IDP service serves the files of its login pages from a directory on the filesystem, and uses the built-in ones for the files that are missing there. Symlinks in that directory are handled as in the asset directories of the web service: relative symlinks that stay inside the directory work, symlinks that lead out of it and absolute symlinks are treated as missing files. See [Symlinks in the Asset Directories](../web/README.md#symlinks-in-the-asset-directories) for details.
+
 ## Configuration
 
 ### Custom Clients

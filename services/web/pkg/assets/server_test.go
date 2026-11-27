@@ -412,7 +412,7 @@ func TestFileServerOnDisk(t *testing.T) {
 
 	// the same layering as the web service: a directory on disk with the embedded assets as fallback
 	server := FileServer(log.NopLogger(), fsx.NewFallbackFS(
-		fsx.NewBasePathFs(fsx.NewOsFs(), root),
+		newRootFs(t, root),
 		fsx.NewMemMapFs(),
 	).IOFS())
 
@@ -459,7 +459,7 @@ func TestFileServerOnDiskUnreadable(t *testing.T) {
 	g.Expect(os.WriteFile(filepath.Join(root, "app.js"), []byte("app content"), 0o000)).To(gomega.Succeed())
 
 	server := FileServer(log.NopLogger(), fsx.NewFallbackFS(
-		fsx.NewBasePathFs(fsx.NewOsFs(), root),
+		newRootFs(t, root),
 		fsx.NewMemMapFs(),
 	).IOFS())
 
@@ -468,4 +468,116 @@ func TestFileServerOnDiskUnreadable(t *testing.T) {
 
 	g.Expect(w.Code).To(gomega.Equal(http.StatusInternalServerError))
 	g.Expect(w.Body.String()).ToNot(gomega.ContainSubstring("index file content"))
+}
+
+func newRootFs(t *testing.T, root string) *fsx.BaseFS {
+	t.Helper()
+	fSys, err := fsx.NewRootFs(root, log.NopLogger())
+	gomega.NewWithT(t).Expect(err).ToNot(gomega.HaveOccurred())
+	return fSys
+}
+
+func TestFileServerOnDiskSymlinks(t *testing.T) {
+	g := gomega.NewWithT(t)
+	// resolve the temp dir itself: on macOS, it is behind a symlink (/var -> /private/var)
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	root := filepath.Join(base, "core")
+	outside := filepath.Join(base, "outside")
+
+	write := func(name, content string) {
+		g.Expect(os.MkdirAll(filepath.Dir(name), 0o755)).To(gomega.Succeed())
+		g.Expect(os.WriteFile(name, []byte(content), 0o644)).To(gomega.Succeed())
+	}
+	link := func(target, name string) {
+		g.Expect(os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0o755)).To(gomega.Succeed())
+		g.Expect(os.Symlink(target, filepath.Join(root, name))).To(gomega.Succeed())
+	}
+	write(filepath.Join(outside, "secret.txt"), "outside content")
+	write(filepath.Join(outside, "dir", "secret.txt"), "outside content")
+	write(filepath.Join(root, "index.html"), "index file content")
+	write(filepath.Join(root, "js", "app.js"), "app content")
+	write(filepath.Join(root, "theme", "..2026_11_27_00_00_00.000000000", "theme.json"), "theme content")
+	link("..2026_11_27_00_00_00.000000000", "theme/..data")
+	link("..data/theme.json", "theme/theme.json")
+	link("js/app.js", "link-inside.js")
+	link("js", "link-dir-inside")
+	link("../outside/secret.txt", "link-relative-outside.txt")
+	link(filepath.Join(outside, "secret.txt"), "link-absolute-outside.txt")
+	link(filepath.Join(root, "js", "app.js"), "link-absolute-inside.js")
+	link("../core/js/app.js", "link-outside-and-back.js")
+	link("../outside/dir", "link-dir-outside")
+	link("missing.txt", "link-dangling.txt")
+	link("link-loop-b", "link-loop-a")
+	link("link-loop-a", "link-loop-b")
+
+	// the configured path itself is often a symlink, e.g. to a mounted volume
+	mount := filepath.Join(base, "mount")
+	g.Expect(os.Symlink(root, mount)).To(gomega.Succeed())
+
+	index := `<html><head><base href="/"/></head><body>index file content</body></html>`
+	for _, dir := range []string{root, mount} {
+		// the same layering as the web service: a directory on disk with the embedded assets as fallback
+		server := FileServer(log.NopLogger(), fsx.NewFallbackFS(newRootFs(t, dir), fsx.NewMemMapFs()).IOFS())
+
+		for _, tt := range []struct {
+			name         string
+			url          string
+			expectedCode int
+			expectedBody string
+		}{
+			{name: "symlink inside", url: "/link-inside.js", expectedCode: http.StatusOK, expectedBody: "app content"},
+			{name: "configmap symlink chain inside", url: "/theme/theme.json", expectedCode: http.StatusOK, expectedBody: "theme content"},
+			{name: "file in a symlinked directory inside", url: "/link-dir-inside/app.js", expectedCode: http.StatusOK, expectedBody: "app content"},
+			{name: "symlinked directory inside", url: "/link-dir-inside", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "trailing slash", url: "/js/app.js/", expectedCode: http.StatusOK, expectedBody: "app content"},
+			{name: "double slashes", url: "//js//app.js", expectedCode: http.StatusOK, expectedBody: "app content"},
+			{name: "relative symlink outside", url: "/link-relative-outside.txt", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "absolute symlink outside", url: "/link-absolute-outside.txt", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "absolute symlink inside", url: "/link-absolute-inside.js", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "symlink chain through outside and back", url: "/link-outside-and-back.js", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "file in a symlinked directory outside", url: "/link-dir-outside/secret.txt", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "dangling symlink", url: "/link-dangling.txt", expectedCode: http.StatusOK, expectedBody: index},
+			{name: "symlink loop", url: "/link-loop-a", expectedCode: http.StatusInternalServerError, expectedBody: "Internal Server Error\n"},
+		} {
+			t.Run(filepath.Base(dir)+"/"+tt.name, func(t *testing.T) {
+				g := gomega.NewWithT(t)
+
+				w := httptest.NewRecorder()
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				req.URL.Path = tt.url
+				server.ServeHTTP(w, req)
+
+				g.Expect(w.Code).To(gomega.Equal(tt.expectedCode))
+				g.Expect(w.Body.String()).To(gomega.Equal(tt.expectedBody))
+			})
+		}
+	}
+}
+
+// TestFileServerOnDiskEscapeLikeMissing checks that a symlink out of the
+// directory gets exactly the same response as a missing file, so that a client
+// can't tell what exists outside.
+func TestFileServerOnDiskEscapeLikeMissing(t *testing.T) {
+	g := gomega.NewWithT(t)
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	root := filepath.Join(base, "apps")
+	g.Expect(os.MkdirAll(root, 0o755)).To(gomega.Succeed())
+	g.Expect(os.WriteFile(filepath.Join(base, "secret.txt"), []byte("outside content"), 0o644)).To(gomega.Succeed())
+	g.Expect(os.Symlink("../secret.txt", filepath.Join(root, "leak.txt"))).To(gomega.Succeed())
+
+	// without an index.html, as for the apps
+	server := FileServer(log.NopLogger(), fsx.NewFallbackFS(newRootFs(t, root), fsx.NewMemMapFs()).IOFS())
+	serve := func(p string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, httptest.NewRequest(http.MethodGet, p, nil))
+		return w
+	}
+
+	missing, leak := serve("/missing.txt"), serve("/leak.txt")
+	g.Expect(leak.Code).To(gomega.Equal(http.StatusNotFound))
+	g.Expect(leak.Code).To(gomega.Equal(missing.Code))
+	g.Expect(leak.Body.String()).To(gomega.Equal(missing.Body.String()))
+	g.Expect(leak.Header()).To(gomega.Equal(missing.Header()))
 }

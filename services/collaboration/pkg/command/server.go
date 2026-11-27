@@ -10,7 +10,6 @@ import (
 
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v3/pkg/store"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"go-micro.dev/v4/selector"
 	microstore "go-micro.dev/v4/store"
@@ -20,7 +19,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector"
@@ -146,8 +144,8 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			var fontService font.Service
 			{
-				fontFS := afero.NewBasePathFs(fsx.NewOsFs(), cfg.Font.AssetPath)
-				if err := fontFS.MkdirAll("/", 0o755); err != nil {
+				fontFS, err := font.NewFS(cfg.Font.AssetPath, logger)
+				if err != nil {
 					logger.Error().Err(err).Msg("Failed to initialize the fonts directory")
 					return err
 				}

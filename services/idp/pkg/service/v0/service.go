@@ -41,10 +41,13 @@ func NewService(opts ...Option) Service {
 	ctx := context.Background()
 	options := newOptions(opts...)
 	logger := options.Logger.Logger
-	assetVFS := assets.New(
+	assetVFS, err := assets.New(
 		assets.Logger(options.Logger),
 		assets.Config(options.Config),
 	)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("could not open the asset directory")
+	}
 
 	if err := createTemporaryClientsConfig(
 		options.Config.IDP.IdentifierRegistrationConf,
@@ -276,10 +279,7 @@ func (idp *IDP) initMux(ctx context.Context, r []server.WithRoutes, h http.Handl
 
 	idp.mux.Use(middleware.Static(
 		"/signin/v1/",
-		assets.New(
-			assets.Logger(options.Logger),
-			assets.Config(options.Config),
-		),
+		idp.assets,
 		idp.tp,
 	))
 
