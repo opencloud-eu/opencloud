@@ -82,7 +82,6 @@ Feature: upload file using old chunking
       | new              |
       | spaces           |
 
-
   # This scenario does ordinary checks for chunked upload,
   # without adjusting the log level. This allows it to run in test environments
   # where the log level has been fixed and cannot be changed.
