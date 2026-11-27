@@ -39,6 +39,8 @@ type matrixRow struct {
 	WantBadRequest bool
 	// Overrides is what an engine is held to instead, rendered like expected
 	Overrides map[string]string
+	// Ordered keeps the names in the order of the answer, for rows about it
+	Ordered bool
 
 	GroupAt, CaseAt, QueryAt int
 }
@@ -213,7 +215,7 @@ func writeMatrix(report types.Report) {
 			query = row.Context + ", then " + query
 		}
 
-		expected := matrixNames(row.Want)
+		expected := row.names(row.Want)
 		switch {
 		case row.WantBadRequest:
 			expected = "bad request"
@@ -223,7 +225,7 @@ func writeMatrix(report types.Report) {
 
 		fmt.Fprintf(out, "| %s | %s | %s | %s | %s | %s |\n",
 			row.ID, query, expected,
-			matrixNames(row.answered["bleve"]), matrixNames(row.answered["opensearch"]), matrixVerdict(row))
+			row.names(row.answered["bleve"]), row.names(row.answered["opensearch"]), matrixVerdict(row))
 	}
 
 	if os.Getenv("UPDATE_SEARCH_PARITY_MATRIX") != "" {
@@ -279,6 +281,12 @@ func matrixFixtures(group string) string {
 	}
 
 	for _, g := range aggregationGroups() {
+		if g.name == group {
+			fixtures = g.fixtures
+		}
+	}
+
+	for _, g := range sortGroups() {
 		if g.name == group {
 			fixtures = g.fixtures
 		}
@@ -356,6 +364,18 @@ func fixtureFields(f search.Resource, withID bool) string {
 		add("Mtime = %s", f.Mtime.Format(time.RFC3339))
 	}
 
+	if f.Audio != nil && f.Audio.Duration != nil {
+		add("audio.duration = %d", *f.Audio.Duration)
+	}
+
+	if f.Audio != nil && f.Audio.Year != nil {
+		add("audio.year = %d", *f.Audio.Year)
+	}
+
+	if f.Photo != nil && f.Photo.TakenDateTime != nil {
+		add("photo.takenDateTime = %s", f.Photo.TakenDateTime.Format(time.RFC3339))
+	}
+
 	if f.Hidden {
 		add("hidden")
 	}
@@ -388,6 +408,18 @@ func matrixScope(ref *searchMessage.Reference) string {
 // matrixNamesHead keeps a table row readable: a huge answer list renders as
 // its head plus a count instead of flooding the README.
 const matrixNamesHead = 8
+
+func (r matrixRow) names(names []string) string {
+	if !r.Ordered || len(names) == 0 {
+		return matrixNames(names)
+	}
+
+	shortened := make([]string, 0, len(names))
+	for _, name := range names {
+		shortened = append(shortened, shorten(name))
+	}
+	return strings.Join(shortened, ", ")
+}
 
 func matrixNames(names []string) string {
 	if len(names) == 0 {
@@ -428,9 +460,9 @@ func matrixVerdict(row *matrixResult) string {
 	var off []string
 	known := true
 	for _, engine := range engineNames {
-		answer := matrixNames(row.answered[engine])
+		answer := row.names(row.answered[engine])
 
-		agrees := answer == matrixNames(row.Want)
+		agrees := answer == row.names(row.Want)
 		switch {
 		case row.WantBadRequest:
 			agrees = answer == "bad request"
