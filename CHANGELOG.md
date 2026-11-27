@@ -6,6 +6,25 @@
 
 @AlexAndBear, @asaah262, @butonic, @dragonchaser, @dschmidt, @fschade, @maki5, @micbar, @pbleser-oc, @v-scharf
 
+### 📈 Enhancement
+
+- feat(proxy): accept lists and globs for the CSP config file locations [[#3686](https://github.com/opencloud-eu/opencloud/pull/3686)]
+- feat(graph): accept user name or id in GetUserDrive [[#3243](https://github.com/opencloud-eu/opencloud/pull/3243)]
+- feat(graph): return the creator of a public link [[#4149](https://github.com/opencloud-eu/opencloud/pull/4149)]
+- refactor(config): extract BindSourcesToStructs into pkg/config/binder [[#3270](https://github.com/opencloud-eu/opencloud/pull/3270)]
+- feat(search): add a command to optimize the search index [[#4136](https://github.com/opencloud-eu/opencloud/pull/4136)]
+- [full-ci] feat: new audit log [[#3864](https://github.com/opencloud-eu/opencloud/pull/3864)]
+- [full-ci] build: bump reva to the first part of the audit log [[#4134](https://github.com/opencloud-eu/opencloud/pull/4134)]
+- feat(search): retry extractions tika could not answer during a walk [[#4123](https://github.com/opencloud-eu/opencloud/pull/4123)]
+- fix(proxy): add includeSubDomains to the Strict-Transport-Security header [[#4116](https://github.com/opencloud-eu/opencloud/pull/4116)]
+- feat(search): keep tika out of tag updates and retry incomplete extractions [[#4113](https://github.com/opencloud-eu/opencloud/pull/4113)]
+- feat(audit): log the space name when a space is deleted [[#4112](https://github.com/opencloud-eu/opencloud/pull/4112)]
+- feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
+- fix(proxy): set Secure, HttpOnly and SameSite=Strict on the policy selector cookie [[#4101](https://github.com/opencloud-eu/opencloud/pull/4101)]
+- feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
+- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
+- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
+
 ### 🐛 Bug Fixes
 
 - [full-ci] fix: audit log follow-ups from the review [[#4141](https://github.com/opencloud-eu/opencloud/pull/4141)]
@@ -23,24 +42,6 @@
 - fix(postprocessing): ignore UploadReady events without an upload [[#3966](https://github.com/opencloud-eu/opencloud/pull/3966)]
 - fix(search): run the debounced work once when both timers fire [[#4030](https://github.com/opencloud-eu/opencloud/pull/4030)]
 - fix(graph): keep the permissions list query options with $top=0 [[#4035](https://github.com/opencloud-eu/opencloud/pull/4035)]
-
-### 📈 Enhancement
-
-- feat(graph): accept user name or id in GetUserDrive [[#3243](https://github.com/opencloud-eu/opencloud/pull/3243)]
-- feat(graph): return the creator of a public link [[#4149](https://github.com/opencloud-eu/opencloud/pull/4149)]
-- refactor(config): extract BindSourcesToStructs into pkg/config/binder [[#3270](https://github.com/opencloud-eu/opencloud/pull/3270)]
-- feat(search): add a command to optimize the search index [[#4136](https://github.com/opencloud-eu/opencloud/pull/4136)]
-- [full-ci] feat: new audit log [[#3864](https://github.com/opencloud-eu/opencloud/pull/3864)]
-- [full-ci] build: bump reva to the first part of the audit log [[#4134](https://github.com/opencloud-eu/opencloud/pull/4134)]
-- feat(search): retry extractions tika could not answer during a walk [[#4123](https://github.com/opencloud-eu/opencloud/pull/4123)]
-- fix(proxy): add includeSubDomains to the Strict-Transport-Security header [[#4116](https://github.com/opencloud-eu/opencloud/pull/4116)]
-- feat(search): keep tika out of tag updates and retry incomplete extractions [[#4113](https://github.com/opencloud-eu/opencloud/pull/4113)]
-- feat(audit): log the space name when a space is deleted [[#4112](https://github.com/opencloud-eu/opencloud/pull/4112)]
-- feat(webdav): add facets to REPORT hits [[#3652](https://github.com/opencloud-eu/opencloud/pull/3652)]
-- fix(proxy): set Secure, HttpOnly and SameSite=Strict on the policy selector cookie [[#4101](https://github.com/opencloud-eu/opencloud/pull/4101)]
-- feat(search): return photo metadata and allow ranges on numeric fields [[#4096](https://github.com/opencloud-eu/opencloud/pull/4096)]
-- feat(graph): limit the length of tags [[#4017](https://github.com/opencloud-eu/opencloud/pull/4017)]
-- feat(graph): expose the favorite state on drives and sharedWithMe [[#4036](https://github.com/opencloud-eu/opencloud/pull/4036)]
 
 ### ✅ Tests
 
