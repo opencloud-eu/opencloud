@@ -10,6 +10,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,7 @@ import (
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
@@ -305,6 +307,90 @@ var _ = Describe("SendActivityNotification", func() {
 
 		Expect(rr.Code).To(Equal(http.StatusLocked))
 		Expect(mentions()).To(BeEmpty())
+	})
+
+	Describe("with a share jail id", func() {
+		shareJailMention := `{"topic":{"source":"text","value":"` +
+			utils.ShareStorageProviderID + `$` + utils.ShareStorageSpaceID + `!share"},` +
+			`"activityType":"mentioned","teamsAppId":"` + service.WebOfficeAppID + `"}`
+
+		receivedShare := func(st *rpc.Status) {
+			gatewayClient.On("GetReceivedShare", mock.Anything, mock.MatchedBy(
+				func(req *collaboration.GetReceivedShareRequest) bool {
+					return req.GetRef().GetId().GetOpaqueId() == "share"
+				},
+			)).Return(&collaboration.GetReceivedShareResponse{
+				Status: st,
+				Share: &collaboration.ReceivedShare{Share: &collaboration.Share{
+					ResourceId: &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "item"},
+				}},
+			}, nil)
+		}
+
+		statRefs := func() []*provider.ResourceId {
+			var refs []*provider.ResourceId
+			for _, call := range gatewayClient.Calls {
+				if req, ok := call.Arguments[1].(*provider.StatRequest); ok {
+					refs = append(refs, req.GetRef().GetResourceId())
+				}
+			}
+
+			return refs
+		}
+
+		// the jail id carries the caller's share, the recipient only knows the shared item
+		It("notifies about the shared item", func() {
+			receivedShare(status.NewOK(context.Background()))
+			statAs("", "alice-token")
+
+			rr := httptest.NewRecorder()
+			svc.SendActivityNotification(rr, request("alice", shareJailMention))
+
+			Expect(rr.Code).To(Equal(http.StatusAccepted))
+			Expect(statRefs()).To(HaveLen(2))
+			for _, ref := range statRefs() {
+				Expect(ref.GetStorageId()).To(Equal("storage"))
+				Expect(ref.GetSpaceId()).To(Equal("space"))
+				Expect(ref.GetOpaqueId()).To(Equal("item"))
+			}
+			Expect(mentions()).To(HaveLen(1))
+			Expect(mentions()[0].Ref.GetResourceId().GetOpaqueId()).To(Equal("item"))
+		})
+
+		It("hides a share the caller did not receive", func() {
+			receivedShare(status.NewNotFound(context.Background(), "not found"))
+			statAs("", "alice-token")
+
+			rr := httptest.NewRecorder()
+			svc.SendActivityNotification(rr, request("alice", shareJailMention))
+
+			Expect(rr.Code).To(Equal(http.StatusNotFound))
+			Expect(statRefs()).To(BeEmpty())
+			Expect(mentions()).To(BeEmpty())
+		})
+
+		It("fails when the received share cannot be looked up", func() {
+			gatewayClient.On("GetReceivedShare", mock.Anything, mock.Anything).
+				Return(nil, errors.New("connection refused"))
+			statAs("", "alice-token")
+
+			rr := httptest.NewRecorder()
+			svc.SendActivityNotification(rr, request("alice", shareJailMention))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(mentions()).To(BeEmpty())
+		})
+
+		It("carries the cs3 status of a failed share lookup", func() {
+			receivedShare(status.NewInvalidArg(context.Background(), "invalid share id"))
+			statAs("", "alice-token")
+
+			rr := httptest.NewRecorder()
+			svc.SendActivityNotification(rr, request("alice", shareJailMention))
+
+			Expect(rr.Code).To(Equal(http.StatusBadRequest))
+			Expect(mentions()).To(BeEmpty())
+		})
 	})
 
 	// a user id is no secret, other endpoints look users up as well
