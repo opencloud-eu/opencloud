@@ -99,6 +99,7 @@ CORE_SUITES=(
 
 EXTRA_SUITE=(
     "apiAntivirus"
+    "apiAudit"
     "apiOcm"
     "apiCollaboration"
     "apiAuthApp"

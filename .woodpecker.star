@@ -60,6 +60,8 @@ dirs = {
     "opencloudConfig": "tests/config/woodpecker/opencloud-config.json",
     "opencloudRevaDataRoot": "/woodpecker/src/github.com/%s/srv/app/tmp/ocis/owncloud/data" % repo_slug,
     "multiServiceOcBaseDataPath": "/woodpecker/src/github.com/%s/multiServiceData" % repo_slug,
+    # a copy of the server output for the audit log tests, the audit records are lines of it
+    "auditRecords": "/woodpecker/src/github.com/%s/audit-records.jsonl" % repo_slug,
     "ocWrapper": "/woodpecker/src/github.com/%s/tests/ocwrapper" % repo_slug,
     "bannedPasswordList": "tests/config/woodpecker/banned-password-list.txt",
     "ocmProviders": "tests/config/woodpecker/providers.json",
@@ -286,6 +288,20 @@ config = {
                 "OC_ASYNC_UPLOADS": True,
                 "OC_ADD_RUN_SERVICES": "antivirus",
                 "ANTIVIRUS_DEBUG_ADDR": "0.0.0.0:9297",
+            },
+        },
+        "audit": {
+            "suites": [
+                "apiAudit",
+            ],
+            "skip": False,
+            "auditRecords": True,
+            "extraTestEnvironment": {
+                "AUDIT_RECORDS_FILE": dirs["auditRecords"],
+            },
+            "extraServerEnvironment": {
+                "OC_AUDIT_ENABLED": True,
+                "OC_ADD_RUN_SERVICES": "audit",
             },
         },
         "searchContent": {
@@ -1256,6 +1272,7 @@ def localApiTestPipeline(ctx):
         "enableWatchFs": False,
         "ldapNeeded": False,
         "openSearch": False,
+        "auditRecords": False,
     }
 
     if "localApiTests" in config:
@@ -1316,6 +1333,7 @@ def localApiTestPipeline(ctx):
                                          with_wrapper = True,
                                          tika_enabled = params["tikaNeeded"],
                                          watch_fs_enabled = run_with_watch_fs,
+                                         audit_records = params["auditRecords"],
                                      ) +
                                      (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs) if params["federationServer"] else []) +
                                      ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
@@ -2417,7 +2435,7 @@ def notifyMatrixCheckSteps(ctx, depends_on):
 
     return result
 
-def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False, watch_fs_enabled = False):
+def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", extra_server_environment = {}, with_wrapper = False, tika_enabled = False, watch_fs_enabled = False, audit_records = False):
     user = "0:0"
     container_name = OC_SERVER_NAME
     environment = {
@@ -2540,6 +2558,10 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         server_commands.append(
             "%s server" % dirs["opencloudBin"],
         )
+
+    # the audit records are lines of the server output, keep a copy for the tests
+    if audit_records:
+        server_commands[-1] += " | tee %s" % dirs["auditRecords"]
 
     wait_for_opencloud = {
         "name": "wait-for-%s" % container_name,

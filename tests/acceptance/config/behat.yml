@@ -219,6 +219,22 @@ default:
         - PublicWebDavContext:
         - SharingNgContext:
 
+    apiAudit:
+      paths:
+        - "%paths.base%/../features/apiAudit"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - AuditContext:
+        - AuthContext:
+        - SpacesContext:
+        - OCSContext:
+        - GraphContext:
+        - SettingsContext:
+        - OcConfigContext:
+        - PublicWebDavContext:
+        - SharingNgContext:
+
     apiDownloads:
       paths:
         - "%paths.base%/../features/apiDownloads"
