@@ -32,9 +32,9 @@ import (
 	gatewayconfig "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
 	gatewaydefaults "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/defaults"
 	graphparser "github.com/opencloud-eu/opencloud/services/graph/pkg/config/parser"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 const (
