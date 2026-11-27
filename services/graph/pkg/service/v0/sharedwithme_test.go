@@ -426,6 +426,157 @@ var _ = Describe("SharedWithMe", func() {
 			Expect(jsonData.Get("id").String()).To(Equal(getUserResponseShareCreator.User.Id.OpaqueId))
 		})
 
+		It("returns a degraded drive item when a share's resource stat times out", func() {
+			// a second share, pointing at a different resource, whose Stat times out (transport error)
+			brokenShare := &collaborationv1beta1.ReceivedShare{
+				Share: &collaborationv1beta1.Share{
+					ResourceId: toResourceID("7$8!9"),
+					Id: &collaborationv1beta1.ShareId{
+						OpaqueId: "broken:share:id",
+					},
+					Permissions: &collaborationv1beta1.SharePermissions{
+						Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions(),
+					},
+					Creator: getUserResponseShareCreator.User.Id,
+					Ctime:   utils.TSNow(),
+				},
+				MountPoint: &providerv1beta1.Reference{Path: "broken folder"},
+				State:      collaborationv1beta1.ShareState_SHARE_STATE_ACCEPTED,
+			}
+			listReceivedSharesResponse.Shares = append(listReceivedSharesResponse.Shares, brokenShare)
+
+			// reset and re-register the gateway expectations so Stat fails for the
+			// broken share's resource but succeeds for the others.
+			gatewayClient.ExpectedCalls = nil
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponseDefault, nil)
+			gatewayClient.On("ListReceivedShares", mock.Anything, mock.Anything).Return(listReceivedSharesResponse, nil)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(func(_ context.Context, r *providerv1beta1.StatRequest, _ ...grpc.CallOption) (*providerv1beta1.StatResponse, error) {
+				if r.Ref.ResourceId == brokenShare.Share.ResourceId {
+					return nil, context.DeadlineExceeded
+				}
+				return &providerv1beta1.StatResponse{
+					Status: status.NewOK(ctx),
+					Info: &providerv1beta1.ResourceInfo{
+						Id:   r.Ref.ResourceId,
+						Type: providerv1beta1.ResourceType_RESOURCE_TYPE_CONTAINER,
+					},
+				}, nil
+			})
+
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			driveItems := libregraph.CollectionOfDriveItems{}
+			err := json.Unmarshal(tape.Body.Bytes(), &driveItems)
+			Expect(err).To(BeNil())
+
+			// both shares must be present: the broken one is returned as a degraded
+			// item built from the share record, not silently dropped.
+			Expect(len(driveItems.Value)).To(Equal(2))
+
+			var remoteIDs []string
+			for _, di := range driveItems.GetValue() {
+				ri := di.GetRemoteItem()
+				remoteIDs = append(remoteIDs, ri.GetId())
+			}
+			Expect(remoteIDs).To(ContainElement(storagespace.FormatResourceID(brokenShare.Share.ResourceId)))
+		})
+
+		It("bounds the per-share Stat with the configured GRAPH_RECEIVED_SHARES_STAT_TIMEOUT", func() {
+			// Use a value distinct from the 10s default so we can tell the
+			// configured timeout (not the default) is the one applied. The service
+			// holds cfg by pointer, so setting it here is observed by the handler.
+			cfg.ReceivedSharesStatTimeout = 3 * time.Second
+
+			var statDeadline time.Time
+			var statHadDeadline bool
+			gatewayClient.ExpectedCalls = nil
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponseDefault, nil)
+			gatewayClient.On("ListReceivedShares", mock.Anything, mock.Anything).Return(listReceivedSharesResponse, nil)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(func(statCtx context.Context, r *providerv1beta1.StatRequest, _ ...grpc.CallOption) (*providerv1beta1.StatResponse, error) {
+				// the worker writes these before returning; cs3ReceivedSharesToDriveItems
+				// only returns after group.Wait(), so reading them after the handler
+				// call is race-free.
+				statDeadline, statHadDeadline = statCtx.Deadline()
+				return &providerv1beta1.StatResponse{
+					Status: status.NewOK(ctx),
+					Info: &providerv1beta1.ResourceInfo{
+						Id:   r.Ref.ResourceId,
+						Type: providerv1beta1.ResourceType_RESOURCE_TYPE_CONTAINER,
+					},
+				}, nil
+			})
+
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			Expect(tape.Code).To(Equal(http.StatusOK))
+			// the per-share Stat must carry a deadline derived from the configured
+			// timeout: never above the configured 3s, and clearly below the 10s default.
+			Expect(statHadDeadline).To(BeTrue())
+			Expect(time.Until(statDeadline)).To(BeNumerically("<=", 3*time.Second))
+			Expect(time.Until(statDeadline)).To(BeNumerically(">", 2*time.Second))
+		})
+
+		It("drops a share when the storage returns an error for its resource (e.g. the sharer was deleted)", func() {
+			// a second share whose resource the storage cannot serve (definitive status error) must not be listed
+			goneShare := &collaborationv1beta1.ReceivedShare{
+				Share: &collaborationv1beta1.Share{
+					ResourceId: toResourceID("7$8!9"),
+					Id: &collaborationv1beta1.ShareId{
+						OpaqueId: "gone:share:id",
+					},
+					Permissions: &collaborationv1beta1.SharePermissions{
+						Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions(),
+					},
+					Creator: getUserResponseShareCreator.User.Id,
+					Ctime:   utils.TSNow(),
+				},
+				MountPoint: &providerv1beta1.Reference{Path: "gone folder"},
+				State:      collaborationv1beta1.ShareState_SHARE_STATE_ACCEPTED,
+			}
+			listReceivedSharesResponse.Shares = append(listReceivedSharesResponse.Shares, goneShare)
+
+			gatewayClient.ExpectedCalls = nil
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponseDefault, nil)
+			gatewayClient.On("ListReceivedShares", mock.Anything, mock.Anything).Return(listReceivedSharesResponse, nil)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(func(_ context.Context, r *providerv1beta1.StatRequest, _ ...grpc.CallOption) (*providerv1beta1.StatResponse, error) {
+				if r.Ref.ResourceId == goneShare.Share.ResourceId {
+					return &providerv1beta1.StatResponse{Status: status.NewInternal(ctx, "node broken after sharer deletion")}, nil
+				}
+				return &providerv1beta1.StatResponse{
+					Status: status.NewOK(ctx),
+					Info: &providerv1beta1.ResourceInfo{
+						Id:   r.Ref.ResourceId,
+						Type: providerv1beta1.ResourceType_RESOURCE_TYPE_CONTAINER,
+					},
+				}, nil
+			})
+
+			svc.ListSharedWithMe(
+				tape,
+				httptest.NewRequest(http.MethodGet, "/graph/v1beta1/me/drive/sharedWithMe", nil),
+			)
+
+			driveItems := libregraph.CollectionOfDriveItems{}
+			err := json.Unmarshal(tape.Body.Bytes(), &driveItems)
+			Expect(err).To(BeNil())
+
+			// the dead share (resource gone) is dropped; only the healthy share remains
+			Expect(len(driveItems.Value)).To(Equal(1))
+
+			var remoteIDs []string
+			for _, di := range driveItems.GetValue() {
+				ri := di.GetRemoteItem()
+				remoteIDs = append(remoteIDs, ri.GetId())
+			}
+			Expect(remoteIDs).ToNot(ContainElement(storagespace.FormatResourceID(goneShare.Share.ResourceId)))
+		})
+
 		It("returns a single drive item when multiple shares exist for the same resource", func() {
 			anotherShare := &collaborationv1beta1.ReceivedShare{
 				Share: &collaborationv1beta1.Share{

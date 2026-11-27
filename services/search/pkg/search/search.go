@@ -22,7 +22,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
@@ -46,9 +45,23 @@ var ErrOptimizeUnsupported = errors.New("the search engine merges its index on i
 // ErrOptimizeInProgress is returned while another optimization of the index runs
 var ErrOptimizeInProgress = errors.New("the index is being optimized already")
 
+// IndexQuery is one search against the index.
+type IndexQuery struct {
+	Query    string
+	Ref      *searchmsg.Reference
+	PageSize int32
+}
+
+// IndexResult is what the engine answers: the matches of one space and how
+// many there are in total.
+type IndexResult struct {
+	Matches      []*searchmsg.Match
+	TotalMatches int32
+}
+
 // Engine is the interface to the search engine
 type Engine interface {
-	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
+	Search(ctx context.Context, req *IndexQuery) (*IndexResult, error)
 	DocCount() (uint64, error)
 	// Optimize merges the segments of the index, ErrOptimizeUnsupported if the
 	// engine merges on its own

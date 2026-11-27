@@ -11,7 +11,6 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -147,9 +146,9 @@ var _ = Describe("Backend", func() {
 		})
 
 		tagHits := func(tag string) int {
-			res, err := backend.Search(context.Background(), &searchService.SearchIndexRequest{Query: `tag:("` + tag + `")`})
+			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: `tag:("` + tag + `")`})
 			Expect(err).ToNot(HaveOccurred())
-			return len(res.GetMatches())
+			return len(res.Matches)
 		}
 
 		It("rewrites tags and favorites and keeps the extracted fields", func() {
