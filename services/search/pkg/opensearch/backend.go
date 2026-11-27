@@ -13,6 +13,7 @@ import (
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
@@ -139,6 +140,11 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		// count every match, the default stops at 10000
 		TrackTotalHits: true,
 		Size:           conversions.ToPointer(size),
+	}
+	// replicas may score a document differently, so a user reads every page
+	// from the same shard copies; a preference must not start with an underscore
+	if u, ok := revactx.ContextGetUser(ctx); ok && u.GetId().GetOpaqueId() != "" {
+		searchParams.Preference = "user-" + u.GetId().GetOpaqueId()
 	}
 
 	aggregationsBody, err := aggs.Build(sir.Aggregations)
