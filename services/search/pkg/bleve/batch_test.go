@@ -17,7 +17,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -126,7 +125,7 @@ var _ = Describe("Batch", func() {
 	Describe("Push", func() {
 		It("runs one batch at a time when several are pushed together", func() {
 			probe := &batchProbe{bleveIndex: idx}
-			eng := bleve.NewBackend(probe, bleveQuery.DefaultCreator, log.NopLogger())
+			eng := bleve.NewBackend(probe, log.NopLogger())
 
 			var wg sync.WaitGroup
 			for i := range 4 {

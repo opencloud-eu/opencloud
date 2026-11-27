@@ -98,7 +98,9 @@ var _ = Describe("Searchprovider", func() {
 		indexClient = &engineMocks.Engine{}
 		extractor = &contentMocks.Extractor{}
 
-		s = search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+		var err error
+		s, err = search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+		Expect(err).ToNot(HaveOccurred())
 
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{
 			Status: status.NewOK(ctx),
@@ -118,7 +120,8 @@ var _ = Describe("Searchprovider", func() {
 
 	Describe("New", func() {
 		It("returns a new instance", func() {
-			s := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+			s, err := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+			Expect(err).ToNot(HaveOccurred())
 			Expect(s).ToNot(BeNil())
 		})
 	})
@@ -402,7 +405,9 @@ var _ = Describe("Searchprovider", func() {
 					}
 					return nil
 				}}
-				s = search.NewService(gatewaySelector, indexClient, probing, nil, logger, &config.Config{})
+				var err error
+				s, err = search.NewService(gatewaySelector, indexClient, probing, nil, logger, &config.Config{})
+				Expect(err).ToNot(HaveOccurred())
 
 				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(MatchError(unreached))
 				Expect(attempts).To(Equal(map[string]int{"a.pdf": 1, "g.pdf": 1}))
@@ -427,7 +432,9 @@ var _ = Describe("Searchprovider", func() {
 					},
 					probe: func() error { return nil },
 				}
-				s = search.NewService(gatewaySelector, indexClient, probing, nil, logger, &config.Config{})
+				var err error
+				s, err = search.NewService(gatewaySelector, indexClient, probing, nil, logger, &config.Config{})
+				Expect(err).ToNot(HaveOccurred())
 
 				Expect(s.IndexSpace(&sprovider.StorageSpaceId{OpaqueId: "storageid$spaceid!spaceid"}, false)).To(MatchError(unreached))
 				Expect(attempts).To(HaveKeyWithValue("huge.pdf", 1))
@@ -668,19 +675,6 @@ var _ = Describe("Searchprovider", func() {
 		})
 	})
 
-	DescribeTable("ExpandQueryTemplate",
-		func(spaceType, expected string) {
-			space := &sprovider.StorageSpace{
-				SpaceType: spaceType,
-				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "spaceid"},
-			}
-			Expect(search.ExpandQueryTemplate(`({{.QUERY}}) AND NOT id:{{.SPACE_ROOT_PERSONAL}} AND NOT id:{{.SPACE_ROOT_PROJECT}}`, "foo", space)).To(Equal(expected))
-		},
-		Entry("a personal space fills the personal placeholder", "personal", `(foo) AND NOT id:"storageid$spaceid!spaceid" AND NOT id:"none$none!none"`),
-		Entry("a project space fills the project placeholder", "project", `(foo) AND NOT id:"none$none!none" AND NOT id:"storageid$spaceid!spaceid"`),
-		Entry("a share fills neither", "grant", `(foo) AND NOT id:"none$none!none" AND NOT id:"none$none!none"`),
-	)
-
 	DescribeTable("SanitizeHighlights",
 		func(highlights, expected string) {
 			Expect(search.SanitizeHighlights(highlights)).To(Equal(expected))
@@ -833,18 +827,19 @@ var _ = Describe("Searchprovider", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
-					return req.Query == "Size:<10"
+					return render(req.Query.Nodes) == render(parse("Size:<10").Nodes)
 				}))
 			})
 
 			It("adds the query filter with the personal space root filled in", func() {
-				s := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{
+				s, err := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{
 					QueryTemplate: `({{.QUERY}}) AND (NOT path:"./.space" AND NOT id:{{.SPACE_ROOT_PERSONAL}})`,
 				})
-				_, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
 				Expect(err).ToNot(HaveOccurred())
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
-					return req.Query == `(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`
+					return render(req.Query.Nodes) == render(parse(`(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`).Nodes)
 				}))
 			})
 
@@ -853,7 +848,8 @@ var _ = Describe("Searchprovider", func() {
 				failingClient.On("Search", mock.Anything, mock.Anything).Run(func(mock.Arguments) {
 					panic("unexpected")
 				}).Return(nil, nil)
-				s := search.NewService(gatewaySelector, failingClient, extractor, nil, logger, &config.Config{})
+				s, err := search.NewService(gatewaySelector, failingClient, extractor, nil, logger, &config.Config{})
+				Expect(err).ToNot(HaveOccurred())
 
 				res, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
 				Expect(err).ToNot(HaveOccurred())
@@ -1113,7 +1109,7 @@ var _ = Describe("Searchprovider", func() {
 				Expect(match.Entity.Ref.Path).To(Equal("./path/to/Foo.pdf"))
 
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
-					return req.Query == `(foo) AND NOT id:"storageid$personalspace!scopefolder"`
+					return render(req.Query.Nodes) == render(parse(`(foo) AND NOT id:"storageid$personalspace!scopefolder"`).Nodes)
 				}))
 			})
 		})
@@ -1382,59 +1378,6 @@ var _ = Describe("Searchprovider", func() {
 		})
 	})
 })
-
-var _ = DescribeTable("Parse Scope",
-	func(pattern, wantSearch, wantScope string) {
-		gotSearch, gotScope := search.ParseScope(pattern)
-		Expect(gotSearch).To(Equal(wantSearch))
-		Expect(gotScope).To(Equal(wantScope))
-	},
-	Entry("When scope is at the end of the line",
-		`+Name:*file* +Tags:&quot;foo&quot; scope:<uuid>/folder/subfolder`,
-		`+Name:*file* +Tags:&quot;foo&quot;`,
-		`<uuid>/folder/subfolder`,
-	),
-	Entry("When scope is at the end of the line 2",
-		`+Name:*file* +Tags:&quot;foo&quot; scope:<uuid>/folder`,
-		`+Name:*file* +Tags:&quot;foo&quot;`,
-		`<uuid>/folder`,
-	),
-	Entry("When scope is at the end of the line 3",
-		`file scope:<uuid>/folder/subfolder`,
-		`file`,
-		`<uuid>/folder/subfolder`,
-	),
-	Entry("When scope is at the end of the line with a space",
-		`+Name:*file* +Tags:&quot;foo&quot; scope: <uuid>/folder/subfolder`,
-		`+Name:*file* +Tags:&quot;foo&quot;`,
-		`<uuid>/folder/subfolder`,
-	),
-	Entry("When scope is in the middle of the line",
-		`+Name:*file* scope:<uuid>/folder/subfolder +Tags:&quot;foo&quot;`,
-		`+Name:*file*  +Tags:&quot;foo&quot;`,
-		`<uuid>/folder/subfolder`,
-	),
-	Entry("When scope is at the end of the line",
-		`scope:<uuid>/folder/subfolder +Name:*file*`,
-		`+Name:*file*`,
-		`<uuid>/folder/subfolder`,
-	),
-	Entry("When scope is at the begging of the line",
-		`scope:<uuid>/folder/subfolder file`,
-		`file`,
-		`<uuid>/folder/subfolder`,
-	),
-	Entry("When no scope",
-		`+Name:*file* +Tags:&quot;foo&quot;`,
-		`+Name:*file* +Tags:&quot;foo&quot;`,
-		``,
-	),
-	Entry("When scope is joined with AND, the operator goes with it",
-		`name:"*mediaTest*" AND mtime:last 30 days AND scope:1234$5678!90`,
-		`name:"*mediaTest*" AND mtime:last 30 days`,
-		`1234$5678!90`,
-	),
-)
 
 func ptr[T any](v T) *T {
 	return &v

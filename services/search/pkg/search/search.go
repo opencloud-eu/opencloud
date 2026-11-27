@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -14,13 +13,13 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/conversions"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -34,9 +33,6 @@ import (
 // colliding with the old one. No migration; reindex to populate.
 const SchemaVersion = 5
 
-// the scope clause is removed together with the boolean operator that joins it to the rest of the query.
-var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
-
 // ErrResourceNotFound is returned when the index holds no document with the requested id
 var ErrResourceNotFound = errors.New("resource not found")
 
@@ -47,9 +43,10 @@ var ErrOptimizeUnsupported = errors.New("the search engine merges its index on i
 // ErrOptimizeInProgress is returned while another optimization of the index runs
 var ErrOptimizeInProgress = errors.New("the index is being optimized already")
 
-// IndexQuery is one search against the index.
+// IndexQuery is one search against the index. The engine owns the query it
+// is given and may rewrite it while compiling.
 type IndexQuery struct {
-	Query              string
+	Query              *ast.Ast
 	Ref                *searchmsg.Reference
 	PageSize           *int32
 	Aggregations       []*searchsvc.AggregationOption
@@ -319,18 +316,27 @@ func CompleteRootID(v string) string {
 	return v
 }
 
+// ParseQuery parses a KQL query; what the parser rejects is a bad request.
+func ParseQuery(query string) (*ast.Ast, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, errtypes.BadRequest("empty query provided")
+	}
+
+	a, err := kql.Builder{}.Build(query)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
+	}
+
+	return a, nil
+}
+
 // PinnedRootID returns the single space root the query is pinned to via
 // top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
 // restrictions never pin: skipping a space would be wrong.
-func PinnedRootID(query string) string {
-	a, err := kql.Builder{}.Build(query)
-	if err != nil {
-		return ""
-	}
-	return pinnedRootID(a)
-}
-
-func pinnedRootID(a *ast.Ast) string {
+func PinnedRootID(a *ast.Ast) string {
 	pinned := ""
 	negated := false
 	for _, n := range a.Nodes {
@@ -369,14 +375,4 @@ func pinnedRootID(a *ast.Ast) string {
 		negated = false
 	}
 	return pinned
-}
-
-// ParseScope extract a scope value from the query string and returns search, scope strings
-func ParseScope(query string) (string, string) {
-	match := scopeRegex.FindStringSubmatch(query)
-	if len(match) >= 2 {
-		cut := match[0]
-		return strings.TrimSpace(strings.ReplaceAll(query, cut, "")), strings.TrimSpace(match[1])
-	}
-	return query, ""
 }
