@@ -128,6 +128,12 @@ The quotes only decide what the value is. Whether a character takes part in the 
 
 Empty turns it off. The service checks the template at startup.
 
+## Paging and counts
+
+Matches are ordered by score, matches of the same score by their id. Pages are therefore stable as long as the index does not change. Between two requests a write can change scores and shift offsets, so a match can show up on two pages or on none. On OpenSearch every search of a user goes to the same shard copies, because replicas may score a document differently.
+
+The total and the aggregation buckets count a resource once per way it reaches the user. A file in a folder that was shared twice with the user, or in a project space the user is a member of and also received a share from, is counted once per share or space and listed as often.
+
 ## Content analysis / Extraction
 
 The search service supports the following content extraction methods:
