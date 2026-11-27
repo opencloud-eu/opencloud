@@ -20,15 +20,15 @@ const currentMigrationVersion = "1"
 // RunMigrations checks the activitylog data version and runs migrations if necessary.
 // It should be called during service startup, after the NATS KeyValue store is initialized.
 func (a *ActivityLog) runMigrations(ctx context.Context, kv nats.KeyValue) error {
-	entry, err := kv.Get(ActivityLogVersionKey)
-	if err == nats.ErrKeyNotFound {
+	version, err := a.storedVersion(kv)
+	if err != nil {
+		return err
+	}
+	if version == "" {
 		a.log.Info().Msg("activitylog version key not found. Running migration to V1...")
 		return a.migrateToV1(ctx, kv)
-	} else if err != nil {
-		return fmt.Errorf("failed to get activitylog version from NATS KV store: %w", err)
 	}
 
-	version := string(entry.Value())
 	if version == currentMigrationVersion {
 		a.log.Debug().Str("currentVersion", version).Msg("No migration needed")
 		return nil
@@ -37,6 +37,28 @@ func (a *ActivityLog) runMigrations(ctx context.Context, kv nats.KeyValue) error
 	// If version is something else, it might indicate a future version or an unexpected state.
 	// Add logic here if more complex version handling is needed.
 	return fmt.Errorf("unexpected activitylog version: %s, expected %s or older", version, currentMigrationVersion)
+}
+
+// storedVersion returns the activitylog data version, or an empty string if none is stored.
+// The stream metadata is preferred, the version key of the KV store is the fallback.
+func (a *ActivityLog) storedVersion(kv nats.KeyValue) (string, error) {
+	if a.js != nil {
+		info, err := a.js.StreamInfo("KV_" + kv.Bucket())
+		if err != nil {
+			return "", fmt.Errorf("failed to get activitylog version from NATS stream info: %w", err)
+		}
+		if version := info.Config.Metadata[ActivityLogVersionMetadataKey]; version != "" {
+			return version, nil
+		}
+	}
+
+	entry, err := kv.Get(ActivityLogVersionKey)
+	if err == nats.ErrKeyNotFound {
+		return "", nil
+	} else if err != nil {
+		return "", fmt.Errorf("failed to get activitylog version from NATS KV store: %w", err)
+	}
+	return string(entry.Value()), nil
 }
 
 // migrateToV1 performs the data migration to version 1.

@@ -42,6 +42,7 @@ type ActivityLog struct {
 	debouncer     *Debouncer
 	parentIdCache *ttlcache.Cache
 	natskv        nats.KeyValue
+	js            nats.JetStreamContext
 
 	maxActivities int
 }
@@ -75,6 +76,7 @@ func New(kv nats.KeyValue, opts ...Option) (*ActivityLog, error) {
 		parentIdCache: cache,
 		maxActivities: o.MaxActivities,
 		natskv:        kv,
+		js:            o.JetStream,
 	}
 	s.debouncer = NewDebouncer(o.WriteBufferDuration, s.StoreActivity)
 

@@ -99,13 +99,14 @@ func Server(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
-			kv, err := ConnectNatsKV(cfg.Store, logger)
+			kv, js, err := ConnectNatsKV(cfg.Store, logger)
 			if err != nil {
 				return err
 			}
 			activityLog, err := activitylog.New(kv,
 				activitylog.Logger(logger),
 				activitylog.MaxActivities(cfg.MaxActivities),
+				activitylog.JetStream(js),
 				activitylog.WriteBufferDuration(cfg.WriteBufferDuration),
 			)
 			if err != nil {
@@ -226,7 +227,7 @@ func Server(cfg *config.Config) *cobra.Command {
 // minTTL is the smallest positive max age the NATS server accepts for a stream.
 const minTTL = 100 * time.Millisecond
 
-func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
+func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, nats.JetStreamContext, error) {
 	// NATS rejects negative and too small positive max ages, fall back to no expiry
 	if cfg.TTL < 0 || (cfg.TTL > 0 && cfg.TTL < minTTL) {
 		logger.Warn().
@@ -240,18 +241,18 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 	secureOption := natspkg.Secure(cfg.EnableTLS, cfg.TLSInsecure, cfg.TLSRootCACertificate)
 	conn, err := nats.Connect(strings.Join(cfg.Nodes, ","), secureOption, nats.UserInfo(cfg.AuthUsername, cfg.AuthPassword))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	js, err := conn.JetStream()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	kv, err := js.KeyValue(cfg.Database)
 	if err != nil {
 		if !errors.Is(err, nats.ErrBucketNotFound) {
-			return nil, errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Database)
+			return nil, nil, errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Database)
 		}
 
 		kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
@@ -259,9 +260,9 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 			TTL:    cfg.TTL,
 		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Database)
+			return nil, nil, errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Database)
 		}
-		return kv, nil
+		return kv, js, nil
 	}
 
 	// the bucket already exists, make sure its TTL matches the configured one
@@ -274,7 +275,7 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 			Str("stream", streamName).
 			Dur("ttl", cfg.TTL).
 			Msg("could not read stream info of the existing bucket, continuing with its current TTL")
-		return kv, nil
+		return kv, js, nil
 	}
 
 	// keep a copy of the version key in the stream metadata, applying a TTL can purge the key
@@ -292,7 +293,7 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 				Str("stream", streamName).
 				Dur("ttl", cfg.TTL).
 				Msg("could not read the version key of the existing bucket, continuing with its current settings")
-			return kv, nil
+			return kv, js, nil
 		}
 	}
 
@@ -319,5 +320,5 @@ func ConnectNatsKV(cfg config.Store, logger log.Logger) (nats.KeyValue, error) {
 		}
 	}
 
-	return kv, nil
+	return kv, js, nil
 }

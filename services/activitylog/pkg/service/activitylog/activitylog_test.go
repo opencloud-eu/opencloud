@@ -2,6 +2,7 @@ package activitylog_test
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"os"
 	"path/filepath"
@@ -74,7 +75,7 @@ var _ = Describe("ActivitylogService", func() {
 		var err error
 		db := "activitylog-test-" + uuid.New().String()
 
-		kv, err := command.ConnectNatsKV(config.Store{
+		kv, js, err := command.ConnectNatsKV(config.Store{
 			Nodes:    []string{server.Addr().String()},
 			Database: db,
 		}, log.NopLogger())
@@ -82,6 +83,7 @@ var _ = Describe("ActivitylogService", func() {
 
 		alog, err = activitylog.New(
 			kv,
+			activitylog.JetStream(js),
 			activitylog.MaxActivities(4),
 			activitylog.WriteBufferDuration(writebufferduration),
 		)
@@ -295,35 +297,35 @@ var _ = Describe("ConnectNatsKV", func() {
 	})
 
 	It("creates a new bucket without expiry by default", func() {
-		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(maxAge()).To(Equal(time.Duration(0)))
 	})
 
 	It("applies the TTL to a new bucket", func() {
 		cfg.TTL = time.Hour
-		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(maxAge()).To(Equal(time.Hour))
 	})
 
 	It("updates the TTL of an existing bucket", func() {
-		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(maxAge()).To(Equal(time.Duration(0)))
 
 		cfg.TTL = time.Hour
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(maxAge()).To(Equal(time.Hour))
 
 		cfg.TTL = time.Second
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(maxAge()).To(Equal(time.Second))
 
 		cfg.TTL = 0
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(maxAge()).To(Equal(time.Duration(0)))
 	})
@@ -333,7 +335,7 @@ var _ = Describe("ConnectNatsKV", func() {
 			db = "activitylog-ttl-test-" + uuid.New().String()
 			cfg.Database = db
 			cfg.TTL = ttl
-			_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+			_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(maxAge()).To(Equal(time.Duration(0)))
 		}
@@ -344,24 +346,24 @@ var _ = Describe("ConnectNatsKV", func() {
 			db = "activitylog-ttl-test-" + uuid.New().String()
 			cfg.Database = db
 			cfg.TTL = time.Hour
-			_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+			_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(maxAge()).To(Equal(time.Hour))
 
 			cfg.TTL = ttl
-			_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+			_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(maxAge()).To(Equal(time.Duration(0)))
 		}
 	})
 
 	It("copies the version key to the stream metadata of an existing bucket", func() {
-		kv, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		kv, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		_, err = kv.PutString(activitylog.ActivityLogVersionKey, "1")
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(metadata()).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
 		Expect(maxAge()).To(Equal(time.Duration(0)))
@@ -372,20 +374,20 @@ var _ = Describe("ConnectNatsKV", func() {
 	})
 
 	It("copies the version key to the stream metadata while applying a TTL", func() {
-		kv, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		kv, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		_, err = kv.PutString(activitylog.ActivityLogVersionKey, "1")
 		Expect(err).ToNot(HaveOccurred())
 
 		cfg.TTL = time.Hour
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(metadata()).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
 		Expect(maxAge()).To(Equal(time.Hour))
 	})
 
 	It("keeps the version stream metadata when the version key is missing", func() {
-		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		info, err := js.StreamInfo("KV_" + db)
 		Expect(err).ToNot(HaveOccurred())
@@ -395,19 +397,100 @@ var _ = Describe("ConnectNatsKV", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		cfg.TTL = time.Hour
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(metadata()).To(HaveKeyWithValue(activitylog.ActivityLogVersionMetadataKey, "1"))
 		Expect(maxAge()).To(Equal(time.Hour))
 	})
 
 	It("does not set the version stream metadata when there is no version", func() {
-		_, err := command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err := command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = command.ConnectNatsKV(cfg, log.NopLogger())
+		_, _, err = command.ConnectNatsKV(cfg, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(metadata()).ToNot(HaveKey(activitylog.ActivityLogVersionMetadataKey))
+	})
+})
+
+var _ = Describe("migrations", func() {
+	const legacyKey = "legacy-key"
+
+	var (
+		kv nats.KeyValue
+		js nats.JetStreamContext
+		db string
+	)
+
+	setStreamVersion := func(version string) {
+		info, err := js.StreamInfo("KV_" + db)
+		Expect(err).ToNot(HaveOccurred())
+		streamCfg := info.Config
+		streamCfg.Metadata = map[string]string{activitylog.ActivityLogVersionMetadataKey: version}
+		_, err = js.UpdateStream(&streamCfg)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	BeforeEach(func() {
+		var err error
+		db = "activitylog-migration-test-" + uuid.New().String()
+		kv, js, err = command.ConnectNatsKV(config.Store{
+			Nodes:    []string{server.Addr().String()},
+			Database: db,
+		}, log.NopLogger())
+		Expect(err).ToNot(HaveOccurred())
+
+		data, err := json.Marshal([]activitylog.RawActivity{{EventID: "activity", Depth: 0}})
+		Expect(err).ToNot(HaveOccurred())
+		envelope, err := json.Marshal(map[string]any{
+			"key":      "resource",
+			"data":     data,
+			"metadata": map[string]any{},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		_, err = kv.Put(legacyKey, envelope)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("does not migrate when the stream metadata has the current version", func() {
+		setStreamVersion("1")
+
+		_, err := activitylog.New(kv, activitylog.JetStream(js), activitylog.Logger(log.NopLogger()))
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = kv.Get(legacyKey)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = kv.Get(activitylog.ActivityLogVersionKey)
+		Expect(err).To(MatchError(nats.ErrKeyNotFound))
+	})
+
+	It("does not migrate when only the version key has the current version", func() {
+		_, err := kv.PutString(activitylog.ActivityLogVersionKey, "1")
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = activitylog.New(kv, activitylog.JetStream(js), activitylog.Logger(log.NopLogger()))
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = kv.Get(legacyKey)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("migrates when there is no version", func() {
+		_, err := activitylog.New(kv, activitylog.JetStream(js), activitylog.Logger(log.NopLogger()))
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = kv.Get(legacyKey)
+		Expect(err).To(MatchError(nats.ErrKeyNotFound))
+		entry, err := kv.Get(activitylog.ActivityLogVersionKey)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(entry.Value())).To(Equal("1"))
+	})
+
+	It("fails when the stream metadata has an unexpected version", func() {
+		setStreamVersion("2")
+
+		_, err := activitylog.New(kv, activitylog.JetStream(js), activitylog.Logger(log.NopLogger()))
+		Expect(err).To(MatchError(ContainSubstring("unexpected activitylog version")))
 	})
 })
 
