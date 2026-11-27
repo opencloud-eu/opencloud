@@ -243,7 +243,7 @@ Feature: previews of files downloaded through the webdav API
     And user "Alice" has uploaded file with content "ओनक्लाउड फाएल शेरिङ्ग एन्ड सिन्किङ" to "/lorem.txt"
     When user "Alice" downloads the preview of "/lorem.txt" with width "1024" and height "1024" using the WebDAV API
     Then the HTTP status code should be "200"
-    And the downloaded preview content should match with "unicode-fixture.jpg" fixtures preview content
+    And the downloaded preview content should match with "unicode-fixture.png" fixtures preview content
     Examples:
       | dav-path-version |
       | old              |
@@ -257,7 +257,7 @@ Feature: previews of files downloaded through the webdav API
     When user "Alice" downloads the preview of "/lorem.txt" with width "1024" and height "1024" and processor "thumbnail" using the WebDAV API
     Then the HTTP status code should be "200"
     And the downloaded image should be "1024" pixels wide and "1024" pixels high
-    And the downloaded preview content should match with "text-file-fixture.jpg" fixtures preview content
+    And the downloaded preview content should match with "text-file-fixture.png" fixtures preview content
     Examples:
       | dav-path-version |
       | old              |
