@@ -124,6 +124,25 @@ func CollaborationPublishNotificationPermission(c settingsmsg.Permission_Constra
 	}
 }
 
+// CreateExternalSharePermission is the permission to create shares to other instances (Multi-Instance only)
+func CreateExternalSharePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "5c03dc05-0bef-4b30-8ee6-e5a51713fd3a",
+		Name:        "ExternalShare.Write",
+		DisplayName: "Write external share",
+		Description: "This permission allows creating shares to users on other instances.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SHARE,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_WRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
 // CreatePublicLinkPermission is the permission to create public links
 func CreatePublicLinkPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{

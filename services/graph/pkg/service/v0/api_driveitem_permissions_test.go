@@ -161,7 +161,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		cache = identitycache.NewIdentityCache(identitycache.IdentityCacheWithGatewaySelector(gatewaySelector))
 
 		cfg = defaults.FullDefaultConfig()
-		service, err := svc.NewDriveItemPermissionsService(logger, gatewaySelector, cache, cfg, nil)
+		service, err := svc.NewDriveItemPermissionsService(logger, gatewaySelector, cache, cfg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		driveItemPermissionsService = service
 		ctx = revactx.ContextSetUser(context.Background(), currentUser)
@@ -191,7 +191,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 	// config of the current spec, so call it after the spec has adjusted them.
 	newLoggedService := func() (svc.DriveItemPermissionsService, *bytes.Buffer) {
 		logBuf := &bytes.Buffer{}
-		service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(logBuf)}, gatewaySelector, cache, cfg, nil)
+		service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(logBuf)}, gatewaySelector, cache, cfg, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		return service, logBuf
 	}
@@ -205,7 +205,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewaySelector.EXPECT().Next().Return(nil, gatewayErr)
 			var logBuf bytes.Buffer
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(call(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), service)).To(MatchError(gatewayErr))
@@ -293,7 +293,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 	It("does not mark the span of an expected client error as error, but records its error code", func() {
 		sr, tp := newSpanRecorder()
-		service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+		service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 		Expect(err).ToNot(HaveOccurred())
 		gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(
 			&provider.ListStorageSpacesResponse{Status: status.NewNotFound(ctx, "space Project Alpha not found")}, nil)
@@ -1033,7 +1033,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		DescribeTable("marks the Invite span by the cause of a failed identity lookup",
 			func(recipientType string, setup func(), wantStatus codes.Code, wantDescription string) {
 				sr, tp := newSpanRecorder()
-				service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+				service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 				Expect(err).ToNot(HaveOccurred())
 				setup()
 				invite := libregraph.DriveItemInvite{
@@ -1194,7 +1194,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				// SecureViewer is enabled in ci, we need to remove it in the unit test
 				return s != unifiedrole.UnifiedRoleSecureViewerID
 			})
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			driveItemInvite.Roles = []string{unifiedrole.UnifiedRoleViewerID, unifiedrole.UnifiedRoleSecureViewerID}
@@ -1205,7 +1205,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("rejects new user shares when they are disabled", func() {
 			cfg := defaults.FullDefaultConfig()
 			cfg.API.DisableNewUserShares = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
@@ -1291,7 +1291,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("still adds a user to a space when new user shares are disabled", func() {
 			cfg := defaults.FullDefaultConfig()
 			cfg.API.DisableNewUserShares = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			listSpacesResponse.StorageSpaces[0].SpaceType = "project"
@@ -1320,7 +1320,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("records a SpaceRootInvite span as the parent of the Invite span", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			listSpacesResponse.StorageSpaces[0].SpaceType = "project"
@@ -1709,7 +1709,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("records a ListPermissions span", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
@@ -1744,7 +1744,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
 
 			Expect(func() {
-				service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+				service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil, nil)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = service.ListPermissions(callerCtx, itemID, svc.ListPermissionsQueryOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1906,7 +1906,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 			cfg = defaults.FullDefaultConfig()
 			cfg.UnifiedRoles.AvailableRoles = []string{unifiedrole.UnifiedRoleViewerID, unifiedrole.UnifiedRoleDeniedID, unifiedrole.UnifiedRoleManagerID}
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil, nil)
 
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
 			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
@@ -2168,7 +2168,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("does not list the OCM shares when only allowedValues are selected", func() {
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
 			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil).Maybe()
@@ -2299,7 +2299,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("records the ListPermissions span as a child of the ListSpaceRootPermissions span", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			listSpacesResponse.StorageSpaces[0].SpaceType = "project"
@@ -2381,7 +2381,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(listPublicSharesResponse, nil)
 			var logBuf bytes.Buffer
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = service.GetPermission(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), driveItemId, "ccccccccccccccc")
@@ -2413,7 +2413,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewaySelector.EXPECT().Next().Return(nil, gatewayErr)
 			var logBuf bytes.Buffer
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = service.GetPermission(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), driveItemId, "permissionid")
@@ -2462,7 +2462,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("records a GetSpaceRootPermission span as the parent of the GetPermission span", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 			spaceRoot := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
@@ -2715,7 +2715,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			var logBuf bytes.Buffer
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			// the user share lookup fails in the share manager, the ocm fallback does not know the permission
@@ -2756,7 +2756,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("does not mark the span when no share lookup finds the permission", func() {
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			getPublicShareResponse.Status = status.NewNotFound(context.Background(), "")
@@ -2777,7 +2777,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("does not mark the span of a permission that is not found without the ocm fallback", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			getPublicShareResponse.Status = status.NewNotFound(context.Background(), "")
@@ -2797,7 +2797,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("does not mark the span when the ocm fallback succeeds after a share lookup failure", func() {
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			getPublicShareResponse.Status = status.NewNotFound(context.Background(), "")
@@ -2942,7 +2942,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 	Describe("DeleteSpaceRootPermission", func() {
 		It("records a DeleteSpaceRootPermission span as the parent of the DeletePermission span", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			spaceRoot := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
@@ -3293,7 +3293,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			var logBuf bytes.Buffer
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			// the permission is neither a public link nor a user share, but an ocm share
@@ -3345,7 +3345,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("does not mark the span when neither update attempt finds the share", func() {
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			getPublicShareMockResponse.Share = nil
@@ -3436,7 +3436,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			var logBuf bytes.Buffer
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.Logger{Logger: zerolog.New(&logBuf)}, gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			// the user share lookup fails in the share manager, the ocm fallback does not know the permission
@@ -3478,7 +3478,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("does not mark the span when neither permission lookup finds the permission", func() {
 			sr, tp := newSpanRecorder()
 			cfg.IncludeOCMSharees = true
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			getPublicShareMockResponse.Share = nil
@@ -3570,7 +3570,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("records an UpdateSpaceRootPermission span as the parent of the UpdatePermission span", func() {
 			sr, tp := newSpanRecorder()
-			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp)
+			service, err := svc.NewDriveItemPermissionsService(log.NewLogger(), gatewaySelector, cache, cfg, tp, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			spaceRoot := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
