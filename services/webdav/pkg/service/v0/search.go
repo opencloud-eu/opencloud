@@ -122,11 +122,11 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 	g.sendSearchResponse(davPrefix, rsp, w, r, user)
 }
 
-// searchRequestOf maps the search element of the report: limit -1 is no
-// limit, 0 the default, offset skips leading matches of the merged list.
+// searchRequestOf maps the search element of the report: limit 0 is the
+// default, offset skips leading matches of the merged list.
 func searchRequestOf(search reportSearchFilesSearch) (*searchsvc.SearchRequest, error) {
-	if search.Limit < -1 {
-		return nil, fmt.Errorf("limit must be -1, 0 or positive")
+	if search.Limit < 0 {
+		return nil, fmt.Errorf("limit must not be negative")
 	}
 	if search.Offset < 0 {
 		return nil, fmt.Errorf("offset must not be negative")

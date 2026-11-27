@@ -135,7 +135,7 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		TrackScores: conversions.ToPointer(true),
 		// count every match, the default stops at 10000
 		TrackTotalHits: true,
-		Size:           conversions.ToPointer(search.EnginePageSize(sir.PageSize, 1000)),
+		Size:           conversions.ToPointer(int(search.PageSizeOrDefault(sir.PageSize))),
 	}
 	// replicas may score a document differently, so a user reads every page
 	// from the same shard copies; a preference must not start with an underscore

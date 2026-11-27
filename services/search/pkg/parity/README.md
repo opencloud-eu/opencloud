@@ -426,7 +426,6 @@ Fixtures:
 | EVERYTHING-01 | `*` | alpha.txt, beta.txt, box | alpha.txt, beta.txt, box | alpha.txt, beta.txt, box | ✅ |
 | EVERYTHING-02 | `name:"*"` | alpha.txt, beta.txt, box | alpha.txt, beta.txt, box | alpha.txt, beta.txt, box | ✅ |
 | EVERYTHING-03 | `*` with a limit of 2 | 2 items | alpha.txt, beta.txt | alpha.txt, beta.txt | ✅ |
-| EVERYTHING-04 | `*` with a limit of -1 | 3 items | alpha.txt, beta.txt, box | alpha.txt, beta.txt, box | ✅ |
 
 ### range
 
