@@ -214,6 +214,10 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Nested aggregations computed within each bucket of this\naggregation."
+        },
+        "geohashDefinition": {
+          "$ref": "#/definitions/v0GeohashDefinition",
+          "description": "Optional. When set, this is a geohash grid aggregation over `field`,\nwhich must be a geopoint field. Buckets carry the geohash cell as key."
         }
       }
     },
@@ -465,6 +469,16 @@
         "longitude": {
           "type": "number",
           "format": "double"
+        }
+      }
+    },
+    "v0GeohashDefinition": {
+      "type": "object",
+      "properties": {
+        "precision": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Required. The geohash length of the cells, 1 to 12."
         }
       }
     },

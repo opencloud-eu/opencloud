@@ -114,10 +114,18 @@ message AggregationOption {
   // Optional. Nested aggregations computed within each bucket of this
   // aggregation.
   repeated AggregationOption sub_aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. When set, this is a geohash grid aggregation over `field`,
+  // which must be a geopoint field. Buckets carry the geohash cell as key.
+  GeohashDefinition geohash_definition = 6 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message MetricDefinition {
   MetricKind kind = 1;
+}
+
+message GeohashDefinition {
+  // Required. The geohash length of the cells, 1 to 12.
+  int32 precision = 1;
 }
 
 enum MetricKind {

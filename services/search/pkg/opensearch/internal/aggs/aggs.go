@@ -10,6 +10,7 @@ import (
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
 // Build renders the aggregation tree as native OpenSearch aggregations, each
@@ -48,6 +49,12 @@ func build(opt *searchsvc.AggregationOption) (map[string]any, error) {
 			return nil, err
 		}
 		entry = ranges
+	case aggregation.KindGeohash:
+		entry = map[string]any{"geohash_grid": map[string]any{
+			"field":     opt.GetField() + mapping.GeopointSuffix,
+			"precision": int(opt.GetGeohashDefinition().GetPrecision()),
+			"size":      aggregation.MaxBuckets,
+		}}
 	default:
 		entry = map[string]any{"terms": map[string]any{"field": opt.GetField(), "size": aggregation.MaxBuckets}}
 	}
