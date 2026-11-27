@@ -272,7 +272,7 @@ Fixtures:
 - `plain.txt`, ID = 1$1!plain.txt
 - `box`, ID = 1$1!box, folder
 - `boxed.txt`, ID = 1$1!boxed.txt, Path = ./box/boxed.txt
-- `song.mp3`, ID = 1$1!song.mp3, MimeType = audio/mpeg
+- `song.mp3`, ID = 1$1!song.mp3, MimeType = audio/mpeg, audio.duration = 200
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -828,7 +828,7 @@ Fixtures:
 
 Fixtures:
 
-- `some_song.mp3`, ID = 1$1!5, MimeType = audio/mpeg
+- `some_song.mp3`, ID = 1$1!5, MimeType = audio/mpeg, audio.duration = 225000, audio.year = 2004
 - `team.jpg`, ID = 1$1!6, MimeType = image/jpeg
 - `lost.jpg`, ID = 1$1!7, MimeType = image/jpeg
 
@@ -845,17 +845,17 @@ Fixtures:
 
 Fixtures:
 
-- `a.mp3`, MimeType = audio/mpeg, Tags = live, remaster
-- `b.mp3`, MimeType = audio/mpeg, Tags = live
-- `c.mp3`, MimeType = audio/mpeg
-- `d.mp3`, MimeType = audio/mpeg
-- `e.mp3`, MimeType = audio/mpeg
-- `f.mp3`, MimeType = audio/mpeg
-- `g.mp3`, MimeType = audio/mpeg
-- `a.jpg`, MimeType = image/jpeg
-- `b.jpg`, MimeType = image/jpeg
-- `c.jpg`, MimeType = image/jpeg
-- `d.jpg`, MimeType = image/jpeg
+- `a.mp3`, MimeType = audio/mpeg, Tags = live, remaster, audio.year = 1971
+- `b.mp3`, MimeType = audio/mpeg, Tags = live, audio.year = 1975
+- `c.mp3`, MimeType = audio/mpeg, audio.year = 1982
+- `d.mp3`, MimeType = audio/mpeg, audio.year = 1999
+- `e.mp3`, MimeType = audio/mpeg, audio.year = 2001
+- `f.mp3`, MimeType = audio/mpeg, audio.year = 2005
+- `g.mp3`, MimeType = audio/mpeg, audio.year = 2009
+- `a.jpg`, MimeType = image/jpeg, photo.takenDateTime = 2018-08-11T09:15:00Z
+- `b.jpg`, MimeType = image/jpeg, photo.takenDateTime = 2018-08-11T19:42:00Z
+- `c.jpg`, MimeType = image/jpeg, photo.takenDateTime = 2018-09-01T12:00:00Z
+- `d.jpg`, MimeType = image/jpeg, photo.takenDateTime = 2021-08-11T08:00:00Z
 - `live.txt`
 
 | Case | Query | expected | bleve | OpenSearch | same? |
@@ -905,16 +905,16 @@ Fixtures:
 
 Fixtures:
 
-- `card-00000.mp3`, MimeType = audio/mpeg
-- `card-00001.mp3`, MimeType = audio/mpeg
-- `card-00002.mp3`, MimeType = audio/mpeg
-- `card-00003.mp3`, MimeType = audio/mpeg
-- `card-00004.mp3`, MimeType = audio/mpeg
-- `card-00005.mp3`, MimeType = audio/mpeg
-- `card-00006.mp3`, MimeType = audio/mpeg
-- `card-00007.mp3`, MimeType = audio/mpeg
-- `card-00008.mp3`, MimeType = audio/mpeg
-- `card-00009.mp3`, MimeType = audio/mpeg
+- `card-00000.mp3`, MimeType = audio/mpeg, audio.year = 1950
+- `card-00001.mp3`, MimeType = audio/mpeg, audio.year = 1951
+- `card-00002.mp3`, MimeType = audio/mpeg, audio.year = 1952
+- `card-00003.mp3`, MimeType = audio/mpeg, audio.year = 1953
+- `card-00004.mp3`, MimeType = audio/mpeg, audio.year = 1954
+- `card-00005.mp3`, MimeType = audio/mpeg, audio.year = 1955
+- `card-00006.mp3`, MimeType = audio/mpeg, audio.year = 1956
+- `card-00007.mp3`, MimeType = audio/mpeg, audio.year = 1957
+- `card-00008.mp3`, MimeType = audio/mpeg, audio.year = 1958
+- `card-00009.mp3`, MimeType = audio/mpeg, audio.year = 1959
 - ... and 10040 more of the same
 
 | Case | Query | expected | bleve | OpenSearch | same? |
@@ -923,3 +923,34 @@ Fixtures:
 | AGG-42 | `mediatype:audio` reads `the total counts every match` | 1 of 10050 matches | 1 of 10050 matches | 1 of 10050 matches | ✅ |
 | AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches` | 10001 of 10050 matches | 10001 of 10050 matches | bad request | ❌ known |
 | AGG-44 | `mediatype:audio` reads `more than 65535 buckets in one request are refused` | bad request | bad request | bad request | ✅ |
+
+## Sorting
+
+### sorting
+
+Fixtures:
+
+- `b.mp3`, MimeType = audio/mpeg, Size = 300, Mtime = 2024-03-01T00:00:00Z, audio.duration = 200000, audio.year = 1999
+- `a.mp3`, MimeType = audio/mpeg, Size = 100, Mtime = 2024-01-01T00:00:00Z, audio.duration = 300000, audio.year = 2005
+- `C.mp3`, MimeType = audio/mpeg, Size = 200, Mtime = 2024-02-01T00:00:00Z, audio.duration = 100000, audio.year = 1999
+- `d.mp3`, MimeType = audio/mpeg, Size = 200, Mtime = 2024-04-01T00:00:00Z
+- `x.jpg`, MimeType = image/jpeg, photo.takenDateTime = 2020-06-01T12:00:00Z
+- `y.jpg`, MimeType = image/jpeg, photo.takenDateTime = 2010-06-01T12:00:00Z
+- `z.jpg`, MimeType = image/jpeg
+- `apple.txt`
+- `Zebra.txt`
+- `Übung.txt`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| SORT-01 | `mediatype:audio` reads `by size, a tie in the order of the ids` | a.mp3, C.mp3, d.mp3, b.mp3 | a.mp3, C.mp3, d.mp3, b.mp3 | a.mp3, C.mp3, d.mp3, b.mp3 | ✅ |
+| SORT-02 | `mediatype:audio` reads `by size descending, a tie still in the order of the ids` | b.mp3, C.mp3, d.mp3, a.mp3 | b.mp3, C.mp3, d.mp3, a.mp3 | b.mp3, C.mp3, d.mp3, a.mp3 | ✅ |
+| SORT-03 | `mediatype:audio` reads `newest first` | d.mp3, b.mp3, C.mp3, a.mp3 | d.mp3, b.mp3, C.mp3, a.mp3 | d.mp3, b.mp3, C.mp3, a.mp3 | ✅ |
+| SORT-04 | `mediatype:audio` reads `shortest track first, a file without a duration last` | C.mp3, b.mp3, a.mp3, d.mp3 | C.mp3, b.mp3, a.mp3, d.mp3 | C.mp3, b.mp3, a.mp3, d.mp3 | ✅ |
+| SORT-05 | `mediatype:audio` reads `longest track first, a file without a duration still last` | a.mp3, b.mp3, C.mp3, d.mp3 | a.mp3, b.mp3, C.mp3, d.mp3 | a.mp3, b.mp3, C.mp3, d.mp3 | ✅ |
+| SORT-06 | `mediatype:audio` reads `by year, within a year the longest track first` | b.mp3, C.mp3, a.mp3, d.mp3 | b.mp3, C.mp3, a.mp3, d.mp3 | b.mp3, C.mp3, a.mp3, d.mp3 | ✅ |
+| SORT-07 | `name:"*.txt"` reads `by name in code point order: upper case before lower case, an umlaut after z` | Zebra.txt, apple.txt, Übung.txt | Zebra.txt, apple.txt, Übung.txt | Zebra.txt, apple.txt, Übung.txt | ✅ |
+| SORT-08 | `mediatype:image` reads `latest photo first, a file without a date last` | x.jpg, y.jpg, z.jpg | x.jpg, y.jpg, z.jpg | x.jpg, y.jpg, z.jpg | ✅ |
+| SORT-09 | `mediatype:image` reads `earliest photo first, a file without a date still last` | y.jpg, x.jpg, z.jpg | y.jpg, x.jpg, z.jpg | y.jpg, x.jpg, z.jpg | ✅ |
+| SORT-10 | `mediatype:audio` reads `a field with several values is not sortable` | bad request | bad request | bad request | ✅ |
+| SORT-11 | `mediatype:audio` reads `an unknown field is not sortable` | bad request | bad request | bad request | ✅ |
