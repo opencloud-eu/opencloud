@@ -3434,10 +3434,10 @@ Feature: resources shared by user
                       "const": "project"
                     },
                     "path": {
-                      "const": "."
+                      "const": "/"
                     },
                     "name": {
-                      "const": "."
+                      "const": "/"
                     },
                     "id": {
                       "type": "string",
