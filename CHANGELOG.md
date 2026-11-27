@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- feat(graph): return the creator of a public link [[#4149](https://github.com/opencloud-eu/opencloud/pull/4149)]
 - refactor(config): extract BindSourcesToStructs into pkg/config/binder [[#3270](https://github.com/opencloud-eu/opencloud/pull/3270)]
 - feat(search): add a command to optimize the search index [[#4136](https://github.com/opencloud-eu/opencloud/pull/4136)]
 - [full-ci] feat: new audit log [[#3864](https://github.com/opencloud-eu/opencloud/pull/3864)]
