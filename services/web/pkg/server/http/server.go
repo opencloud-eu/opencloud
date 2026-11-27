@@ -61,8 +61,22 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, err
 	}
 
+	// the asset directories on disk are confined with os.Root: no symlink leads out of them
+	appsDirFS, err := fsx.NewRootFs(options.Config.Asset.AppsPath, options.Logger)
+	if err != nil {
+		return http.Service{}, fmt.Errorf("could not open the apps asset directory: %w", err)
+	}
+	coreDirFS, err := fsx.NewRootFs(options.Config.Asset.CorePath, options.Logger)
+	if err != nil {
+		return http.Service{}, fmt.Errorf("could not open the core asset directory: %w", err)
+	}
+	themesDirFS, err := fsx.NewRootFs(options.Config.Asset.ThemesPath, options.Logger)
+	if err != nil {
+		return http.Service{}, fmt.Errorf("could not open the themes asset directory: %w", err)
+	}
+
 	appsFS := fsx.NewFallbackFS(
-		fsx.NewReadOnlyFs(fsx.NewBasePathFs(fsx.NewOsFs(), options.Config.Asset.AppsPath)),
+		fsx.NewReadOnlyFs(appsDirFS),
 		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/apps"),
 	)
 	// build and inject the list of applications into the config
@@ -74,11 +88,11 @@ func Server(opts ...Option) (http.Service, error) {
 	}
 
 	coreFS := fsx.NewFallbackFS(
-		fsx.NewBasePathFs(fsx.NewOsFs(), options.Config.Asset.CorePath),
+		coreDirFS,
 		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/core"),
 	)
 	themeFS := fsx.NewFallbackFS(
-		fsx.NewBasePathFs(fsx.NewOsFs(), options.Config.Asset.ThemesPath),
+		themesDirFS,
 		fsx.NewBasePathFs(fsx.FromIOFS(web.Assets), "assets/themes"),
 	)
 

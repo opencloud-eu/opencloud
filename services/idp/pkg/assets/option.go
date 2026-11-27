@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -10,17 +11,21 @@ import (
 )
 
 // New returns a new http filesystem to serve assets.
-func New(opts ...Option) http.FileSystem {
+func New(opts ...Option) (http.FileSystem, error) {
 	options := newOptions(opts...)
 
 	var assetFS fsx.FS = fsx.NewBasePathFs(fsx.FromIOFS(idp.Assets), "assets")
 
-	// only use a fsx.NewFallbackFS and fsx.OsFs if a path is set, use the embedded fs only otherwise
+	// only use a fsx.NewFallbackFS and a directory on disk if a path is set, use the embedded fs only otherwise
 	if options.Config.Asset.Path != "" {
-		assetFS = fsx.NewFallbackFS(fsx.NewBasePathFs(fsx.NewOsFs(), options.Config.Asset.Path), assetFS)
+		dirFS, err := fsx.NewRootFs(options.Config.Asset.Path, options.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("could not open the asset directory: %w", err)
+		}
+		assetFS = fsx.NewFallbackFS(dirFS, assetFS)
 	}
 
-	return http.FS(assetFS.IOFS())
+	return http.FS(assetFS.IOFS()), nil
 }
 
 // Option defines a single option function.
