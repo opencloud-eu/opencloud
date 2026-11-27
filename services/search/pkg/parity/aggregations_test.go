@@ -95,7 +95,7 @@ func aggregationFixtures() []search.Resource {
 		photo("c.jpg", "2018-09-01T12:00:00Z"),
 		photo("d.jpg", "2021-08-11T08:00:00Z"),
 		// no audio mime type: stays out of the mediatype:audio cases
-		fixtureDoc("live.txt", withAudio(&libregraph.Audio{Artist: libregraph.PtrString(`Wh*t? "Live"`)})),
+		fixtureDoc("live.txt", withAudio(&libregraph.Audio{Artist: libregraph.PtrString(`Wh*t? "Live"`)}), withTags("Apple", "apple", "Banana")),
 	}
 }
 
@@ -271,6 +271,9 @@ func aggregationCases() []aggCase {
 			filters: []*searchService.AggregationFilter{terms("audio.artist", "Saxon")},
 			aggs:    []*searchService.AggregationOption{{Field: "audio.artist"}},
 			want:    []string{"a.mp3", "b.mp3", "audio.artist Saxon=2"}},
+		{id: 49, query: "name:live.txt", reads: "tags keep their case, Apple and apple are two buckets",
+			aggs: []*searchService.AggregationOption{{Field: "Tags"}},
+			want: []string{"Tags Apple=1", "Tags Banana=1", "Tags apple=1"}},
 		{id: 23, query: "mediatype:audio", reads: "filtered to saxon, a bucket key matches case-sensitively",
 			filters: []*searchService.AggregationFilter{terms("audio.artist", "saxon")}},
 		{id: 46, query: "mediatype:audio", reads: "filtered to a fractional key on a whole-number field, no match and no error",
