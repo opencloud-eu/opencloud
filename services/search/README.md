@@ -170,6 +170,8 @@ Additionally, the following optional settings can be set:
 *   `SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS=true` (default: `true`): ignore stop words like `I`, `you`, `the` during content extraction.
 *   `SEARCH_CONTENT_EXTRACTION_SIZE_LIMIT=20971520` (default: 20 MiB): files up to this size get their content extracted. Of a larger file only the metadata is extracted, such as EXIF or the image size, from its first bytes up to this size.
 *   `SEARCH_EXTRACTOR_TIKA_TIMEOUT=5m` (default: `5m`): the time one extraction may take, from downloading the file to the answer of Tika. A longer one counts as a failure of the file, see below. Raise it if OCR of large files takes longer, `0` disables the limit.
+*   `SEARCH_CONTENT_EXTRACTION_SIZE_LIMIT=20971520` (default: 20 MiB): files larger than this are not sent to Tika and are indexed by name only.
+*   `SEARCH_CONTENT_EXTRACTION_TEXT_LIMIT=16777216` (default: 16 MiB): only the first this many bytes of the text Tika extracts from a file are indexed, the rest is not searchable. Indexing needs many times the size of the text in memory, and a file Tika takes for text when it is not, such as an unknown binary format, can turn into far more text than the file size suggests. `0` indexes all of it.
 
 #### Files Tika Cannot Parse
 

@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -35,6 +37,7 @@ type Tika struct {
 	tika                       *tika.Client
 	tikaURL                    string
 	ContentExtractionSizeLimit uint64
+	ContentExtractionTextLimit uint64
 	CleanStopWords             bool
 	Timeout                    time.Duration
 }
@@ -59,6 +62,7 @@ func NewTikaExtractor(gatewaySelector pool.Selectable[gateway.GatewayAPIClient],
 		tika:                       tika.NewClient(nil, cfg.Extractor.Tika.TikaURL),
 		tikaURL:                    cfg.Extractor.Tika.TikaURL,
 		ContentExtractionSizeLimit: cfg.ContentExtractionSizeLimit,
+		ContentExtractionTextLimit: cfg.ContentExtractionTextLimit,
 		CleanStopWords:             cfg.Extractor.Tika.CleanStopWords,
 		Timeout:                    cfg.Extractor.Tika.Timeout,
 	}, nil
@@ -145,6 +149,14 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		}
 	}
 
+	// the file size limit does not bound the text, tika can turn a few
+	// megabytes of binary it takes for text into many more, and indexing costs
+	// a multiple of the text in memory
+	if limit := t.ContentExtractionTextLimit; limit > 0 && uint64(len(doc.Content)) > limit {
+		t.logger.Info().Interface("ResourceID", ri.GetId()).Str("Name", ri.GetName()).Int("textSize", len(doc.Content)).Uint64("limit", limit).Msg("extracted text exceeds the text limit. indexing only the beginning.")
+		doc.Content = truncateText(doc.Content, int(limit))
+	}
+
 	t.addFacets(&doc, metas)
 
 	if langCode := t.detectLanguage(attemptCtx, doc.Content); langCode != "" && t.CleanStopWords {
@@ -228,4 +240,26 @@ func (t Tika) detectLanguage(ctx context.Context, content string) string {
 		}
 	}
 	return ""
+}
+
+// truncateText cuts s to at most n bytes without splitting a character, and
+// before the last word if that starts close to the cut
+func truncateText(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	next, _ := utf8.DecodeRuneInString(s[n:])
+	s = s[:n]
+	if unicode.IsSpace(next) {
+		return strings.TrimRightFunc(s, unicode.IsSpace)
+	}
+	// a longer stretch without a space is no word worth keeping whole
+	const maxWordBytes = 100
+	if i := strings.LastIndexFunc(s, unicode.IsSpace); i >= 0 && len(s)-i <= maxWordBytes {
+		s = s[:i]
+	}
+	return strings.TrimRightFunc(s, unicode.IsSpace)
 }

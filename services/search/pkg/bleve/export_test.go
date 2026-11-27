@@ -3,6 +3,11 @@
 
 package bleve
 
+import (
+	"maps"
+	"slices"
+)
+
 // SetMaxBytes lowers the data limit of b, so tests don't need megabytes of content
 func SetMaxBytes(b *Batch, n uint64) {
 	b.maxBytes = n
@@ -12,4 +17,10 @@ func SetMaxBytes(b *Batch, n uint64) {
 func LockOptimize(b *Backend) func() {
 	b.optimizeMu.Lock()
 	return b.optimizeMu.Unlock
+}
+
+// SegmentBufferVersions lists the zap versions whose segment buffer estimate is
+// turned off
+func SegmentBufferVersions() []uint32 {
+	return slices.Collect(maps.Keys(segmentBufferFactors))
 }

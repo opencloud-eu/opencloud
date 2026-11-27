@@ -13,6 +13,13 @@ require (
 	github.com/bbalet/stopwords v1.0.0
 	github.com/beevik/etree v1.8.1
 	github.com/blevesearch/bleve/v2 v2.6.1
+	github.com/blevesearch/zapx/v11 v11.4.3
+	github.com/blevesearch/zapx/v12 v12.4.3
+	github.com/blevesearch/zapx/v13 v13.4.3
+	github.com/blevesearch/zapx/v14 v14.4.3
+	github.com/blevesearch/zapx/v15 v15.4.3
+	github.com/blevesearch/zapx/v16 v16.3.4
+	github.com/blevesearch/zapx/v17 v17.2.3
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/cs3org/go-cs3apis v0.0.0-20260424072047-8d9ef7076ae9
@@ -160,13 +167,6 @@ require (
 	github.com/blevesearch/snowballstem v0.9.0 // indirect
 	github.com/blevesearch/upsidedown_store_api v1.0.2 // indirect
 	github.com/blevesearch/vellum v1.2.0 // indirect
-	github.com/blevesearch/zapx/v11 v11.4.3 // indirect
-	github.com/blevesearch/zapx/v12 v12.4.3 // indirect
-	github.com/blevesearch/zapx/v13 v13.4.3 // indirect
-	github.com/blevesearch/zapx/v14 v14.4.3 // indirect
-	github.com/blevesearch/zapx/v15 v15.4.3 // indirect
-	github.com/blevesearch/zapx/v16 v16.3.4 // indirect
-	github.com/blevesearch/zapx/v17 v17.2.3 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/bombsimon/logrusr/v3 v3.1.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect

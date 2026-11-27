@@ -420,5 +420,26 @@ var _ = Describe("Tika", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(doc.Content).To(Equal(body))
 		})
+
+		DescribeTable("cuts the extracted text at the text limit",
+			func(response string, limit uint64, want string) {
+				fullResponse = response
+				tika.ContentExtractionTextLimit = limit
+
+				doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+					Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+					Size: 1,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(doc.Content).To(Equal(want))
+			},
+			Entry("text within the limit", `[{"tk:content": "one two"}]`, uint64(7), "one two"),
+			Entry("no limit", `[{"tk:content": "one two"}]`, uint64(0), "one two"),
+			Entry("before the cut word", `[{"tk:content": "one two three"}]`, uint64(10), "one two"),
+			Entry("at a space", `[{"tk:content": "one two three"}]`, uint64(7), "one two"),
+			Entry("the joined text of all meta entries", `[{"tk:content": "one two"}, {"tk:content": "three"}]`, uint64(9), "one two"),
+			Entry("without splitting a character", `[{"tk:content": "grüße"}]`, uint64(3), "gr"),
+			Entry("a long stretch without a space", `[{"tk:content": "a `+strings.Repeat("x", 200)+`"}]`, uint64(150), "a "+strings.Repeat("x", 148)),
+		)
 	})
 })
