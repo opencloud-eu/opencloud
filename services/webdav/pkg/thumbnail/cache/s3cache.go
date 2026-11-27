@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"mime"
 	"net/http"
-	"path/filepath"
 	"sync"
 
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // S3CacheConfig holds the configuration for an S3 cache backend.
@@ -30,6 +30,7 @@ func (c S3CacheConfig) IsComplete() bool {
 // s3Object is the subset of minio.Object used by S3Cache.
 type s3Object interface {
 	io.ReadCloser
+	Stat() (minio.ObjectInfo, error)
 }
 
 // s3Client is the subset of minio.Client used by S3Cache.
@@ -85,7 +86,7 @@ func (c *S3Cache) initClient() error {
 	return c.initErr
 }
 
-func (c *S3Cache) Get(key string) ([]byte, error) {
+func (c *S3Cache) Get(key string) (*thumbnail.Image, error) {
 	if err := c.initClient(); err != nil {
 		return nil, err
 	}
@@ -96,12 +97,21 @@ func (c *S3Cache) Get(key string) ([]byte, error) {
 	}
 	defer obj.Close()
 
+	info, err := obj.Stat()
+	if err != nil {
+		return nil, asCacheError(err)
+	}
+
 	data, err := io.ReadAll(obj)
 	if err != nil {
 		return nil, asCacheError(err)
 	}
 
-	return data, nil
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	return &thumbnail.Image{ContentType: info.ContentType, Data: data}, nil
 }
 
 // asCacheError reports a missing object as a cache miss. minio's GetObject only
@@ -121,15 +131,15 @@ func asCacheError(err error) error {
 	return err
 }
 
-func (c *S3Cache) Put(key string, data []byte) error {
+func (c *S3Cache) Put(key string, img *thumbnail.Image) error {
 	if err := c.initClient(); err != nil {
 		return err
 	}
 
-	ext := filepath.Ext(key)
-	contentType := mime.TypeByExtension(ext)
-	if contentType == "" {
-		contentType = "application/octet-stream"
+	var data []byte
+	var contentType string
+	if img != nil {
+		data, contentType = img.Data, img.ContentType
 	}
 
 	_, err := c.client.PutObject(

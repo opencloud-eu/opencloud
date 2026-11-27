@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // maxTikaResponse bounds what is read back from Tika
@@ -29,7 +31,7 @@ func (TikaThumbnail) Name() string { return "tika" }
 
 // Convert hands the thumbnail on undecoded: the generator reads formats webdav
 // cannot, an .ico icon group out of a PE binary for one.
-func (t TikaThumbnail) Convert(r io.Reader) (*Image, error) {
+func (t TikaThumbnail) Convert(r io.Reader) (*thumbnail.Image, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -40,7 +42,7 @@ func (t TikaThumbnail) Convert(r io.Reader) (*Image, error) {
 		return nil, err
 	}
 
-	return &Image{ContentType: contentType, Data: img}, nil
+	return &thumbnail.Image{ContentType: contentType, Data: img}, nil
 }
 
 // tikaThumbnail returns the thumbnail Tika found in the document and its

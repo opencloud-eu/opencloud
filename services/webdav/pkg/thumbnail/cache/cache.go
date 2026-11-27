@@ -8,6 +8,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 var ErrCacheMiss = errors.New("thumbnail cache miss")
@@ -20,10 +21,11 @@ func DefaultFileCacheDir() string {
 	return filepath.Join(defaults.BaseDataPath(), "thumbnails", "cache")
 }
 
-// ThumbnailCache provides cached storage for generated thumbnails.
+// ThumbnailCache provides cached storage for generated thumbnails. A nil image
+// records that a file has none.
 type ThumbnailCache interface {
-	Get(key string) ([]byte, error)
-	Put(key string, data []byte) error
+	Get(key string) (*thumbnail.Image, error)
+	Put(key string, img *thumbnail.Image) error
 }
 
 // NewThumbnailCache creates a cache instance based on the configured backend. A

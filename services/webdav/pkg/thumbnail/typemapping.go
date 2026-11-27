@@ -6,13 +6,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
 )
 
-// DefaultTypeMapping answers for every type in DefaultSourceTypes, so the
-// type a thumbnail is returned in can be read off here instead of being
-// guessed from a file name. Types that carry alpha or animation keep their own
-// format, everything else becomes a JPEG. An icon is the one type no generator
-// writes back: it has to become a PNG, or JPEG would flatten its transparent
-// pixels onto black. A windows binary is in the list for the same reason,
-// although it is no image type itself: what Tika extracts from it is its icon.
+// DefaultTypeMapping maps the type of the image a thumbnail is made from, not
+// the file's. Icons become PNG: no generator writes icons, and JPEG would
+// flatten their transparency.
 var DefaultTypeMapping = []string{
 	"image/png:image/png",
 	"image/gif:image/gif",
@@ -24,13 +20,6 @@ var DefaultTypeMapping = []string{
 	"image/tiff:image/jpeg",
 	"image/vnd.microsoft.icon:image/png",
 	"image/x-icon:image/png",
-	"application/x-msdownload:image/png",
-	"text/plain:image/jpeg",
-	"audio/flac:image/jpeg",
-	"audio/mpeg:image/jpeg",
-	"audio/ogg:image/jpeg",
-	"application/vnd.geogebra.slides:image/jpeg",
-	"application/vnd.geogebra.pinboard:image/jpeg",
 }
 
 // TypeMapping says which type a thumbnail of an image is returned in, for the
