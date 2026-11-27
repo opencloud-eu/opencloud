@@ -30,7 +30,6 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\GraphHelper;
-use TestHelpers\OcHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\WaitHelper;
 use Behat\Step\Given;
@@ -249,8 +248,7 @@ class SpacesContext implements Context {
 			$this->featureContext->getStepLineRef(),
 			$user,
 			$this->featureContext->getPasswordForUser($user),
-			$this->featureContext->getAttributeOfCreatedUser($user, 'id'),
-			$this->featureContext->getStepLineRef()
+			$this->featureContext->getAttributeOfCreatedUser($user, 'id')
 		);
 
 		$space = json_decode($resource->getBody()->getContents(), true);
