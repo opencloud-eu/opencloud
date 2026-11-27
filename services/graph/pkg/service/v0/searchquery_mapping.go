@@ -202,12 +202,19 @@ func searchEntityToDriveItem(e *searchmsg.Entity, uid string) *libregraph.DriveI
 	if p := e.GetParentId(); p != nil {
 		ref := libregraph.NewItemReference()
 		ref.SetDriveId(storagespace.FormatStorageID(p.GetStorageId(), p.GetSpaceId()))
+		refPath := e.GetRef().GetPath()
 		// the path of a hit in a share is relative to the mountpoint, so that is the drive
-		if mountpoint := e.GetRef().GetResourceId(); mountpoint != nil && e.GetRemoteItemId() != nil {
+		mountpoint := e.GetRef().GetResourceId()
+		inShare := mountpoint != nil && e.GetRemoteItemId() != nil
+		if inShare {
 			ref.SetDriveId(searchResourceID(mountpoint))
 		}
-		ref.SetId(searchResourceID(p))
-		if refPath := e.GetRef().GetPath(); refPath != "" {
+		// the share root is the root of that drive and has no parent in it
+		isShareRoot := inShare && path.Join("/", refPath) == "/"
+		if !isShareRoot {
+			ref.SetId(searchResourceID(p))
+		}
+		if refPath != "" && !isShareRoot {
 			// the index keeps paths relative to the space root (./dir/file)
 			parent := path.Dir(path.Join("/", refPath))
 			ref.SetPath(parent)

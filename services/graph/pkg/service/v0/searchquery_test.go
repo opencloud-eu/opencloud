@@ -254,6 +254,24 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(parent.Path).To(Equal("/2026"))
 	})
 
+	ginkgo.It("gives the share root itself no parent in the drive of the mountpoint", func() {
+		g, _ := graphWithSearchAnswer(oneMatch(&searchmsg.Entity{
+			Id:           &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "5"},
+			ParentId:     &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "4"},
+			Ref:          &searchmsg.Reference{ResourceId: &searchmsg.ResourceID{StorageId: "jail", SpaceId: "jail", OpaqueId: "share"}, Path: "."},
+			RemoteItemId: &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "5"},
+			Name:         "Project X",
+		}))
+		rr := postSearchQuery(g, searchQueryBody(`"from": 0`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		parent := hitsContainer(rr).Hits[0].Resource.ParentReference
+		Expect(parent.DriveId).To(Equal("jail$jail!share"))
+		Expect(parent.Id).To(BeEmpty())
+		Expect(parent.Path).To(BeEmpty())
+		Expect(parent.Name).To(BeNil())
+	})
+
 	ginkgo.DescribeTable("validatePagination enforces the spec's from/size bounds",
 		func(from, size *int32, wantErr bool) {
 			err := validatePagination(from, size)
