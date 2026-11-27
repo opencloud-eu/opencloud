@@ -83,13 +83,16 @@ Show the user the diff of both files and the target branch, and ask them to conf
 ### 7. Commit, push, open PR
 
 - Create a branch (do not commit on `main`).
-- One commit, conventional-commits format, **empty body**:
+- One commit, conventional-commits format, with no body other than the `Assisted-by:` trailer that the org's [AI guideline](https://github.com/opencloud-eu/.github/blob/main/profile/AI_GUIDELINE.md) asks for. Name the agent and the model actually used, and never add a `Co-authored-by` trailer for an AI tool:
   ```
   chore: bump web to v7.0.0
+
+  Assisted-by: Claude Code:claude-opus-5-5
   ```
 - PR title: `[full-ci] chore: bump web to v7.0.0` (the commit message prefixed with `[full-ci] `).
 - PR base: the branch chosen in step 5.
 - PR body: the trimmed changelog from step 3.
+- End the PR body with one line saying which AI did the bump, e.g. `AI assistance: Claude Code (claude-opus-5-5) did the bump.`
 - Add exactly one `Type:*` label, picked from what the bump brings in (the changelog sections from step 3), the first that applies:
   1. `Type:Security` if it contains a security fix
   2. `Type:Enhancement` if it contains a feature or an enhancement
@@ -101,7 +104,8 @@ Show the user the diff of both files and the target branch, and ask them to conf
 ```bash
 gh pr create --base <target-branch> \
   --title "[full-ci] chore: bump web to $VERSION" \
-  --label "$TYPE_LABEL" \
+  --label "$TYPE_LABEL,Status:Needs-Review" \
+  --assignee @me \
   --body-file <changelog-file>
 ```
 
@@ -120,6 +124,6 @@ gh api "repos/opencloud-eu/web/contents/CHANGELOG.md?ref=$VERSION" --jq '.conten
 
 - Reading `WEB_COMMITID` or the changelog from web `main` instead of from the version tag (`?ref=$VERSION`). Always pin to the tag.
 - Leaving `WEB_ASSETS_BRANCH`/`WEB_BRANCH` on `main` for a patch that belongs on a stable line.
-- Forgetting `[full-ci] ` in the PR title or adding a commit body.
+- Forgetting `[full-ci] ` in the PR title, or adding a commit body beyond the `Assisted-by:` trailer.
 - Labelling the PR `Type:Dependencies` although web brings in features, enhancements, bug or security fixes (step 7): the web changes then don't appear in the OpenCloud release notes.
 - Committing before the user confirms the diff and target branch.
