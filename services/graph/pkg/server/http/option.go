@@ -6,6 +6,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
+	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/reva/v3/pkg/audit"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -18,15 +19,16 @@ type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
-	Logger        log.Logger
-	Context       context.Context
-	Config        *config.Config
-	Metrics       *metrics.Metrics
-	Flags         []pflag.Flag
-	Namespace     string
-	TraceProvider trace.TracerProvider
-	NatsKeyValue  jetstream.KeyValue
-	AuditEmitter  audit.Emitter
+	UserProfilePhotoService svc.UsersUserProfilePhotoProvider
+	Logger                  log.Logger
+	Context                 context.Context
+	Config                  *config.Config
+	Metrics                 *metrics.Metrics
+	Flags                   []pflag.Flag
+	Namespace               string
+	TraceProvider           trace.TracerProvider
+	NatsKeyValue            jetstream.KeyValue
+	AuditEmitter            audit.Emitter
 }
 
 // newOptions initializes the available default options.
@@ -101,4 +103,9 @@ func NatsKeyValue(val jetstream.KeyValue) Option {
 	return func(o *Options) {
 		o.NatsKeyValue = val
 	}
+}
+
+// UserProfilePhotoService supplies the shared photo service to the HTTP API.
+func UserProfilePhotoService(provider svc.UsersUserProfilePhotoProvider) Option {
+	return func(o *Options) { o.UserProfilePhotoService = provider }
 }
