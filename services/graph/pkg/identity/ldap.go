@@ -1021,9 +1021,19 @@ func (i *LDAP) createUserModelFromLDAP(e *ldap.Entry) (*libregraph.User, error) 
 		var identities []libregraph.ObjectIdentity
 		for _, identityStr := range e.GetEqualFoldAttributeValues(i.userAttributeMap.identities) {
 			parts := strings.SplitN(identityStr, "$", 3)
+			if len(parts) != 3 {
+				i.logger.Warn().Str("dn", e.DN).Str("attribute", i.userAttributeMap.identities).Msg("Invalid User Identity")
+				continue
+			}
+			issuer := strings.TrimSpace(parts[1])
+			issuerAssignedID := strings.TrimSpace(parts[2])
+			if issuer == "" || issuerAssignedID == "" {
+				i.logger.Warn().Str("dn", e.DN).Str("attribute", i.userAttributeMap.identities).Msg("Invalid User Identity")
+				continue
+			}
 			identity := libregraph.NewObjectIdentity()
-			identity.SetIssuer(strings.TrimSpace(parts[1]))
-			identity.SetIssuerAssignedId(strings.TrimSpace(parts[2]))
+			identity.SetIssuer(issuer)
+			identity.SetIssuerAssignedId(issuerAssignedID)
 			identities = append(identities, *identity)
 		}
 		if len(identities) > 0 {
