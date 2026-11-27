@@ -23,6 +23,7 @@ import (
 
 	"github.com/libregraph/lico/bootstrap"
 	"github.com/libregraph/lico/identifier"
+	"github.com/libregraph/lico/identifier/backends"
 	"github.com/libregraph/lico/identity"
 	"github.com/libregraph/lico/identity/managers"
 
@@ -34,20 +35,26 @@ const (
 	identityManagerName = "cs3"
 )
 
-// Register adds the CS3 identity manager to the lico bootstrap
-func Register() error {
-	return bootstrap.RegisterIdentityManager(identityManagerName, NewIdentityManager)
+// BackendWrapper decorates the identifier backend, e.g. to add a second factor to the logon.
+type BackendWrapper func(backends.Backend) backends.Backend
+
+// Register adds the CS3 identity manager to the lico bootstrap. If wrap is not nil the
+// identifier backend is passed through it.
+func Register(wrap BackendWrapper) error {
+	return bootstrap.RegisterIdentityManager(identityManagerName, func(bs bootstrap.Bootstrap) (identity.Manager, error) {
+		return NewIdentityManager(bs, wrap)
+	})
 }
 
 // MustRegister adds the CS3 identity manager to the lico bootstrap or panics
-func MustRegister() {
-	if err := Register(); err != nil {
+func MustRegister(wrap BackendWrapper) {
+	if err := Register(wrap); err != nil {
 		panic(err)
 	}
 }
 
 // NewIdentityManager produces a CS3 backed identity manager instance for the idp
-func NewIdentityManager(bs bootstrap.Bootstrap) (identity.Manager, error) {
+func NewIdentityManager(bs bootstrap.Bootstrap, wrap BackendWrapper) (identity.Manager, error) {
 	config := bs.Config()
 
 	logger := config.Config.Logger
@@ -82,6 +89,11 @@ func NewIdentityManager(bs bootstrap.Bootstrap) (identity.Manager, error) {
 		return nil, fmt.Errorf("failed to create identifier backend: %v", identifierErr)
 	}
 
+	var activeBackend backends.Backend = identifierBackend
+	if wrap != nil {
+		activeBackend = wrap(activeBackend)
+	}
+
 	fullAuthorizationEndpointURL := bootstrap.WithSchemeAndHost(config.AuthorizationEndpointURI, config.IssuerIdentifierURI)
 	fullSignInFormURL := bootstrap.WithSchemeAndHost(config.SignInFormURI, config.IssuerIdentifierURI)
 	fullSignedOutEndpointURL := bootstrap.WithSchemeAndHost(config.SignedOutURI, config.IssuerIdentifierURI)
@@ -110,7 +122,7 @@ func NewIdentityManager(bs bootstrap.Bootstrap) (identity.Manager, error) {
 		DefaultUsernameHintText: config.IdentifierDefaultUsernameHintText,
 		UILocales:               config.IdentifierUILocales,
 
-		Backend: identifierBackend,
+		Backend: activeBackend,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create identifier: %v", err)
@@ -119,6 +131,9 @@ func NewIdentityManager(bs bootstrap.Bootstrap) (identity.Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid --encryption-secret parameter value for identifier: %v", err)
 	}
+
+	// Expose the identifier in the managers registry like the other lico backends do.
+	bs.Managers().Set("identifier", activeIdentifier)
 
 	identityManagerConfig := &identity.Config{
 		SignInFormURI: fullSignInFormURL,

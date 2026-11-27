@@ -8,6 +8,8 @@ import {
   ERROR_LOGIN_VALIDATE_MISSINGUSERNAME,
   ERROR_LOGIN_VALIDATE_MISSINGPASSWORD,
   ERROR_LOGIN_FAILED,
+  ERROR_LOGIN_MFA_INVALID,
+  ERROR_LOGIN_MFA_LOCKED,
   ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS,
   ERROR_HTTP_UNEXPECTED_RESPONSE_STATE
 } from '../errors';
@@ -19,6 +21,27 @@ import { handleAxiosError } from './utils';
 // Modes for logon.
 export const ModeLogonUsernameEmptyPasswordCookie = '0';
 export const ModeLogonUsernamePassword = '1';
+
+// Values of the response header 'opencloud-mfa' of a rejected logon. It tells if and
+// why the second factor (two-factor authentication) of the user rejected it: 'required'
+// when no code was sent, or one of these.
+const MFAResultInvalid = 'invalid';
+const MFAResultLocked = 'locked';
+
+// mfaAttempt is the result of a logon whose password was correct, but whose second
+// factor is still missing or was not accepted.
+function mfaAttempt(state, result) {
+  const errors = {};
+  if (result === MFAResultInvalid) {
+    errors.code = new Error(ERROR_LOGIN_MFA_INVALID);
+  } else if (result === MFAResultLocked) {
+    errors.code = new Error(ERROR_LOGIN_MFA_LOCKED);
+  }
+  return { success: false, state, mfaRequired: true, errors };
+}
+
+// Route of the page to manage the two-factor authentication.
+export const MFARoute = '/mfa';
 
 export function updateInput(name, value) {
   return {
@@ -44,12 +67,20 @@ export function requestLogon(username, password) {
 }
 
 export function receiveLogon(logon) {
-  const { success, errors } = logon;
+  const { success, errors, mfaRequired } = logon;
 
   return {
     type: types.RECEIVE_LOGON,
     success,
-    errors
+    errors,
+    mfaRequired: !success && !!mfaRequired
+  };
+}
+
+// Leaves the two-factor authentication step of the login.
+export function resetMFA() {
+  return {
+    type: types.RESET_MFA
   };
 }
 
@@ -69,7 +100,7 @@ export function receiveConsent(logon) {
   };
 }
 
-export function executeLogon(username, password, mode=ModeLogonUsernamePassword) {
+export function executeLogon(username, password, mode=ModeLogonUsernamePassword, code='') {
   return function(dispatch, getState) {
     dispatch(requestLogon(username, password));
     dispatch(receiveHello({
@@ -84,6 +115,10 @@ export function executeLogon(username, password, mode=ModeLogonUsernamePassword)
       case ModeLogonUsernamePassword:
         // Username with password.
         params.push(username, password, mode);
+        if (code) {
+          // One-time code or recovery code of the two-factor authentication.
+          params.push(code);
+        }
         break;
 
       case ModeLogonUsernameEmptyPasswordCookie:
@@ -107,15 +142,21 @@ export function executeLogon(username, password, mode=ModeLogonUsernamePassword)
         case 200:
           // success.
           return response.data;
-        case 204:
-          // login failed.
+        case 204: {
+          // login failed. The header tells when it was the second factor.
+          const state = response.headers['kopano-konnect-state'];
+          const mfaResult = response.headers['opencloud-mfa'];
+          if (mfaResult) {
+            return mfaAttempt(state, mfaResult);
+          }
           return {
             success: false,
-            state: response.headers['kopano-konnect-state'],
+            state,
             errors: {
               http: new Error(ERROR_LOGIN_FAILED)
             }
           };
+        }
         default:
           // error.
           throw new ExtendedError(ERROR_HTTP_UNEXPECTED_RESPONSE_STATUS, response);
@@ -227,13 +268,13 @@ export function validateUsernamePassword(username, password, isSignedIn) {
   };
 }
 
-export function executeLogonIfFormValid(username, password, isSignedIn) {
+export function executeLogonIfFormValid(username, password, isSignedIn, code='') {
   return (dispatch) => {
     return dispatch(
       validateUsernamePassword(username, password, isSignedIn)
     ).then(() => {
       const mode = isSignedIn ? ModeLogonUsernameEmptyPasswordCookie : ModeLogonUsernamePassword;
-      return dispatch(executeLogon(username, password, mode));
+      return dispatch(executeLogon(username, password, mode, code));
     }).catch((errors) => {
       return {
         success: false,
@@ -282,7 +323,16 @@ export function advanceLogonFlow(success, history, done=false, extraQuery={}) {
     }
 
     // Default action.
+    if (history.location.pathname === MFARoute) {
+      // The flow is advanced by the logon and by the hello it triggers. The
+      // first one already brought the user back, see below.
+      return;
+    }
     let target = '/welcome';
+    if (history.location.state && history.location.state.returnTo === MFARoute) {
+      // The two-factor authentication page sent the user here to sign in.
+      target = MFARoute;
+    }
     if (history.action === 'REPLACE') {
       target = target + history.location.search + history.location.hash;
     }

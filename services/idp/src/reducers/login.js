@@ -6,13 +6,16 @@ import {
   REQUEST_CONSENT_ALLOW,
   REQUEST_CONSENT_CANCEL,
   RECEIVE_CONSENT,
-  UPDATE_INPUT
+  UPDATE_INPUT,
+  RESET_MFA
 } from '../actions/types';
 
 function loginReducer(state = {
   loading: '',
   username: '',
   password: '',
+  code: '',
+  mfaRequired: false,
   errors: {}
 }, action) {
   switch (action.type) {
@@ -31,16 +34,34 @@ function loginReducer(state = {
       });
 
     case RECEIVE_CONSENT:
-    case RECEIVE_LOGON:
       return Object.assign({}, state, {
         errors: !action.success && action.errors ? action.errors : {},
         loading: ''
       });
 
+    case RECEIVE_LOGON:
+      return Object.assign({}, state, {
+        errors: !action.success && action.errors ? action.errors : {},
+        loading: '',
+        // the code is single use, never keep it
+        code: '',
+        mfaRequired: !!action.mfaRequired
+      });
+
+    case RESET_MFA:
+      return Object.assign({}, state, {
+        password: '',
+        code: '',
+        mfaRequired: false,
+        errors: {}
+      });
+
     case RECEIVE_LOGOFF:
       return Object.assign({}, state, {
         username: '',
-        password: ''
+        password: '',
+        code: '',
+        mfaRequired: false
       });
 
     case UPDATE_INPUT:

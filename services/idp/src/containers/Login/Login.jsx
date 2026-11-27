@@ -17,8 +17,10 @@ import {
   updateInput,
   executeLogonIfFormValid,
   advanceLogonFlow,
+  resetMFA,
 } from "../../actions/login";
 import { ErrorMessage } from "../../errors";
+import MfaStep from "./MfaStep";
 
 const styles = (theme) => ({
   buttonProgress: {
@@ -48,7 +50,14 @@ const styles = (theme) => ({
   },
   signinPageText: {
     marginBottom: 12
-  }
+  },
+  mfaText: {
+    marginBottom: theme.spacing(3),
+  },
+  mfaBack: {
+    display: "inline-block",
+    marginTop: theme.spacing(2),
+  },
 });
 
 function Login(props) {
@@ -62,6 +71,8 @@ function Login(props) {
     classes,
     username,
     password,
+    code,
+    mfaRequired,
     passwordResetLink,
     branding,
   } = props;
@@ -114,14 +125,34 @@ function Login(props) {
   const handleNextClick = (event) => {
     event.preventDefault();
 
-    dispatch(executeLogonIfFormValid(username, password, false)).then(
-      (response) => {
-        if (response.success) {
-          dispatch(advanceLogonFlow(response.success, history));
-        }
+    dispatch(
+      executeLogonIfFormValid(username, password, false, mfaRequired ? code : "")
+    ).then((response) => {
+      if (response.success) {
+        dispatch(advanceLogonFlow(response.success, history));
       }
-    );
+    });
   };
+
+  function handleBackClick(event) {
+    event.preventDefault();
+
+    dispatch(resetMFA());
+  }
+
+  if (mfaRequired) {
+    return (
+      <MfaStep
+        classes={classes}
+        code={code}
+        error={errors.code || errors.http}
+        loading={loading}
+        onChange={handleChange("code")}
+        onSubmit={handleNextClick}
+        onBack={handleBackClick}
+      />
+    );
+  }
 
   return (
     <div className={classes.main}>
@@ -209,6 +240,8 @@ Login.propTypes = {
   loading: PropTypes.string.isRequired,
   username: PropTypes.string.isRequired,
   password: PropTypes.string.isRequired,
+  code: PropTypes.string.isRequired,
+  mfaRequired: PropTypes.bool.isRequired,
   passwordResetLink: PropTypes.string.isRequired,
   errors: PropTypes.object.isRequired,
   branding: PropTypes.object,
@@ -220,13 +253,15 @@ Login.propTypes = {
 };
 
 const mapStateToProps = (state) => {
-  const { loading, username, password, errors } = state.login;
+  const { loading, username, password, code, mfaRequired, errors } = state.login;
   const { branding, hello, query, passwordResetLink } = state.common;
 
   return {
     loading,
     username,
     password,
+    code,
+    mfaRequired,
     errors,
     branding,
     hello,
