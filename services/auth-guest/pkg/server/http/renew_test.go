@@ -61,7 +61,12 @@ func TestRenewHandlerWithSessionCookie(t *testing.T) {
 	newRenewHandler(t, svcMock)(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 	svcMock.AssertCalled(t, "Renew", mock.Anything, "share-1", "session-token")
+
+	var resp RenewResponse
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+	assert.True(t, resp.WithPin)
 
 	wantName := nonceCookieName(testNonceCookieName, "share-1")
 	var cookie *http.Cookie
@@ -81,7 +86,7 @@ func TestRenewHandlerWithSessionCookie(t *testing.T) {
 
 func TestRenewHandlerWithoutSessionCookie(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "").Return("nonce-value", nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "").Return("", nil)
 
 	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
 	require.NoError(t, err)
@@ -91,6 +96,10 @@ func TestRenewHandlerWithoutSessionCookie(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	svcMock.AssertCalled(t, "Renew", mock.Anything, "share-1", "")
+
+	var resp RenewResponse
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+	assert.False(t, resp.WithPin)
 }
 
 func TestRenewHandlerSkipsNonceCookieWhenEmpty(t *testing.T) {
@@ -113,6 +122,10 @@ func TestRenewHandlerSkipsNonceCookieWhenEmpty(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Empty(t, rr.Result().Cookies())
+
+	var resp RenewResponse
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+	assert.False(t, resp.WithPin)
 }
 
 func TestRenewHandlerNonceCookiePerShare(t *testing.T) {
