@@ -17,7 +17,6 @@ func everythingGroup() queryGroup {
 			{id: 1, query: `*`, want: []string{"alpha.txt", "beta.txt", "box"}},
 			{id: 2, query: `name:"*"`, want: []string{"alpha.txt", "beta.txt", "box"}},
 			{id: 3, query: `*`, limit: 2, wantCount: conversions.ToPointer(2)},
-			{id: 4, query: `*`, limit: -1, wantCount: conversions.ToPointer(3)},
 		},
 	}
 }

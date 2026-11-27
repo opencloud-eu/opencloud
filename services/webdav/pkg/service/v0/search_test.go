@@ -109,8 +109,6 @@ var _ = Describe("searchRequestOf", func() {
 			reportSearchFilesSearch{Pattern: "notes"}, &searchsvc.SearchRequest{Query: "notes"}),
 		Entry("a limit", reportSearchFilesSearch{Pattern: "notes", Limit: 25},
 			&searchsvc.SearchRequest{Query: "notes", PageSize: conversions.ToPointer(int32(25))}),
-		Entry("no limit", reportSearchFilesSearch{Pattern: "notes", Limit: -1},
-			&searchsvc.SearchRequest{Query: "notes", PageSize: conversions.ToPointer(int32(-1))}),
 		Entry("an offset pages the merged list", reportSearchFilesSearch{Pattern: "notes", Limit: 25, Offset: 50},
 			&searchsvc.SearchRequest{Query: "notes", PageSize: conversions.ToPointer(int32(25)), From: 50}),
 	)
@@ -121,6 +119,6 @@ var _ = Describe("searchRequestOf", func() {
 			Expect(err).To(HaveOccurred())
 		},
 		Entry("a negative offset", reportSearchFilesSearch{Pattern: "notes", Offset: -1}),
-		Entry("a limit below -1", reportSearchFilesSearch{Pattern: "notes", Limit: -2}),
+		Entry("a negative limit", reportSearchFilesSearch{Pattern: "notes", Limit: -1}),
 	)
 })

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -117,7 +116,7 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 	bleveReq.Highlight = bleve.NewHighlight()
 	// ties by id, like the cross-space merge
 	bleveReq.SortBy([]string{"-_score", "_id"})
-	bleveReq.Size = search.EnginePageSize(sir.PageSize, math.MaxInt)
+	bleveReq.Size = int(search.PageSizeOrDefault(sir.PageSize))
 
 	collector, err := newAggCollector(sir.Aggregations)
 	if err != nil {

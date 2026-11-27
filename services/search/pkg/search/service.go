@@ -155,8 +155,8 @@ func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) s
 
 // Search processes a search request and passes it down to the engine.
 func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
-	if PageSizeOrDefault(req.PageSize) < -1 {
-		return nil, errtypes.BadRequest("page size must be -1, 0 or positive")
+	if PageSizeOrDefault(req.PageSize) < 0 {
+		return nil, errtypes.BadRequest("page size must not be negative")
 	}
 	if err := aggregation.ValidateOptions(req.GetAggregations(), AggregatableFieldType); err != nil {
 		return nil, errtypes.BadRequest(err.Error())
@@ -384,7 +384,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			matches = nil
 		}
 	}
-	if limit != -1 && int32(len(matches)) > limit {
+	if int32(len(matches)) > limit {
 		matches = matches[0:limit]
 	}
 
@@ -396,22 +396,12 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}, nil
 }
 
-// PageSizeOrDefault reads an absent page size as 200; -1 is no limit.
+// PageSizeOrDefault reads an absent page size as 200.
 func PageSizeOrDefault(pageSize *int32) int32 {
 	if pageSize != nil {
 		return *pageSize
 	}
 	return 200
-}
-
-// EnginePageSize is the page an engine fetches: the default for an absent
-// size, unlimited for -1.
-func EnginePageSize(pageSize *int32, unlimited int) int {
-	size := PageSizeOrDefault(pageSize)
-	if size == -1 {
-		return unlimited
-	}
-	return int(size)
 }
 
 // engineFetchSize: the global offset cannot be distributed across spaces, so
