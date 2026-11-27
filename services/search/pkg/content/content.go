@@ -30,6 +30,29 @@ type Document struct {
 	Video       *libregraph.Video          `json:"video,omitempty"`
 	MotionPhoto *libregraph.MotionPhoto    `json:"motionPhoto,omitempty"`
 	LivePhoto   *libregraph.LivePhoto      `json:"livePhoto,omitempty"`
+	Preview     *Preview                   `json:"preview,omitempty"`
+}
+
+// Preview describes an embedded preview (e.g. audio cover art): its dimensions
+// and the type it is in. Internal signal, not a Graph facet; its presence marks
+// that a preview exists, and the type says what a thumbnail of it is written in.
+type Preview struct {
+	Width    int32  `json:"width"`
+	Height   int32  `json:"height"`
+	MimeType string `json:"mimeType,omitempty"`
+}
+
+// ToMap flows Preview through the shared facet flattening, under oc.preview.
+func (p Preview) ToMap() (map[string]interface{}, error) {
+	m := map[string]interface{}{
+		"width":  p.Width,
+		"height": p.Height,
+	}
+	if p.MimeType != "" {
+		m["mimeType"] = p.MimeType
+	}
+
+	return m, nil
 }
 
 func CleanString(content, langCode string) string {

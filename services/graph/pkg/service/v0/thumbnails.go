@@ -34,26 +34,36 @@ func setDriveItemThumbnails(item *libregraph.DriveItem, res *provider.ResourceIn
 	}
 }
 
-// previewThumbnailSet returns nil when the thumbnailer cannot render the resource.
+// previewThumbnailSet returns nil when no preview can be produced for the resource.
 func previewThumbnailSet(res *provider.ResourceInfo, baseURL string, sourceTypes thumbnail.SourceTypes) *libregraph.ThumbnailSet {
-	if !sourceTypes.Supports(res.GetMimeType()) {
+	if !sourceTypes.HasPreview(res) {
 		return nil
 	}
-	return thumbnailSetFor(baseURL, storagespace.FormatResourceID(res.GetId()))
+
+	itemID := storagespace.FormatResourceID(res.GetId())
+	set := thumbnailSetFor(baseURL, itemID)
+	if w, h := thumbnail.SourceDimensions(res); w > 0 && h > 0 {
+		set.Source = previewThumbnail(previewBaseURL(baseURL, itemID), w, h)
+	}
+	return set
 }
 
 // thumbnailSetFor builds the urls of the WebDAV preview endpoint.
 func thumbnailSetFor(baseURL, itemID string) *libregraph.ThumbnailSet {
-	base := fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail", baseURL, itemID)
+	base := previewBaseURL(baseURL, itemID)
 	return &libregraph.ThumbnailSet{
-		Small:  previewThumbnail(base, thumbnailBoxSmall),
-		Medium: previewThumbnail(base, thumbnailBoxMedium),
-		Large:  previewThumbnail(base, thumbnailBoxLarge),
+		Small:  previewThumbnail(base, thumbnailBoxSmall, thumbnailBoxSmall),
+		Medium: previewThumbnail(base, thumbnailBoxMedium, thumbnailBoxMedium),
+		Large:  previewThumbnail(base, thumbnailBoxLarge, thumbnailBoxLarge),
 	}
 }
 
-func previewThumbnail(base string, box int32) *libregraph.Thumbnail {
-	url := fmt.Sprintf("%s&x=%d&y=%d", base, box, box)
+func previewBaseURL(baseURL, itemID string) string {
+	return fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail", baseURL, itemID)
+}
+
+func previewThumbnail(base string, width, height int32) *libregraph.Thumbnail {
+	url := fmt.Sprintf("%s&x=%d&y=%d", base, width, height)
 	return &libregraph.Thumbnail{Url: &url}
 }
 

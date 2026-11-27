@@ -41,6 +41,15 @@ message Image {
 	optional int32 height = 2;
 }
 
+// Preview describes an embedded preview (e.g. audio cover art): its dimensions
+// and the type it is in. Its presence signals that a preview is available for
+// the resource, its type says what a thumbnail of it is written in.
+message Preview {
+	optional int32 width = 1;
+	optional int32 height = 2;
+	optional string mimeType = 3;
+}
+
 message GeoCoordinates {
   optional double altitude  = 1;
   optional double latitude = 2;
@@ -110,6 +119,7 @@ message Entity {
 	MotionPhoto motionPhoto = 21;
 	Video video = 22;
 	LivePhoto livePhoto = 23;
+	Preview preview = 24;
 }
 
 message Match {

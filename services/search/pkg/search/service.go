@@ -51,6 +51,8 @@ const (
 	// facetKeyPrefix is the arbitrary metadata namespace the facets are stored
 	// under. The indexer owns all of it and removes keys it no longer writes.
 	facetKeyPrefix = "libre.graph."
+	// previewKeyPrefix is the namespace of what is known about an embedded preview
+	previewKeyPrefix = "oc.preview."
 )
 
 // Searcher is the interface to the SearchService
@@ -917,6 +919,7 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
 	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
 	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
+	facetToMetadata(metadata, doc.Preview, previewKeyPrefix)
 
 	// the facet keys are ours, so the ones this extraction did not produce
 	// describe content the resource no longer has
@@ -926,7 +929,7 @@ func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, s
 		switch {
 		case ok && value == stored:
 			delete(metadata, k)
-		case !ok && strings.HasPrefix(k, facetKeyPrefix):
+		case !ok && (strings.HasPrefix(k, facetKeyPrefix) || strings.HasPrefix(k, previewKeyPrefix)):
 			stale = append(stale, k)
 		}
 	}

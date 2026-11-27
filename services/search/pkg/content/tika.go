@@ -27,6 +27,12 @@ var ErrUnparsable = errors.New("tika failed to parse")
 // tika answers its version without parsing anything, even while busy with a file
 var probeTimeout = 5 * time.Second
 
+// rmetaThumbnailPreset asks for the recursive metadata with Tika's thumbnail
+// preset, so Tika names the image a client would show and renders one where
+// the format needs that, a pdf page for one. The index then learns about the
+// same image the thumbnailer serves.
+const rmetaThumbnailPreset = "preset/thumbnail/"
+
 // Tika is used to extract content from a resource,
 // it uses apache tika to retrieve all the data.
 type Tika struct {
@@ -93,12 +99,15 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	defer data.Close()
 
 	var input io.Reader = data
-	handler := "text"
+	handler := rmetaThumbnailPreset + "text"
 	if oversized {
 		input = io.LimitReader(data, int64(min(t.ContentExtractionSizeLimit, math.MaxInt64)))
-		handler = "ignore"
+		handler = rmetaThumbnailPreset + "ignore"
 	}
 	metas, err := t.tika.MetaRecursiveType(attemptCtx, input, handler)
+	if isStatus(err, http.StatusNotFound) {
+		return doc, fmt.Errorf("tika serves no /rmeta/%s, its configuration has to activate the thumbnail preset: %w", handler, err)
+	}
 	if err != nil {
 		err = t.attemptError(ctx, attemptCtx, ri, unreachable(err))
 		if oversized && !errors.Is(err, ErrUnreachable) {
@@ -110,6 +119,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 	if oversized {
 		t.addFacets(&doc, metas)
+		doc.Preview = getPreview(metas)
 		return doc, nil
 	}
 	// a file with content always yields metadata, none means tika failed on it
@@ -146,6 +156,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 
 	t.addFacets(&doc, metas)
+	doc.Preview = getPreview(metas)
 
 	if langCode := t.detectLanguage(attemptCtx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
