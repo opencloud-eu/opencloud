@@ -33,6 +33,8 @@ type VerifyHandler struct {
 	insecure     bool
 	cachedKeys   *PubKeys
 	cachedDur    time.Duration
+	// httpClient is reused for every key fetch, so its transport keeps one connection
+	httpClient *http.Client
 }
 
 // NewVerifyHandler will return a new Verifier with the provided parameters
@@ -52,6 +54,14 @@ func NewVerifyHandler(discoveryURL string, insecure bool, cachedDur time.Duratio
 		discoveryURL: discoveryURL,
 		insecure:     insecure,
 		cachedDur:    cachedDur,
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					MinVersion:         tls.VersionTLS12,
+					InsecureSkipVerify: insecure,
+				},
+			},
+		},
 	}
 }
 
@@ -198,16 +208,7 @@ func (vh *VerifyHandler) generateProof(accessToken, url, timestamp string) []byt
 func (vh *VerifyHandler) fetchPublicKeys(logger *zerolog.Logger) (*PubKeys, error) {
 	logger.Debug().Str("WopiAppUrl", vh.discoveryURL).Msg("WopiDiscovery: requesting new public keys")
 
-	httpClient := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: vh.insecure,
-			},
-		},
-	}
-
-	httpResp, err := httpClient.Get(vh.discoveryURL)
+	httpResp, err := vh.httpClient.Get(vh.discoveryURL)
 	if err != nil {
 		logger.Error().
 			Err(err).
