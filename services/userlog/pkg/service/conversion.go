@@ -12,9 +12,13 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	invitepb "github.com/cs3org/go-cs3apis/cs3/ocm/invite/v1beta1"
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
+	ocmuser "github.com/opencloud-eu/reva/v3/pkg/ocm/user"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
@@ -117,6 +121,12 @@ func (c *Converter) ConvertEvent(eventid string, event any) (OC10Notification, e
 		return c.shareMessage(eventid, ShareExpired, ev.ShareOwner, ev.ItemID, ev.ShareID, ev.ExpiredAt)
 	case events.ShareRemoved:
 		return c.shareMessage(eventid, ShareRemoved, ev.Executant, ev.ItemID, ev.ShareID, ev.Timestamp)
+
+	// ocm share related
+	case events.OCMCoreShareCreated:
+		return c.ocmShareMessage(eventid, ShareCreated, ShareCreatedByProvider, ev.Sharer, ev.GranteeUserID, ev.ShareID, ev.ResourceName, utils.TSToTime(ev.CTime))
+	case events.OCMCoreShareDelete:
+		return c.ocmShareMessage(eventid, ShareRemoved, ShareRemovedByProvider, ev.Sharer, ev.Grantee, ev.ShareID, ev.ResourceName, utils.TSToTime(ev.CTime))
 
 	// misc
 	case ocEvents.ResourceMention:
@@ -306,6 +316,85 @@ func (c *Converter) shareMessage(eventid string, nt NotificationTemplate, execut
 		MessageRaw:     msgraw,
 		MessageDetails: generateDetails(usr, nil, info, shareid),
 	}, nil
+}
+
+// ocmShareMessage converts an event about a share received from a federated instance. The
+// resource lives on the remote instance, so we only know its name from the event. The resource
+// details carry no id, clients would turn it into a link to a local resource.
+//
+// If the sharer cannot be resolved we use the providerNT template, which names the provider
+// domain of the sharer instead of the user.
+func (c *Converter) ocmShareMessage(eventid string, nt, providerNT NotificationTemplate, sharer *user.UserId, grantee *user.UserId, shareid string, resourcename string, ts time.Time) (OC10Notification, error) {
+	usr := c.getOCMUser(sharer, grantee)
+	provider := sharer.GetIdp()
+	if usr == nil {
+		nt = providerNT
+	}
+
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
+		"username":     usr.GetDisplayName(),
+		"resourcename": resourcename,
+		"provider":     provider,
+	})
+	if err != nil {
+		return OC10Notification{}, err
+	}
+	// clients only know how to fill in the rich parameters, so we fill in the provider ourselves
+	msgraw = strings.ReplaceAll(msgraw, "{provider}", provider)
+
+	details := generateDetails(usr, nil, nil, &collaboration.ShareId{OpaqueId: shareid})
+	details["resource"] = map[string]string{"name": resourcename}
+
+	return OC10Notification{
+		EventID:        eventid,
+		Service:        c.serviceName,
+		UserName:       usr.GetUsername(),
+		Timestamp:      ts.Format(time.RFC3339Nano),
+		ResourceID:     shareid,
+		ResourceType:   _resourceTypeShare,
+		Subject:        subj,
+		SubjectRaw:     subjraw,
+		Message:        msg,
+		MessageRaw:     msgraw,
+		MessageDetails: details,
+	}, nil
+}
+
+// getOCMUser looks up a federated user the grantee has accepted an invite from. It returns nil
+// if the user cannot be resolved, e.g. because the federated connection was deleted. The
+// federated id is no help then, it is the remote user id plus the issuer of the remote IdP,
+// e.g. "<uuid>@https://cloud.example.org".
+func (c *Converter) getOCMUser(sharer *user.UserId, grantee *user.UserId) *user.User {
+	key := ocmuser.FormatOCMUser(sharer)
+	if u, ok := c.users[key]; ok {
+		return u
+	}
+
+	gwc, err := c.gatewaySelector.Next()
+	if err != nil {
+		return nil
+	}
+
+	// GetAcceptedUser uses the user from the context to find the accepted user. The service
+	// account would never match, so we call it without a token and pass the grantee as a filter.
+	filter, err := utils.MarshalProtoV1ToJSON(grantee)
+	if err != nil {
+		return nil
+	}
+	res, err := gwc.GetAcceptedUser(context.Background(), &invitepb.GetAcceptedUserRequest{
+		RemoteUserId: sharer,
+		Opaque: &typespb.Opaque{
+			Map: map[string]*typespb.OpaqueEntry{
+				"user-filter": {Decoder: "json", Value: filter},
+			},
+		},
+	})
+	if err != nil || res.GetStatus().GetCode() != rpc.Code_CODE_OK || res.GetRemoteUser() == nil {
+		return nil
+	}
+
+	c.users[key] = res.GetRemoteUser()
+	return res.GetRemoteUser()
 }
 
 func (c *Converter) virusMessage(eventid string, nt NotificationTemplate, executant *user.User, rid *storageprovider.ResourceId, filename string, virus string, ts time.Time) (OC10Notification, error) {

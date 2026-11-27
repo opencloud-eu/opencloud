@@ -50,6 +50,10 @@ var _registeredEvents = []events.Unmarshaller{
 	events.ShareRemoved{},
 	events.ShareExpired{},
 
+	// ocm share related
+	events.OCMCoreShareCreated{},
+	events.OCMCoreShareDelete{},
+
 	// misc
 	ocEvents.ResourceMention{},
 }

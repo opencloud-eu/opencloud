@@ -47,9 +47,9 @@ func (ulf userlogFilter) filterUsersBySettings(ctx context.Context, users []stri
 	var settingId string
 	// map type to settings key
 	switch event.Event.(type) {
-	case events.ShareCreated:
+	case events.ShareCreated, events.OCMCoreShareCreated:
 		settingId = defaults.SettingUUIDProfileEventShareCreated
-	case events.ShareRemoved:
+	case events.ShareRemoved, events.OCMCoreShareDelete:
 		settingId = defaults.SettingUUIDProfileEventShareRemoved
 	case events.ShareExpired:
 		settingId = defaults.SettingUUIDProfileEventShareExpired

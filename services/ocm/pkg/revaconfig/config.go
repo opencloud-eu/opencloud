@@ -176,6 +176,15 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]any {
 							"file": cfg.OCMCore.Drivers.JSON.File,
 						},
 					},
+					"events": map[string]any{
+						"natsaddress":          cfg.Events.Endpoint,
+						"natsclusterid":        cfg.Events.Cluster,
+						"enabletls":            cfg.Events.EnableTLS,
+						"tlsinsecure":          cfg.Events.TLSInsecure,
+						"tlsrootcacertificate": cfg.Events.TLSRootCACertificate,
+						"authusername":         cfg.Events.AuthUsername,
+						"authpassword":         cfg.Events.AuthPassword,
+					},
 				},
 				"storageprovider": map[string]any{
 					"driver":           "ocmreceived",
