@@ -166,12 +166,17 @@ func (g Graph) GetUserDrive(w http.ResponseWriter, r *http.Request) {
 		userID = u.GetId().GetOpaqueId()
 	} else {
 		user, err := g.identityBackend.GetUser(ctx, userID, odataReq)
-		if err != nil {
-			log.Debug().Err(err).Str("userID", userID).Msg("could not get user drive: failed to resolve user")
+		switch {
+		case err == nil:
+			userID = user.GetId()
+		case errorcode.IsErrorCode(err, errorcode.ItemNotFound):
+			// a user deleted in an external identity provider keeps the personal space until it is cleaned up
+			log.Debug().Err(err).Msg("could not resolve user, looking up the drive with the given id")
+		default:
+			log.Debug().Err(err).Msg("could not get user drive: failed to resolve user")
 			errorcode.RenderError(w, r, err)
 			return
 		}
-		userID = user.GetId()
 	}
 
 	log.Debug().Msg("calling list storage spaces with user and personal filter")
