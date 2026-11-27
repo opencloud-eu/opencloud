@@ -211,7 +211,7 @@ func TestNewRootFs_MissingRoot(t *testing.T) {
 
 	// writing creates the directory, as the logo upload (afero.WriteReader) did before
 	g.Expect(afero.WriteReader(fSys, "_branding/logo.png", strings.NewReader("logo"))).To(gomega.Succeed())
-	b, err := os.ReadFile(filepath.Join(root, "_branding", "logo.png"))
+	b, err := fs.ReadFile(os.DirFS(root), "_branding/logo.png")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(string(b)).To(gomega.Equal("logo"))
 }
@@ -246,7 +246,7 @@ func TestNewRootFs_UnusableRoot(t *testing.T) {
 
 func TestNewRootFs_Write(t *testing.T) {
 	readOutside := func(g *gomega.WithT, f rootFixture, name string) string {
-		b, err := os.ReadFile(filepath.Join(f.outside, name))
+		b, err := fs.ReadFile(os.DirFS(f.outside), name)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		return string(b)
 	}
@@ -262,7 +262,7 @@ func TestNewRootFs_Write(t *testing.T) {
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
 		g.Expect(afero.WriteReader(fSys, "new/logo.png", strings.NewReader("logo"))).To(gomega.Succeed())
-		b, err := os.ReadFile(filepath.Join(f.root, "new", "logo.png"))
+		b, err := fs.ReadFile(os.DirFS(f.root), "new/logo.png")
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(string(b)).To(gomega.Equal("logo"))
 	})
@@ -274,7 +274,7 @@ func TestNewRootFs_Write(t *testing.T) {
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
 		g.Expect(afero.WriteFile(fSys, "link-inside.txt", []byte("changed"), 0o644)).To(gomega.Succeed())
-		b, err := os.ReadFile(filepath.Join(f.root, "file.txt"))
+		b, err := fs.ReadFile(os.DirFS(f.root), "file.txt")
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(string(b)).To(gomega.Equal("changed"))
 	})

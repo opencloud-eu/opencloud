@@ -183,7 +183,7 @@ func TestService_OnDisk_UploadFont(t *testing.T) {
 		d := newFontsOnDisk(t, nil)
 
 		require.Equal(t, http.StatusOK, d.upload(t, "arimo.ttf"))
-		b, err := os.ReadFile(filepath.Join(d.root, "arimo.ttf"))
+		b, err := fs.ReadFile(os.DirFS(d.root), "arimo.ttf")
 		require.NoError(t, err)
 		require.Equal(t, d.font, b)
 	})
@@ -194,7 +194,7 @@ func TestService_OnDisk_UploadFont(t *testing.T) {
 		d.link(t, "../outside/target.ttf", "arimo.ttf")
 
 		require.Equal(t, http.StatusInternalServerError, d.upload(t, "arimo.ttf"))
-		b, err := os.ReadFile(filepath.Join(d.outside, "target.ttf"))
+		b, err := fs.ReadFile(os.DirFS(d.outside), "target.ttf")
 		require.NoError(t, err)
 		require.Equal(t, "outside content", string(b))
 	})

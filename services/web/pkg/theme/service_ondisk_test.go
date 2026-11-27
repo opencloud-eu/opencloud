@@ -116,7 +116,7 @@ func (d themesOnDisk) get(t *testing.T, id string) string {
 
 func (d themesOnDisk) readOutside(t *testing.T, name string) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join(d.outside, name))
+	b, err := fs.ReadFile(os.DirFS(d.outside), name)
 	require.NoError(t, err)
 	return string(b)
 }
@@ -132,7 +132,7 @@ func TestService_OnDisk_LogoUpload(t *testing.T) {
 		d := newThemesOnDisk(t)
 
 		require.Equal(t, http.StatusOK, d.upload(t, "logo.png", "new logo"))
-		b, err := os.ReadFile(filepath.Join(d.root, "_branding", "logo.png"))
+		b, err := fs.ReadFile(os.DirFS(d.root), "_branding/logo.png")
 		require.NoError(t, err)
 		require.Equal(t, "new logo", string(b))
 		require.Equal(t, "themes/_branding/logo.png", gjson.Get(d.get(t, "opencloud"), "common.logo").String())
@@ -144,7 +144,7 @@ func TestService_OnDisk_LogoUpload(t *testing.T) {
 		d.link(t, "../shared/logo.png", "_branding/logo.png")
 
 		require.Equal(t, http.StatusOK, d.upload(t, "logo.png", "new logo"))
-		b, err := os.ReadFile(filepath.Join(d.root, "shared", "logo.png"))
+		b, err := fs.ReadFile(os.DirFS(d.root), "shared/logo.png")
 		require.NoError(t, err)
 		require.Equal(t, "new logo", string(b))
 	})
