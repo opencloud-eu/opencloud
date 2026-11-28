@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"sync/atomic"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3User "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -15,8 +17,8 @@ import (
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -175,17 +177,38 @@ func identitySetToSpacePermissionID(identitySet libregraph.SharePointIdentitySet
 	return id
 }
 
+// _receivedShareStatTimeout is the default bound for how long the resource Stat
+// for a single received share may take. It is used when the configured
+// GRAPH_RECEIVED_SHARES_STAT_TIMEOUT is not set (or non-positive). Without a
+// per-share bound, one slow or stuck downstream resource consumes the whole
+// request deadline budget, which causes the other shares to be dropped from the
+// sharedWithMe listing (and the request to occasionally 502). Keeping it small
+// relative to a typical request deadline lets one bad share fail fast without
+// affecting the visibility of the others.
+const _receivedShareStatTimeout = 10 * time.Second
+
 func cs3ReceivedSharesToDriveItems(ctx context.Context,
 	logger *log.Logger,
 	gatewayClient gateway.GatewayAPIClient,
 	identityCache cache.IdentityCache,
 	receivedShares []*collaboration.ReceivedShare,
 	availableRoles []*libregraph.UnifiedRoleDefinition,
+	statTimeout time.Duration,
 ) ([]libregraph.DriveItem, error) {
+
+	// Fall back to the default when unconfigured: a non-positive timeout would
+	// make context.WithTimeout cancel immediately and drop every share.
+	if statTimeout <= 0 {
+		statTimeout = _receivedShareStatTimeout
+	}
 
 	group := new(errgroup.Group)
 	// Set max concurrency
 	group.SetLimit(10)
+
+	// number of shares that could not be fully resolved and were returned as a
+	// degraded drive item built from the share record alone.
+	var degradedShares atomic.Int64
 
 	receivedSharesByResourceID := make(map[string][]*collaboration.ReceivedShare, len(receivedShares))
 	for _, receivedShare := range receivedShares {
@@ -202,18 +225,39 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 		receivedShares := receivedSharesForResource
 
 		group.Go(func() error {
-			var err error // redeclare
-			shareStat, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{
+			// Bound the per-share Stat so one slow/stuck resource cannot consume
+			// the request deadline shared by all the other shares.
+			statCtx, cancel := context.WithTimeout(ctx, statTimeout)
+			defer cancel()
+			shareStat, err := gatewayClient.Stat(statCtx, &storageprovider.StatRequest{
 				Ref: &storageprovider.Reference{
 					ResourceId: receivedShares[0].GetShare().GetResourceId(),
 				},
 			})
 
-			if err := errorcode.FromCS3Status(shareStat.GetStatus(), err); err != nil {
-				logger.Debug().Err(err).
+			if err != nil {
+				// The storage could not be reached in time (per-share timeout,
+				// cancellation, or an unavailable downstream). The resource most
+				// likely still exists, so keep the share visible as a degraded item
+				// built from the share record instead of dropping it: a single slow
+				// share must neither vanish nor take the other shares down with it.
+				logger.Warn().Err(err).
 					Str("shareid", receivedShares[0].GetShare().GetId().GetOpaqueId()).
 					Str("resourceid", storagespace.FormatResourceID(receivedShares[0].GetShare().GetResourceId())).
-					Msg("could not stat received share, skipping")
+					Msg("could not stat received share, returning a degraded drive item")
+				degradedShares.Add(1)
+				ch <- *buildDegradedDriveItemFromReceivedShares(ctx, logger, identityCache, receivedShares, availableRoles)
+				return nil
+			}
+
+			if statErr := errorcode.FromCS3Status(shareStat.GetStatus(), nil); statErr != nil {
+				// The storage answered with a definitive error (resource gone,
+				// access revoked, or a broken node, e.g. after the sharer was
+				// deleted). The share is dead and must not be listed.
+				logger.Debug().Err(statErr).
+					Str("shareid", receivedShares[0].GetShare().GetId().GetOpaqueId()).
+					Str("resourceid", storagespace.FormatResourceID(receivedShares[0].GetShare().GetResourceId())).
+					Msg("could not stat received share, skipping (resource unavailable)")
 				return nil
 			}
 
@@ -264,7 +308,7 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 				}
 
 				if root := shareStat.GetInfo().GetSpace().GetRoot(); root != nil {
-					parentReference.SetDriveId(storagespace.FormatResourceID(root))
+					parentReference.SetDriveId(storagespace.FormatStorageID(root.GetStorageId(), root.GetSpaceId()))
 				}
 				if !reflect.ValueOf(*parentReference).IsZero() {
 					remoteItem.ParentReference = parentReference
@@ -285,6 +329,8 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 			if etag := shareStat.GetInfo().GetEtag(); etag != "" {
 				driveItem.SetETag(etag)
 			}
+
+			driveItem.SetLibreGraphMeFollowing(isFollowing(ctx, shareStat.GetInfo()))
 
 			// connect the dots
 			{
@@ -353,7 +399,67 @@ func cs3ReceivedSharesToDriveItems(ctx context.Context,
 		driveItems = append(driveItems, di)
 	}
 
+	if n := degradedShares.Load(); n > 0 {
+		logger.Warn().
+			Int64("degraded", n).
+			Int("total", len(receivedSharesByResourceID)).
+			Msg("some received shares could not be fully resolved and were returned as degraded drive items")
+	}
+
 	return driveItems, err
+}
+
+// buildDegradedDriveItemFromReceivedShares constructs a DriveItem for a set of
+// received shares pointing at the same resource when that resource could not be
+// statted. It exposes the data already contained in the share records (ids,
+// permissions, grantees, timestamps, mountpoint name) so the share stays
+// visible in the sharedWithMe listing instead of being silently dropped.
+// Properties that are only known from a successful Stat (size, etag, mime type,
+// owner, file/folder type) are intentionally left unset. It never returns an
+// error: if even the degraded build fails it falls back to a minimal item that
+// still carries the share identity.
+func buildDegradedDriveItemFromReceivedShares(ctx context.Context, logger *log.Logger,
+	identityCache cache.IdentityCache, receivedShares []*collaboration.ReceivedShare,
+	availableRoles []*libregraph.UnifiedRoleDefinition) *libregraph.DriveItem {
+
+	driveItem, err := fillDriveItemPropertiesFromReceivedShare(ctx, logger, identityCache, receivedShares, nil, availableRoles)
+	if err != nil {
+		logger.Warn().Err(err).
+			Str("shareid", receivedShares[0].GetShare().GetId().GetOpaqueId()).
+			Msg("could not build degraded drive item, returning a minimal item")
+		driveItem = libregraph.NewDriveItem()
+		driveItem.SetId(storagespace.FormatResourceID(&storageprovider.ResourceId{
+			StorageId: utils.ShareStorageProviderID,
+			OpaqueId:  receivedShares[0].GetShare().GetId().GetOpaqueId(),
+			SpaceId:   utils.ShareStorageSpaceID,
+		}))
+		driveItem.RemoteItem = libregraph.NewRemoteItem()
+	}
+
+	// the item lives in the virtual share jail, same as the fully-resolved item
+	driveItem.ParentReference = libregraph.NewItemReference()
+	driveItem.ParentReference.SetDriveType(_spaceTypeVirtual)
+	driveItem.ParentReference.SetDriveId(storagespace.FormatStorageID(utils.ShareStorageProviderID, utils.ShareStorageSpaceID))
+	driveItem.ParentReference.SetId(storagespace.FormatResourceID(&storageprovider.ResourceId{
+		StorageId: utils.ShareStorageProviderID,
+		OpaqueId:  utils.ShareStorageSpaceID,
+		SpaceId:   utils.ShareStorageSpaceID,
+	}))
+
+	if rid := receivedShares[0].GetShare().GetResourceId(); rid != nil {
+		driveItem.RemoteItem.SetId(storagespace.FormatResourceID(rid))
+		driveItem.RemoteItem.ParentReference = libregraph.NewItemReference()
+		driveItem.RemoteItem.ParentReference.SetDriveId(storagespace.FormatStorageID(rid.GetStorageId(), rid.GetSpaceId()))
+	}
+
+	// fall back to the mountpoint name when the resource name is unknown
+	if driveItem.GetName() == "" {
+		if name := receivedShares[0].GetMountPoint().GetPath(); name != "" {
+			driveItem.SetName(name)
+		}
+	}
+
+	return driveItem
 }
 
 func fillDriveItemPropertiesFromReceivedShare(ctx context.Context, logger *log.Logger,
@@ -448,26 +554,36 @@ func cs3ReceivedShareToLibreGraphPermissions(ctx context.Context, logger *log.Lo
 	}
 
 	if permissionSet := receivedShare.GetShare().GetPermissions().GetPermissions(); permissionSet != nil {
-		condition, err := roleConditionForResourceType(resourceInfo)
-		if err != nil {
-			return nil, err
-		}
+		// resourceInfo is nil for a degraded item, i.e. when the underlying
+		// resource could not be statted. The resource type, and therefore the
+		// unified role, cannot be determined in that case, so expose the raw
+		// actions instead of failing the whole listing.
+		if resourceInfo == nil {
+			if actions := unifiedrole.CS3ResourcePermissionsToLibregraphActions(permissionSet); len(actions) > 0 {
+				permission.SetLibreGraphPermissionsActions(actions)
+			}
+		} else {
+			condition, err := roleConditionForResourceType(resourceInfo)
+			if err != nil {
+				return nil, err
+			}
 
-		role := unifiedrole.CS3ResourcePermissionsToRole(
-			availableRoles,
-			permissionSet,
-			condition,
-			false,
-		)
-		if role != nil {
-			permission.SetRoles([]string{role.GetId()})
-		}
+			role := unifiedrole.CS3ResourcePermissionsToRole(
+				availableRoles,
+				permissionSet,
+				condition,
+				false,
+			)
+			if role != nil {
+				permission.SetRoles([]string{role.GetId()})
+			}
 
-		actions := unifiedrole.CS3ResourcePermissionsToLibregraphActions(permissionSet)
+			actions := unifiedrole.CS3ResourcePermissionsToLibregraphActions(permissionSet)
 
-		// actions only make sense if no role is set
-		if role == nil && len(actions) > 0 {
-			permission.SetLibreGraphPermissionsActions(actions)
+			// actions only make sense if no role is set
+			if role == nil && len(actions) > 0 {
+				permission.SetLibreGraphPermissionsActions(actions)
+			}
 		}
 	}
 	switch grantee := receivedShare.GetShare().GetGrantee(); {
@@ -619,7 +735,7 @@ func cs3ReceivedOCMSharesToDriveItems(ctx context.Context,
 				}
 
 				if root := shareStat.GetInfo().GetSpace().GetRoot(); root != nil {
-					parentReference.SetDriveId(storagespace.FormatResourceID(root))
+					parentReference.SetDriveId(storagespace.FormatStorageID(root.GetStorageId(), root.GetSpaceId()))
 				}
 				if !reflect.ValueOf(*parentReference).IsZero() {
 					remoteItem.ParentReference = parentReference

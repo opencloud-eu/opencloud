@@ -8,7 +8,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/opencloud-eu/reva/v2/pkg/conversions"
+	"github.com/opencloud-eu/reva/v3/pkg/conversions"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
@@ -235,6 +235,32 @@ var (
 
 	// UnifiedRole FullDenial, Role DisplayName (resolves directly)
 	_deniedUnifiedRoleDisplayName = l10n.Template("Cannot access")
+
+	// unifiedRoleLabels maps the IDs of the built-in roles to short, stable labels,
+	// e.g. for the CLI and the theme. Every built-in role must have a label.
+	unifiedRoleLabels = map[string]string{
+		UnifiedRoleViewerID:                                    "Viewer",
+		UnifiedRoleViewerWithVersionsID:                        "ViewerWithVersions",
+		UnifiedRoleViewerListGrantsID:                          "ViewerListGrants",
+		UnifiedRoleSpaceViewerID:                               "SpaceViewer",
+		UnifiedRoleSpaceViewerWithVersionsID:                   "SpaceViewerWithVersions",
+		UnifiedRoleEditorID:                                    "Editor",
+		UnifiedRoleEditorWithVersionsID:                        "EditorWithVersions",
+		UnifiedRoleEditorListGrantsID:                          "EditorListGrants",
+		UnifiedRoleEditorListGrantsWithVersionsID:              "EditorListGrantsWithVersions",
+		UnifiedRoleSpaceEditorID:                               "SpaceEditor",
+		UnifiedRoleSpaceEditorWithoutVersionsID:                "SpaceEditorWithoutVersions",
+		UnifiedRoleSpaceEditorWithoutTrashbinID:                "SpaceEditorWithoutTrashbin",
+		UnifiedRoleSpaceEditorWithoutVersionsWithoutTrashbinID: "SpaceEditorWithoutVersionsWithoutTrashbin",
+		UnifiedRoleFileEditorID:                                "FileEditor",
+		UnifiedRoleFileEditorWithVersionsID:                    "FileEditorWithVersions",
+		UnifiedRoleFileEditorListGrantsID:                      "FileEditorListGrants",
+		UnifiedRoleFileEditorListGrantsWithVersionsID:          "FileEditorListGrantsWithVersions",
+		UnifiedRoleEditorLiteID:                                "EditorLite",
+		UnifiedRoleManagerID:                                   "SpaceManager",
+		UnifiedRoleSecureViewerID:                              "SecureViewer",
+		UnifiedRoleDeniedID:                                    "Denied",
+	}
 
 	// legacyNames contains the legacy role names.
 	legacyNames = map[string]string{
@@ -749,6 +775,11 @@ func GetRolesByPermissions(roleSet []*libregraph.UnifiedRoleDefinition, actions 
 	}
 
 	return weightRoles(roles, constraints, descending)
+}
+
+// GetUnifiedRoleLabel returns the label of the role with the given ID, or an empty string for an unknown ID.
+func GetUnifiedRoleLabel(unifiedRoleID string) string {
+	return unifiedRoleLabels[unifiedRoleID]
 }
 
 // GetLegacyRoleName returns the legacy role name for the provided role

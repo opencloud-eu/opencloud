@@ -169,7 +169,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -350,7 +350,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -434,7 +434,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -660,7 +660,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -736,7 +736,7 @@ Feature: Update a link share for a resource
             "pattern": "^[a-zA-Z]{15}$"
           },
           "expirationDateTime": {
-            "const": "2201-07-15T23:59:59Z"
+            "const": "2201-07-15T14:00:00Z"
           },
           "link": {
             "type": "object",
@@ -784,7 +784,7 @@ Feature: Update a link share for a resource
       | createOnly       | edit                 |
       | createOnly       | upload               |
 
-  @issues-8405
+  @issue-8405
   Scenario Outline: remove expiration date of a resource link share using permissions endpoint
     Given user "Alice" has uploaded file with content "other data" to "textfile1.txt"
     And user "Alice" has created folder "folder"

@@ -3,8 +3,8 @@ services:
     image: dadarek/wait-for-dependencies
     depends_on:
       - email
-    command: email:9000
+    command: email:8025
   email:
-    image: inbucket/inbucket
+    image: axllent/mailpit:v1.32.0
     ports:
-      - '9000:9000'
+      - '8025:8025'

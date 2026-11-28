@@ -49,6 +49,12 @@ func NewSearchProviderEndpoints() []*api.Endpoint {
 			Stream:  true,
 			Handler: "rpc",
 		},
+		{
+			Name:    "SearchProvider.OptimizeIndex",
+			Path:    []string{"/api/v0/search/optimize-index"},
+			Method:  []string{"POST"},
+			Handler: "rpc",
+		},
 	}
 }
 
@@ -59,6 +65,9 @@ type SearchProviderService interface {
 	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
 	// progress information after each space has been indexed.
 	IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...client.CallOption) (SearchProvider_IndexSpaceService, error)
+	// OptimizeIndex merges the segments of the index into one, without indexing
+	// anything again. It answers once the merge is done.
+	OptimizeIndex(ctx context.Context, in *OptimizeIndexRequest, opts ...client.CallOption) (*OptimizeIndexResponse, error)
 }
 
 type searchProviderService struct {
@@ -137,6 +146,16 @@ func (x *searchProviderServiceIndexSpace) Recv() (*IndexSpaceResponse, error) {
 	return m, nil
 }
 
+func (c *searchProviderService) OptimizeIndex(ctx context.Context, in *OptimizeIndexRequest, opts ...client.CallOption) (*OptimizeIndexResponse, error) {
+	req := c.c.NewRequest(c.name, "SearchProvider.OptimizeIndex", in)
+	out := new(OptimizeIndexResponse)
+	err := c.c.Call(ctx, req, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for SearchProvider service
 
 type SearchProviderHandler interface {
@@ -144,12 +163,16 @@ type SearchProviderHandler interface {
 	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
 	// progress information after each space has been indexed.
 	IndexSpace(context.Context, *IndexSpaceRequest, SearchProvider_IndexSpaceStream) error
+	// OptimizeIndex merges the segments of the index into one, without indexing
+	// anything again. It answers once the merge is done.
+	OptimizeIndex(context.Context, *OptimizeIndexRequest, *OptimizeIndexResponse) error
 }
 
 func RegisterSearchProviderHandler(s server.Server, hdlr SearchProviderHandler, opts ...server.HandlerOption) error {
 	type searchProvider interface {
 		Search(ctx context.Context, in *SearchRequest, out *SearchResponse) error
 		IndexSpace(ctx context.Context, stream server.Stream) error
+		OptimizeIndex(ctx context.Context, in *OptimizeIndexRequest, out *OptimizeIndexResponse) error
 	}
 	type SearchProvider struct {
 		searchProvider
@@ -166,6 +189,12 @@ func RegisterSearchProviderHandler(s server.Server, hdlr SearchProviderHandler, 
 		Path:    []string{"/api/v0/search/index-space"},
 		Method:  []string{"POST"},
 		Stream:  true,
+		Handler: "rpc",
+	}))
+	opts = append(opts, api.WithEndpoint(&api.Endpoint{
+		Name:    "SearchProvider.OptimizeIndex",
+		Path:    []string{"/api/v0/search/optimize-index"},
+		Method:  []string{"POST"},
 		Handler: "rpc",
 	}))
 	return s.Handle(s.NewHandler(&SearchProvider{h}, opts...))
@@ -219,74 +248,6 @@ func (x *searchProviderIndexSpaceStream) Send(m *IndexSpaceResponse) error {
 	return x.stream.Send(m)
 }
 
-// Api Endpoints for IndexProvider service
-
-func NewIndexProviderEndpoints() []*api.Endpoint {
-	return []*api.Endpoint{
-		{
-			Name:    "IndexProvider.Search",
-			Path:    []string{"/api/v0/search/index/search"},
-			Method:  []string{"POST"},
-			Handler: "rpc",
-		},
-	}
-}
-
-// Client API for IndexProvider service
-
-type IndexProviderService interface {
-	Search(ctx context.Context, in *SearchIndexRequest, opts ...client.CallOption) (*SearchIndexResponse, error)
-}
-
-type indexProviderService struct {
-	c    client.Client
-	name string
-}
-
-func NewIndexProviderService(name string, c client.Client) IndexProviderService {
-	return &indexProviderService{
-		c:    c,
-		name: name,
-	}
-}
-
-func (c *indexProviderService) Search(ctx context.Context, in *SearchIndexRequest, opts ...client.CallOption) (*SearchIndexResponse, error) {
-	req := c.c.NewRequest(c.name, "IndexProvider.Search", in)
-	out := new(SearchIndexResponse)
-	err := c.c.Call(ctx, req, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Server API for IndexProvider service
-
-type IndexProviderHandler interface {
-	Search(context.Context, *SearchIndexRequest, *SearchIndexResponse) error
-}
-
-func RegisterIndexProviderHandler(s server.Server, hdlr IndexProviderHandler, opts ...server.HandlerOption) error {
-	type indexProvider interface {
-		Search(ctx context.Context, in *SearchIndexRequest, out *SearchIndexResponse) error
-	}
-	type IndexProvider struct {
-		indexProvider
-	}
-	h := &indexProviderHandler{hdlr}
-	opts = append(opts, api.WithEndpoint(&api.Endpoint{
-		Name:    "IndexProvider.Search",
-		Path:    []string{"/api/v0/search/index/search"},
-		Method:  []string{"POST"},
-		Handler: "rpc",
-	}))
-	return s.Handle(s.NewHandler(&IndexProvider{h}, opts...))
-}
-
-type indexProviderHandler struct {
-	IndexProviderHandler
-}
-
-func (h *indexProviderHandler) Search(ctx context.Context, in *SearchIndexRequest, out *SearchIndexResponse) error {
-	return h.IndexProviderHandler.Search(ctx, in, out)
+func (h *searchProviderHandler) OptimizeIndex(ctx context.Context, in *OptimizeIndexRequest, out *OptimizeIndexResponse) error {
+	return h.SearchProviderHandler.OptimizeIndex(ctx, in, out)
 }

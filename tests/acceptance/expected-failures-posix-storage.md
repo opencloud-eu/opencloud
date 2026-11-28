@@ -151,13 +151,13 @@
 #### [sharee (editor role) MOVE a file by file-id into shared sub-folder returns 502](https://github.com/owncloud/ocis/issues/7617)
 
 - [apiSpacesDavOperation/moveByFileId.feature:368](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L368)
-- [apiSpacesDavOperation/moveByFileId.feature:591](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L591)
+- [apiSpacesDavOperation/moveByFileId.feature:620](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L620)
 
 #### [MOVE a file into same folder with same name returns 404 instead of 403](https://github.com/owncloud/ocis/issues/1976)
 
 - [apiSpacesShares/moveSpaces.feature:69](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L69)
 - [apiSpacesShares/moveSpaces.feature:70](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L70)
-- [apiSpacesShares/moveSpaces.feature:416](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L416)
+- [apiSpacesShares/moveSpaces.feature:419](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesShares/moveSpaces.feature#L419)
 - [apiSpacesDavOperation/moveByFileId.feature:61](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L61)
 - [apiSpacesDavOperation/moveByFileId.feature:174](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L174)
 - [apiSpacesDavOperation/moveByFileId.feature:175](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L175)
@@ -177,10 +177,6 @@
 #### [OCM. server crash after deleting share for ocm user](https://github.com/owncloud/ocis/issues/10213)
 
 - [apiOcm/deleteFederatedConnections.feature:102](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiOcm/deleteFederatedConnections.feature#L102)
-
-#### [Shares Jail PROPFIND returns different File IDs for the same item](https://github.com/owncloud/ocis/issues/9933)
-
-- [apiSharingNg1/propfindShares.feature:149](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/propfindShares.feature#L149)
 
 #### [Readiness check for some services returns 500 status code](https://github.com/owncloud/ocis/issues/10661)
 
@@ -315,6 +311,15 @@ _ocdav: api compatibility, return correct status code_
 #### [Trying to restore personal file to file of share received folder returns 403 but the share file is deleted (new dav path)](https://github.com/owncloud/ocis/issues/10356)
 
 - [coreApiTrashbin/trashbinSharingToShares.feature:277](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiTrashbin/trashbinSharingToShares.feature#L277)
+
+#### [Report response doesn't contain <d:getetag>](https://github.com/opencloud-eu/opencloud/issues/3501)
+
+- [apiSearch1/search.feature:459](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L459)
+- [apiSearch1/search.feature:460](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L460)
+- [apiSearch1/search.feature:461](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L461)
+- [apiSearch1/search.feature:483](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L483)
+- [apiSearch1/search.feature:484](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L484)
+- [apiSearch1/search.feature:485](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L485)
 
 ### Won't fix
 

@@ -12,17 +12,23 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/iancoleman/strcase"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/tags"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/tags"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
@@ -74,9 +80,10 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 	ctx := revactx.ContextSetToken(r.Context(), t)
 	ctx = metadata.Set(ctx, revactx.TokenHeader, t)
 
-	req := &searchsvc.SearchRequest{
-		Query:    rep.SearchFiles.Search.Pattern,
-		PageSize: int32(rep.SearchFiles.Search.Limit),
+	req, err := searchRequestOf(rep.SearchFiles.Search)
+	if err != nil {
+		renderError(w, r, errBadRequest(err.Error()))
+		return
 	}
 
 	// Limit search to the according space when searching /dav/spaces/<spaceid>
@@ -113,6 +120,22 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g.sendSearchResponse(davPrefix, rsp, w, r, user)
+}
+
+// searchRequestOf maps the search element of the report: limit -1 is no
+// limit, 0 the default, offset skips leading matches of the merged list.
+func searchRequestOf(search reportSearchFilesSearch) (*searchsvc.SearchRequest, error) {
+	if search.Limit < -1 {
+		return nil, fmt.Errorf("limit must be -1, 0 or positive")
+	}
+	if search.Offset < 0 {
+		return nil, fmt.Errorf("offset must not be negative")
+	}
+	req := &searchsvc.SearchRequest{Query: search.Pattern, From: int32(search.Offset)}
+	if search.Limit != 0 {
+		req.PageSize = conversions.ToPointer(int32(search.Limit))
+	}
+	return req, nil
 }
 
 func (g Webdav) sendSearchResponse(davPrefix string, rsp *searchsvc.SearchResponse, w http.ResponseWriter, r *http.Request, user *userv1beta1.User) {
@@ -262,11 +285,58 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:favorite", "1"))
 	}
 
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "audio", match.Entity.Audio)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "location", match.Entity.Location)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "image", match.Entity.Image)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "photo", match.Entity.Photo)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "video", match.Entity.Video)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "motion-photo", match.Entity.MotionPhoto)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "live-photo", match.Entity.LivePhoto)
+
 	if len(propstatOK.Prop) > 0 {
 		response.Propstat = append(response.Propstat, propstatOK)
 	}
 
 	return &response, nil
+}
+
+// appendFacet renders a facet in the xml shape PROPFIND uses for it.
+func appendFacet(props []prop.PropertyXML, name string, facet proto.Message) []prop.PropertyXML {
+	m := facet.ProtoReflect()
+	if !m.IsValid() {
+		return props
+	}
+
+	content := strings.Builder{}
+	fields := m.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if !m.Has(fd) {
+			continue
+		}
+		key := "oc:" + strcase.ToKebab(string(fd.Name()))
+		content.WriteString("<" + key + ">")
+		content.WriteString(prop.Escape(facetValue(fd, m.Get(fd))))
+		content.WriteString("</" + key + ">")
+	}
+	if content.Len() == 0 {
+		return props
+	}
+	return append(props, prop.Raw("oc:"+name, content.String()))
+}
+
+func facetValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) string {
+	switch fd.Kind() {
+	case protoreflect.FloatKind:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 32)
+	case protoreflect.DoubleKind:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case protoreflect.MessageKind:
+		if ts, ok := v.Message().Interface().(*timestamppb.Timestamp); ok {
+			return ts.AsTime().Format(time.RFC3339)
+		}
+	}
+	return v.String()
 }
 
 type report struct {

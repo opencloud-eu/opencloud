@@ -122,6 +122,89 @@ func (_c *SearchProviderService_IndexSpace_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// OptimizeIndex provides a mock function for the type SearchProviderService
+func (_mock *SearchProviderService) OptimizeIndex(ctx context.Context, in *v0.OptimizeIndexRequest, opts ...client.CallOption) (*v0.OptimizeIndexResponse, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, in, opts)
+	} else {
+		tmpRet = _mock.Called(ctx, in)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for OptimizeIndex")
+	}
+
+	var r0 *v0.OptimizeIndexResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.OptimizeIndexRequest, ...client.CallOption) (*v0.OptimizeIndexResponse, error)); ok {
+		return returnFunc(ctx, in, opts...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.OptimizeIndexRequest, ...client.CallOption) *v0.OptimizeIndexResponse); ok {
+		r0 = returnFunc(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v0.OptimizeIndexResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v0.OptimizeIndexRequest, ...client.CallOption) error); ok {
+		r1 = returnFunc(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// SearchProviderService_OptimizeIndex_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OptimizeIndex'
+type SearchProviderService_OptimizeIndex_Call struct {
+	*mock.Call
+}
+
+// OptimizeIndex is a helper method to define mock.On call
+//   - ctx context.Context
+//   - in *v0.OptimizeIndexRequest
+//   - opts ...client.CallOption
+func (_e *SearchProviderService_Expecter) OptimizeIndex(ctx any, in any, opts ...any) *SearchProviderService_OptimizeIndex_Call {
+	return &SearchProviderService_OptimizeIndex_Call{Call: _e.mock.On("OptimizeIndex",
+		append([]any{ctx, in}, opts...)...)}
+}
+
+func (_c *SearchProviderService_OptimizeIndex_Call) Run(run func(ctx context.Context, in *v0.OptimizeIndexRequest, opts ...client.CallOption)) *SearchProviderService_OptimizeIndex_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v0.OptimizeIndexRequest
+		if args[1] != nil {
+			arg1 = args[1].(*v0.OptimizeIndexRequest)
+		}
+		var arg2 []client.CallOption
+		var variadicArgs []client.CallOption
+		if len(args) > 2 {
+			variadicArgs = args[2].([]client.CallOption)
+		}
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
+	})
+	return _c
+}
+
+func (_c *SearchProviderService_OptimizeIndex_Call) Return(optimizeIndexResponse *v0.OptimizeIndexResponse, err error) *SearchProviderService_OptimizeIndex_Call {
+	_c.Call.Return(optimizeIndexResponse, err)
+	return _c
+}
+
+func (_c *SearchProviderService_OptimizeIndex_Call) RunAndReturn(run func(ctx context.Context, in *v0.OptimizeIndexRequest, opts ...client.CallOption) (*v0.OptimizeIndexResponse, error)) *SearchProviderService_OptimizeIndex_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Search provides a mock function for the type SearchProviderService
 func (_mock *SearchProviderService) Search(ctx context.Context, in *v0.SearchRequest, opts ...client.CallOption) (*v0.SearchResponse, error) {
 	var tmpRet mock.Arguments

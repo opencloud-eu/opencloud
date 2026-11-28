@@ -15,11 +15,11 @@ import (
 	"time"
 
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/blobstore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/blobstore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/pkg/xattr"
 	"github.com/shamaton/msgpack/v2"
 )
@@ -27,7 +27,6 @@ import (
 type consistencyChecker struct {
 	cfg                  *storageUsersConfig.Config
 	ignorer              *ignore.Ignorer
-	internalDirs         []string
 	recalculateChecksums bool
 
 	restartRequired bool
@@ -37,7 +36,7 @@ type consistencyChecker struct {
 // given path determines the scope of the check: the whole storage, a single
 // space or a single entity within a space.
 func (c *consistencyChecker) Check(paths []string) error {
-	_ = processPosixFsResources(paths, c.internalDirs, true,
+	_ = processPosixFsResources(paths, c.ignorer, true,
 		func(path string) error {
 			fmt.Printf("Checking space '%s'...\n", path)
 			c.checkSpace(path)

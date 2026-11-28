@@ -7,7 +7,7 @@ Feature: upload file
     Given using OCS API version "1"
     And user "Alice" has been created with default attributes
 
-  @smokeTest
+
   Scenario Outline: upload a file and check etag and download content
     Given using <dav-path-version> DAV path
     When user "Alice" uploads file with content "uploaded content" to "<file-name>" using the WebDAV API

@@ -23,9 +23,9 @@ import (
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"github.com/pkg/errors"
 	merrors "go-micro.dev/v4/errors"
 	"golang.org/x/sync/errgroup"
@@ -914,6 +914,10 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 	}
 	if expandPermissions {
 		drive.Root.Permissions, _ = g.cs3SpacePermissionsToLibreGraph(ctx, space, false, apiVersion)
+	}
+
+	if rootInfo := space.GetRootInfo(); rootInfo != nil {
+		drive.Root.SetLibreGraphMeFollowing(isFollowing(ctx, rootInfo))
 	}
 
 	if _, ok := fieldMask["@libre.graph.hasTrashedItems"]; ok {

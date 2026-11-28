@@ -1,10 +1,21 @@
 package svc
 
 import (
+	"context"
 	"testing"
+	"time"
 
+	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
+	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 func TestSearch(t *testing.T) {
@@ -31,5 +42,85 @@ var _ = Describe("SpacesSearchRegex", func() {
 		Entry("remote.php dav spaces path without space", "/remote.php/dav/spaces/", "", false),
 		Entry("prefix match only", "/dav/spaces", "", false),
 		Entry("unrelated path", "/dav/files/123", "", false),
+	)
+})
+
+var _ = Describe("multistatusResponse", func() {
+	It("carries the facets of a hit in the PROPFIND shape", func() {
+		id := &searchmsg.ResourceID{StorageId: "storage", SpaceId: "space", OpaqueId: "file"}
+		res, err := multistatusResponse(context.Background(), "", "", []*searchmsg.Match{{Entity: &searchmsg.Entity{
+			Ref:   &searchmsg.Reference{ResourceId: id},
+			Id:    id,
+			Audio: &searchmsg.Audio{},
+			Photo: &searchmsg.Photo{
+				CameraMake:          proto.String("Acme"),
+				CameraModel:         proto.String("X100"),
+				ExposureDenominator: proto.Float32(250),
+				ExposureNumerator:   proto.Float32(1),
+				FNumber:             proto.Float32(1.8),
+				FocalLength:         proto.Float32(26),
+				Iso:                 proto.Int32(400),
+				Orientation:         proto.Int32(6),
+				TakenDateTime:       timestamppb.New(time.Date(2018, 1, 1, 12, 34, 56, 0, time.UTC)),
+			},
+			Location:  &searchmsg.GeoCoordinates{Latitude: proto.Float64(0), Longitude: proto.Float64(11.576124)},
+			LivePhoto: &searchmsg.LivePhoto{ContentId: proto.String("a&b"), StillImageTimeUs: proto.Int64(1233333)},
+		}}}, &userv1beta1.User{Id: &userv1beta1.UserId{}}, thumbnail.NewSourceTypes(nil))
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(string(res)).To(ContainSubstring("<oc:photo>" +
+			"<oc:camera-make>Acme</oc:camera-make>" +
+			"<oc:camera-model>X100</oc:camera-model>" +
+			"<oc:exposure-denominator>250</oc:exposure-denominator>" +
+			"<oc:exposure-numerator>1</oc:exposure-numerator>" +
+			"<oc:f-number>1.8</oc:f-number>" +
+			"<oc:focal-length>26</oc:focal-length>" +
+			"<oc:iso>400</oc:iso>" +
+			"<oc:orientation>6</oc:orientation>" +
+			"<oc:taken-date-time>2018-01-01T12:34:56Z</oc:taken-date-time>" +
+			"</oc:photo>"))
+		Expect(string(res)).To(ContainSubstring("<oc:location><oc:latitude>0</oc:latitude><oc:longitude>11.576124</oc:longitude></oc:location>"))
+		Expect(string(res)).To(ContainSubstring("<oc:live-photo><oc:content-id>a&amp;b</oc:content-id><oc:still-image-time-us>1233333</oc:still-image-time-us></oc:live-photo>"))
+		Expect(string(res)).ToNot(ContainSubstring("oc:audio"))
+	})
+
+	It("adds no facet props to a hit without facets", func() {
+		id := &searchmsg.ResourceID{StorageId: "storage", SpaceId: "space", OpaqueId: "file"}
+		res, err := multistatusResponse(context.Background(), "", "", []*searchmsg.Match{{Entity: &searchmsg.Entity{
+			Ref: &searchmsg.Reference{ResourceId: id},
+			Id:  id,
+		}}}, &userv1beta1.User{Id: &userv1beta1.UserId{}}, thumbnail.NewSourceTypes(nil))
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, facet := range []string{"audio", "location", "image", "photo", "video", "motion-photo", "live-photo"} {
+			Expect(string(res)).ToNot(ContainSubstring("oc:" + facet))
+		}
+	})
+})
+
+var _ = Describe("searchRequestOf", func() {
+	DescribeTable("maps pattern, limit and offset of the report",
+		func(search reportSearchFilesSearch, want *searchsvc.SearchRequest) {
+			got, err := searchRequestOf(search)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(BeComparableTo(want, protocmp.Transform()))
+		},
+		Entry("the pattern alone, the service applies its default page size",
+			reportSearchFilesSearch{Pattern: "notes"}, &searchsvc.SearchRequest{Query: "notes"}),
+		Entry("a limit", reportSearchFilesSearch{Pattern: "notes", Limit: 25},
+			&searchsvc.SearchRequest{Query: "notes", PageSize: conversions.ToPointer(int32(25))}),
+		Entry("no limit", reportSearchFilesSearch{Pattern: "notes", Limit: -1},
+			&searchsvc.SearchRequest{Query: "notes", PageSize: conversions.ToPointer(int32(-1))}),
+		Entry("an offset pages the merged list", reportSearchFilesSearch{Pattern: "notes", Limit: 25, Offset: 50},
+			&searchsvc.SearchRequest{Query: "notes", PageSize: conversions.ToPointer(int32(25)), From: 50}),
+	)
+
+	DescribeTable("rejects",
+		func(search reportSearchFilesSearch) {
+			_, err := searchRequestOf(search)
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("a negative offset", reportSearchFilesSearch{Pattern: "notes", Offset: -1}),
+		Entry("a limit below -1", reportSearchFilesSearch{Pattern: "notes", Limit: -2}),
 	)
 })

@@ -36,7 +36,7 @@ Feature: sharing
       | 1               | 100             |
       | 2               | 200             |
 
-  @smokeTest
+
   Scenario Outline: delete a share
     Given using OCS API version "<ocs-api-version>"
     And using SharingNG
@@ -78,7 +78,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: deleting a file out of a share as recipient creates a backup for the owner
     Given using <dav-path-version> DAV path
     And using OCS API version "1"
@@ -131,7 +131,7 @@ Feature: sharing
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario: unshare from self
     And group "grp1" has been created
     And these users have been created with default attributes:

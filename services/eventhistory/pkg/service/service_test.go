@@ -16,9 +16,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/server/consumer"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	microevents "go-micro.dev/v4/events"
 	microstore "go-micro.dev/v4/store"
 )

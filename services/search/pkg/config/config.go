@@ -27,7 +27,7 @@ type Config struct {
 	Events                     Events                `yaml:"events"`
 	Engine                     Engine                `yaml:"engine"`
 	Extractor                  Extractor             `yaml:"extractor"`
-	ContentExtractionSizeLimit uint64                `yaml:"content_extraction_size_limit" env:"SEARCH_CONTENT_EXTRACTION_SIZE_LIMIT" desc:"Maximum file size in bytes that is allowed for content extraction." introductionVersion:"1.0.0"`
+	ContentExtractionSizeLimit uint64                `yaml:"content_extraction_size_limit" env:"SEARCH_CONTENT_EXTRACTION_SIZE_LIMIT" desc:"Maximum file size in bytes that is allowed for content extraction. Of a larger file only the metadata is extracted, from its first bytes up to this size." introductionVersion:"1.0.0"`
 	BatchSize                  int                   `yaml:"batch_size" env:"SEARCH_BATCH_SIZE" desc:"The number of documents to process in a single batch. Defaults to 500." introductionVersion:"1.0.0"`
 	ReindexMaxConcurrency      int                   `yaml:"reindex_concurrency" env:"SEARCH_REINDEX_MAX_CONCURRENCY" desc:"The maximum number of spaces that are reindexed concurrently when reindexing all spaces." introductionVersion:"7.4.0"`
 	QueryTemplate              string                `yaml:"query_template" env:"SEARCH_QUERY_TEMPLATE" desc:"A KQL template every search runs through, see the search service documentation for the available placeholders." introductionVersion:"9.0.0"`

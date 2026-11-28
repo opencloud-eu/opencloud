@@ -8,7 +8,7 @@ import (
 	pkgconfig "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 // GatewayConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
@@ -69,19 +69,6 @@ func GatewayConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]a
 						"cache_tls_enabled":             cfg.Cache.ProviderCacheEnableTLS,
 						"cache_tls_insecure":            cfg.Cache.ProviderCacheTLSInsecure,
 						"cache_tls_root_ca_certificate": cfg.Cache.ProviderCacheTLSRootCACertificate,
-					},
-					"create_personal_space_cache_config": map[string]any{
-						"cache_store":                   cfg.Cache.CreateHomeCacheStore,
-						"cache_nodes":                   cfg.Cache.CreateHomeCacheNodes,
-						"cache_database":                cfg.Cache.CreateHomeCacheDatabase,
-						"cache_table":                   "create_personal_space",
-						"cache_ttl":                     cfg.Cache.CreateHomeCacheTTL,
-						"cache_disable_persistence":     cfg.Cache.CreateHomeCacheDisablePersistence,
-						"cache_auth_username":           cfg.Cache.CreateHomeCacheAuthUsername,
-						"cache_auth_password":           cfg.Cache.CreateHomeCacheAuthPassword,
-						"cache_tls_enabled":             cfg.Cache.CreateHomeCacheEnableTLS,
-						"cache_tls_insecure":            cfg.Cache.CreateHomeCacheTLSInsecure,
-						"cache_tls_root_ca_certificate": cfg.Cache.CreateHomeCacheTLSRootCACertificate,
 					},
 				},
 				"authregistry": map[string]any{

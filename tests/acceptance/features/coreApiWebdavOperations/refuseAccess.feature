@@ -6,7 +6,7 @@ Feature: refuse access
   Background:
     Given using OCS API version "1"
 
-  @smokeTest @issue-2285
+  @issue-2285
   Scenario Outline: unauthenticated call
     # cannot perform with spaces WebDAV due to the absence of user
     Given using <dav-path-version> DAV path

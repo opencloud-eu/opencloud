@@ -6,7 +6,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
@@ -57,9 +57,8 @@ func previewThumbnail(base string, box int32) *libregraph.Thumbnail {
 	return &libregraph.Thumbnail{Url: &url}
 }
 
-// setShareThumbnails works off the driveItem, the share listings have no resource
-// info. The id comes separately, a received share carries it on its remote item.
-func setShareThumbnails(item *libregraph.DriveItem, itemID, baseURL string, sourceTypes thumbnail.SourceTypes) {
+// for callers that have no CS3 resource info: the share listings and the search results
+func setDriveItemThumbnailsByID(item *libregraph.DriveItem, itemID, baseURL string, sourceTypes thumbnail.SourceTypes) {
 	mimeType := item.GetFile().MimeType
 	if itemID == "" || mimeType == nil || !sourceTypes.Supports(*mimeType) {
 		return

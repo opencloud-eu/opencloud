@@ -153,6 +153,19 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"insecure":      cfg.Archiver.Insecure,
 					"max_num_files": cfg.Archiver.MaxNumFiles,
 					"max_size":      cfg.Archiver.MaxSize,
+					"audit": map[string]any{
+						"enabled":          cfg.Audit.Enabled,
+						"mode":             cfg.Audit.Mode,
+						"service":          cfg.Service.Name,
+						"service_version":  version.GetString(),
+						"address":          cfg.Events.Endpoint,
+						"clusterID":        cfg.Events.Cluster,
+						"tls-insecure":     cfg.Events.TLSInsecure,
+						"tls-root-ca-cert": cfg.Events.TLSRootCACertificate,
+						"enable-tls":       cfg.Events.EnableTLS,
+						"username":         cfg.Events.AuthUsername,
+						"password":         cfg.Events.AuthPassword,
+					},
 				},
 				"ocs": map[string]any{
 					"storage_registry_svc": cfg.Reva.Address,
@@ -226,6 +239,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"delete_disabled":               !cfg.LDAPServerWriteEnabled,
 									"change_password_self_disabled": changePasswordDisabled,
 									"edit_login_allowed_disabled":   cfg.EditLoginAllowedDisabled,
+								},
+								"tags": map[string]any{
+									"max_tag_length": cfg.Validation.MaxTagLength,
 								},
 							},
 							"checksums": map[string]any{
@@ -357,8 +373,10 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 							"productversion": version.GetString(),
 						},
 					},
-					"include_ocm_sharees":   cfg.OCS.IncludeOCMSharees,
-					"show_email_in_results": cfg.OCS.ShowUserEmailInResults,
+					"include_ocm_sharees":      cfg.OCS.IncludeOCMSharees,
+					"show_email_in_results":    cfg.OCS.ShowUserEmailInResults,
+					"disable_new_user_shares":  cfg.DisableNewUserShares,
+					"disable_new_public_links": cfg.DisableNewPublicLinks,
 				},
 				"ocdav": map[string]any{
 					"prefix":           cfg.OCDav.Prefix,

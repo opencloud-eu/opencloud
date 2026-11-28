@@ -34,3 +34,18 @@ func FieldNameIndex(t reflect.Type, overrides map[string]FieldOpts) map[string]s
 	walk(t, "")
 	return out
 }
+
+// FieldTypes maps every field of t (nested as "parent.child") to its effective
+// mapping type: the override when there is one, the type inferred from the Go
+// type otherwise.
+func FieldTypes(t reflect.Type, overrides map[string]FieldOpts) map[string]string {
+	out := map[string]string{}
+	for key, goType := range collectFields(t, "") {
+		fieldType := overrides[key].Type
+		if fieldType == "" {
+			fieldType = inferType(goType)
+		}
+		out[key] = fieldType
+	}
+	return out
+}

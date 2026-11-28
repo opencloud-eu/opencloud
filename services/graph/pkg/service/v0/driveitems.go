@@ -23,11 +23,12 @@ import (
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/tags"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/conversions"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/publicshare"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/tags"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -480,6 +481,15 @@ func cs3TimestampToTime(t *types.Timestamp) time.Time {
 	return time.Unix(int64(t.GetSeconds()), int64(t.GetNanos()))
 }
 
+func webURLForID(publicBaseURL *url.URL, id string) *string {
+	if publicBaseURL == nil {
+		return nil
+	}
+	u := *publicBaseURL
+	u.Path = path.Join(u.Path, "f", id)
+	return libregraph.PtrString(u.String())
+}
+
 func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *storageprovider.ResourceInfo) (*libregraph.DriveItem, error) {
 	size := new(int64)
 	*size = int64(res.GetSize()) // TODO lurking overflow: make size of libregraph drive item use uint64
@@ -489,9 +499,7 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		Size: size,
 	}
 
-	webURL := *publicBaseURL
-	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(res.GetId()))
-	driveItem.WebUrl = libregraph.PtrString(webURL.String())
+	driveItem.WebUrl = webURLForID(publicBaseURL, storagespace.FormatResourceID(res.GetId()))
 
 	name := res.GetName()
 	if name == "" {
@@ -618,6 +626,8 @@ func shareTypesOf(info *storageprovider.ResourceInfo, linkShares map[string]stru
 			types = append(types, "user")
 		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_GROUP)):
 			types = append(types, "group")
+		case strconv.Itoa(int(conversions.ShareTypeEmail)):
+			types = append(types, "email")
 		}
 	}
 

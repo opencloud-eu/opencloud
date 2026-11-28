@@ -17,14 +17,14 @@ import (
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/share"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/share"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
@@ -75,7 +75,7 @@ func (g BaseGraphService) CS3ReceivedSharesToDriveItems(ctx context.Context, rec
 		return nil, err
 	}
 
-	return cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, receivedShares, g.availableRoles)
+	return cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, receivedShares, g.availableRoles, g.config.ReceivedSharesStatTimeout)
 }
 
 func (g BaseGraphService) CS3ReceivedOCMSharesToDriveItems(ctx context.Context, receivedShares []*ocm.ReceivedShare) ([]libregraph.DriveItem, error) {
@@ -216,7 +216,7 @@ func (g BaseGraphService) cs3SpacePermissionsToLibreGraph(ctx context.Context, s
 	return permissions, len(permissions)
 }
 
-func (g BaseGraphService) libreGraphPermissionFromCS3PublicShare(createdLink *link.PublicShare) (*libregraph.Permission, error) {
+func (g BaseGraphService) libreGraphPermissionFromCS3PublicShare(ctx context.Context, createdLink *link.PublicShare) (*libregraph.Permission, error) {
 	webURL, err := url.Parse(g.config.Spaces.WebDavBase)
 	if err != nil {
 		g.logger.Error().
@@ -249,6 +249,20 @@ func (g BaseGraphService) libreGraphPermissionFromCS3PublicShare(createdLink *li
 	}
 
 	perm.SetHasPassword(createdLink.GetPasswordProtected())
+
+	if creator := createdLink.GetCreator(); creator != nil {
+		identity, err := cs3UserIdToIdentity(ctx, g.identityCache, creator)
+		if err != nil {
+			g.logger.Warn().Err(err).Str("userid", creator.GetOpaqueId()).Msg("could not get creator of the link")
+		}
+		perm.SetInvitation(
+			libregraph.SharingInvitation{
+				InvitedBy: &libregraph.IdentitySet{
+					User: &identity,
+				},
+			},
+		)
+	}
 
 	return perm, nil
 }
@@ -769,7 +783,7 @@ func (g BaseGraphService) cs3PublicSharesToDriveItems(ctx context.Context, share
 				}
 				for _, share := range sharesByResource.Shares {
 
-					perm, err := g.libreGraphPermissionFromCS3PublicShare(share)
+					perm, err := g.libreGraphPermissionFromCS3PublicShare(ctx, share)
 					if err != nil {
 						g.logger.Error().Err(err).Interface("Link", sharesByResource.ResourceID).Msg("could not convert link to libregraph")
 						return err
@@ -1034,7 +1048,7 @@ func (g BaseGraphService) getPermissionByID(ctx context.Context, permissionID st
 	switch {
 	case err == nil:
 		// the id is referencing a public share
-		permission, err := g.libreGraphPermissionFromCS3PublicShare(publicShare)
+		permission, err := g.libreGraphPermissionFromCS3PublicShare(ctx, publicShare)
 		if err != nil {
 			return nil, nil, err
 		}

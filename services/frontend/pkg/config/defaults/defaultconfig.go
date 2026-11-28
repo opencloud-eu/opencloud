@@ -3,6 +3,7 @@ package defaults
 import (
 	"time"
 
+	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
@@ -96,6 +97,14 @@ func DefaultConfig() *config.Config {
 			Prefix:            "app",
 			SecureViewAppAddr: "eu.opencloud.api.collaboration",
 		},
+		Events: config.Events{
+			Endpoint:  "127.0.0.1:9233",
+			Cluster:   "opencloud-cluster",
+			EnableTLS: false,
+		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Archiver: config.Archiver{
 			Insecure:    false,
 			Prefix:      "archiver",
@@ -145,6 +154,9 @@ func DefaultConfig() *config.Config {
 			MinUpperCaseCharacters: 1,
 			MinDigits:              1,
 			MinSpecialCharacters:   1,
+		},
+		Validation: config.Validation{
+			MaxTagLength: ocdefaults.MaxTagLength,
 		},
 		Groupware: config.Groupware{
 			Enabled: false,

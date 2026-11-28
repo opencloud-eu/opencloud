@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"sync"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -13,10 +14,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/metadata"
 )
@@ -44,9 +44,10 @@ type createHome struct {
 	tracer              trace.Tracer
 	revaGatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	roleQuotas          map[string]uint64
+	cache               sync.Map // IDs of the users whose personal space already exists. Kept in memory indefinitely, persistence isn't critical.
 }
 
-func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (m *createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx, span := m.tracer.Start(req.Context(), fmt.Sprintf("%s %s", req.Method, req.URL.Path), trace.WithSpanKind(trace.SpanKindServer))
 	req = req.WithContext(ctx)
 	defer span.End()
@@ -89,25 +90,32 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		m.logger.Err(err).Msg("error selecting next gateway client")
 	} else {
-		createHomeRes, err := client.CreateHome(ctx, createHomeReq)
-		if err != nil {
-			m.logger.Err(err).Msg("error calling CreateHome")
-		} else if createHomeRes.Status.Code != rpc.Code_CODE_OK {
-			err := status.NewErrorFromCode(createHomeRes.Status.Code, "gateway")
-			if createHomeRes.Status.Code != rpc.Code_CODE_ALREADY_EXISTS {
-				m.logger.Err(err).Msg("error when calling Createhome")
+		key := u.GetId().GetOpaqueId()
+		if _, exists := m.cache.Load(key); !exists {
+			createHomeRes, err := client.CreateHome(ctx, createHomeReq)
+			switch {
+			case err != nil:
+				m.logger.Err(err).Msg("error calling CreateHome")
+			case createHomeRes.GetStatus().GetCode() == rpc.Code_CODE_OK:
+				m.logger.Debug().Interface("userID", u.GetId().GetOpaqueId()).Msg("personal space created")
+				m.cache.Store(key, struct{}{})
+			case createHomeRes.GetStatus().GetCode() == rpc.Code_CODE_ALREADY_EXISTS:
+				m.logger.Info().Interface("userID", u.GetId().GetOpaqueId()).Interface("status", createHomeRes.GetStatus()).Msg("personal space already exists")
+				m.cache.Store(key, struct{}{})
+			default:
+				m.logger.Error().Interface("userID", u.GetId().GetOpaqueId()).Interface("status", createHomeRes.GetStatus()).Msg("personal space creation failed")
 			}
 		}
 	}
 	next()
 }
 
-func (m createHome) shouldServe(req *http.Request) bool {
+func (m *createHome) shouldServe(req *http.Request) bool {
 	ri := router.ContextRoutingInfo(req.Context())
 	return req.Header.Get(revactx.TokenHeader) != "" && !ri.IsRouteUnprotected()
 }
 
-func (m createHome) getUserRoles(user *userv1beta1.User) ([]string, error) {
+func (m *createHome) getUserRoles(user *userv1beta1.User) ([]string, error) {
 	var roleIDs []string
 	if err := utils.ReadJSONFromOpaque(user.Opaque, "roles", &roleIDs); err != nil {
 		return nil, err
@@ -125,7 +133,7 @@ func (m createHome) getUserRoles(user *userv1beta1.User) ([]string, error) {
 	return dedup, nil
 }
 
-func (m createHome) checkRoleQuotaLimit(roleIDs []string) (uint64, bool) {
+func (m *createHome) checkRoleQuotaLimit(roleIDs []string) (uint64, bool) {
 	if len(roleIDs) == 0 {
 		return 0, false
 	}

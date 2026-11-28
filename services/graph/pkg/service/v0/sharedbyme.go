@@ -7,7 +7,7 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -50,7 +50,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 	expandThumbnails := strings.Contains(expand, "thumbnails")
 	if expandThumbnails {
 		for k, item := range driveItems {
-			setShareThumbnails(&item, item.GetId(), g.config.Commons.OpenCloudURL, g.sourceTypes)
+			setDriveItemThumbnailsByID(&item, item.GetId(), g.config.Commons.OpenCloudURL, g.sourceTypes)
 			driveItems[k] = item
 		}
 	}

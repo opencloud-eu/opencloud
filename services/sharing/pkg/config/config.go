@@ -17,6 +17,7 @@ type Config struct {
 	TokenManager *TokenManager `yaml:"token_manager"`
 	Reva         *shared.Reva  `yaml:"reva"`
 	Events       Events        `yaml:"events"`
+	Audit        Audit         `yaml:"audit"`
 
 	ServiceAccount        ServiceAccount `yaml:"service_account"`
 	SkipUserGroupsInToken bool           `yaml:"skip_user_groups_in_token" env:"SHARING_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
@@ -31,6 +32,8 @@ type Config struct {
 	PublicShareMustHavePassword    bool                 `yaml:"public_sharing_share_must_have_password" env:"OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD;SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD" desc:"Set this to true if you want to enforce passwords on all public shares." introductionVersion:"1.0.0"`
 	EnableExpiredSharesCleanup     bool                 `yaml:"enable_expired_shares_cleanup"`
 	PasswordPolicy                 PasswordPolicy       `yaml:"password_policy"`
+	DisableNewUserShares           bool                 `yaml:"disable_new_user_shares" env:"OC_DISABLE_NEW_USER_SHARES" desc:"Reject the creation of new user and group shares. Existing shares keep working. Adding members to spaces is not affected." introductionVersion:"%%NEXT%%"`
+	DisableNewPublicLinks          bool                 `yaml:"disable_new_public_links" env:"OC_DISABLE_NEW_PUBLIC_LINKS" desc:"Reject the creation of new public links and turning internal links into public links. Internal links and existing public links keep working." introductionVersion:"%%NEXT%%"`
 
 	Context context.Context `yaml:"-"`
 }
@@ -140,6 +143,12 @@ type PublicSharingCS3Driver struct {
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;SHARING_PUBLIC_CS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;SHARING_PUBLIC_CS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_PUBLIC_CS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
+}
+
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;SHARING_AUDIT_ENABLED" desc:"Emit audit events for the CS3 calls of the service to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;SHARING_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort', the only mode for now, never blocks a request and counts dropped events." introductionVersion:"%%NEXT%%"`
 }
 
 // PublicSharingJSONCS3Driver holds the jsoncs3 driver config

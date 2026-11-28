@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/pkg/xattr"
 	"github.com/rs/zerolog"
 	"github.com/shamaton/msgpack/v2"
@@ -85,15 +85,19 @@ func TestProcessPosixFsResourcesFindsSpaces(t *testing.T) {
 	// a space ID below a space root belongs to that space and is not a space of its own
 	require.NoError(t, xattr.Set(filepath.Join(root, "users/space1/docs"), prefixes.SpaceIDAttr, []byte("space1")))
 	// the internal directories of the storage and a storage nested in it are not searched
-	for _, dir := range []string{"indexes/by-type/x", "uploads/x", "backup/indexes", "backup/users/x"} {
+	for _, dir := range []string{"indexes/by-type/x", "uploads/x", "changes/x", "backup/indexes", "backup/users/x"} {
 		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0o700))
 		require.NoError(t, xattr.Set(filepath.Join(root, dir), prefixes.SpaceIDAttr, []byte(dir)))
 	}
 	require.NoError(t, os.RemoveAll(filepath.Join(root, "backup/indexes")))
 	require.NoError(t, os.Mkdir(filepath.Join(root, "backup/indexes"), 0o700))
-	// a sibling of an internal directory is searched
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "indexes-team/789"), 0o700))
-	require.NoError(t, xattr.Set(filepath.Join(root, "indexes-team/789"), prefixes.SpaceIDAttr, []byte("789")))
+	// purge tombstones keep their space ID and metadata directory, but are
+	// skipped, both below the default template base and in a custom layout
+	for _, dir := range []string{"users/.oc-purge-space2-uuid", "personal/.oc-purge-carol-456-uuid"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, dir, ".oc-nodes"), 0o700))
+		require.NoError(t, xattr.Set(filepath.Join(root, dir), prefixes.SpaceIDAttr, []byte(dir)))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "personal/.oc-purge-dave-uuid/.oc-nodes"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "personal/file"), nil, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "project/.oc-nodes"), nil, 0o600))
 	// a space root that lost its space ID still has its metadata directory
@@ -103,14 +107,15 @@ func TestProcessPosixFsResourcesFindsSpaces(t *testing.T) {
 	require.NoError(t, os.Symlink(root, link))
 	for _, r := range []string{root, link} {
 		found := []string{}
-		errs := processPosixFsResources([]string{r}, internalDirs(newOptions(t, r)), true,
+		log := zerolog.Nop()
+		errs := processPosixFsResources([]string{r}, ignore.NewIgnorer(newOptions(t, r), &log), true,
 			func(path string) error { found = append(found, path); return nil },
 			func(path string) error { t.Errorf("unexpected entity %s", path); return nil },
 		)
 		require.Len(t, errs, 1)
 		require.Contains(t, errs[0].Error(), filepath.Join(r, "personal/bob-789"))
 		want := []string{}
-		for _, s := range []string{"indexes-team/789", "personal/alice-123", "project/Team Space/456-spaceid", "users/space1"} {
+		for _, s := range []string{"personal/alice-123", "project/Team Space/456-spaceid", "users/space1"} {
 			want = append(want, filepath.Join(r, s))
 		}
 		require.Equal(t, want, found)

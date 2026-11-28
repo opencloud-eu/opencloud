@@ -5,16 +5,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 
-	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
+	sdk "github.com/opencloud-eu/reva/v3/pkg/sdk/common"
 )
 
 const _linktype = "link"
@@ -378,7 +378,7 @@ func SpaceEnabled(ev events.SpaceEnabled) AuditEventSpaceEnabled {
 // SpaceDeleted converts a SpaceDeleted event to an AuditEventSpaceDeleted
 func SpaceDeleted(ev events.SpaceDeleted) AuditEventSpaceDeleted {
 	sid := ev.ID.GetOpaqueId()
-	base := BasicAuditEvent("", formatTime(utils.TimeToTS(ev.Timestamp)), MessageSpaceDeleted(ev.Executant.GetOpaqueId(), sid), ActionSpaceDeleted)
+	base := BasicAuditEvent("", formatTime(utils.TimeToTS(ev.Timestamp)), MessageSpaceDeleted(ev.Executant.GetOpaqueId(), sid, ev.SpaceName), ActionSpaceDeleted)
 	return AuditEventSpaceDeleted{
 		AuditEventSpaces: SpacesAuditEvent(base, sid),
 	}

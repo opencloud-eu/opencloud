@@ -1180,13 +1180,9 @@ Feature: get users
       | Admin       | Space Admin |
       | Admin       | User        |
       | Admin       | User Light  |
-      | Space Admin | Admin       |
-      | Space Admin | Space Admin |
-      | Space Admin | User        |
-      | Space Admin | User Light  |
 
 
-  Scenario Outline: non-admin user tries to get drive information of other user with different user role
+  Scenario Outline: non-admin or space admin user tries to get drive information of other user with different user role
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     And the administrator has assigned the role "<user-role-2>" to user "Brian" using the Graph API
     When user "Alice" gets the personal drive information of user "Brian" using Graph API
@@ -1220,15 +1216,19 @@ Feature: get users
       }
       """
     Examples:
-      | user-role  | user-role-2 |
-      | User       | Admin       |
-      | User       | Space Admin |
-      | User       | User        |
-      | User       | User Light  |
-      | User Light | Admin       |
-      | User Light | Space Admin |
-      | User Light | User        |
-      | User Light | User Light  |
+      | user-role   | user-role-2 |
+      | Space Admin | Admin       |
+      | Space Admin | Space Admin |
+      | Space Admin | User        |
+      | Space Admin | User Light  |
+      | User        | Admin       |
+      | User        | Space Admin |
+      | User        | User        |
+      | User        | User Light  |
+      | User Light  | Admin       |
+      | User Light  | Space Admin |
+      | User Light  | User        |
+      | User Light  | User Light  |
 
 
   Scenario Outline: user with different user role gets his/her own drive information

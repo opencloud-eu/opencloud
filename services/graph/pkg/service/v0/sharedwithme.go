@@ -9,7 +9,7 @@ import (
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/share"
+	"github.com/opencloud-eu/reva/v3/pkg/share"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 )
@@ -49,7 +49,7 @@ func (g Graph) listSharedWithMe(ctx context.Context, expandThumbnails bool) ([]l
 		g.logger.Error().Err(err).Msg("listing shares failed")
 		return nil, err
 	}
-	driveItems, err := cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, listReceivedSharesResponse.GetShares(), g.availableRoles)
+	driveItems, err := cs3ReceivedSharesToDriveItems(ctx, g.logger, gatewayClient, g.identityCache, listReceivedSharesResponse.GetShares(), g.availableRoles, g.config.ReceivedSharesStatTimeout)
 	if err != nil {
 		g.logger.Error().Err(err).Msg("could not convert received shares to drive items")
 		return nil, err
@@ -71,7 +71,7 @@ func (g Graph) listSharedWithMe(ctx context.Context, expandThumbnails bool) ([]l
 
 	if expandThumbnails {
 		for k, item := range driveItems {
-			setShareThumbnails(&item, item.RemoteItem.GetId(), g.config.Commons.OpenCloudURL, g.sourceTypes)
+			setDriveItemThumbnailsByID(&item, item.RemoteItem.GetId(), g.config.Commons.OpenCloudURL, g.sourceTypes)
 			driveItems[k] = item
 		}
 	}

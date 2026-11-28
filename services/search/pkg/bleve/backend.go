@@ -2,20 +2,25 @@ package bleve
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/index/scorch"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -28,9 +33,10 @@ const defaultBatchSize = 50
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
-	index        bleve.Index
+	index        *serialIndex
 	queryCreator searchQuery.Creator[query.Query]
 	log          log.Logger
+	optimizeMu   sync.Mutex
 }
 
 func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger) *Backend {
@@ -61,8 +67,7 @@ func (i *serialIndex) Batch(b *bleve.Batch) error {
 }
 
 // Search executes a search request operation within the index.
-// Returns a SearchIndexResponse object or an error.
-func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
 	createdQuery, err := b.queryCreator.Create(sir.Query)
 	if err != nil {
 		if kql.IsValidationError(err) {
@@ -79,6 +84,12 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		},
 		createdQuery,
 	)
+
+	filters, err := aggregationFilterQueries(sir.AggregationFilters)
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	q.Conjuncts = append(q.Conjuncts, filters...)
 
 	if sir.Ref != nil {
 		q.Conjuncts = append(
@@ -104,18 +115,23 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Highlight = bleve.NewHighlight()
+	// ties by id, like the cross-space merge
+	bleveReq.SortBy([]string{"-_score", "_id"})
+	bleveReq.Size = search.EnginePageSize(sir.PageSize, math.MaxInt)
 
-	switch {
-	case sir.PageSize == -1:
-		bleveReq.Size = math.MaxInt
-	case sir.PageSize == 0:
-		bleveReq.Size = 200
-	default:
-		bleveReq.Size = int(sir.PageSize)
+	collector, err := newAggCollector(sir.Aggregations)
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	if collector != nil {
+		ctx = collector.withContext(ctx)
 	}
 
 	bleveReq.Fields = []string{"*"}
-	res, err := b.index.Search(bleveReq)
+	res, err := b.index.SearchInContext(ctx, bleveReq)
+	if errors.Is(err, aggregation.ErrTooManyBuckets) {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -168,14 +184,79 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		matches = append(matches, match)
 	}
 
-	return &searchService.SearchIndexResponse{
+	var aggregations []*searchService.AggregationResult
+	if collector != nil {
+		aggregations = collector.results()
+		if err := aggregation.CheckBuckets(aggregations); err != nil {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+	}
+
+	return &search.IndexResult{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
+		Aggregations: aggregations,
 	}, nil
+}
+
+func (b *Backend) Get(_ context.Context, id string) (*search.Resource, error) {
+	return searchResourceByID(id, b.index)
+}
+
+// Update holds the batch lock from the read to the write, so a batch pushed in
+// between is not overwritten; a batch built before the update and pushed after
+// it still writes the tags it read
+func (b *Backend) Update(_ context.Context, id string, u search.MetadataUpdate) error {
+	b.index.batchMu.Lock()
+	defer b.index.batchMu.Unlock()
+
+	r, err := searchResourceByID(id, b.index)
+	if err != nil {
+		return err
+	}
+	r.Tags = u.Tags
+	r.Favorites = u.Favorites
+
+	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	if err != nil {
+		return err
+	}
+	batch := b.index.NewBatch()
+	err = batch.Index(id, doc)
+	if err != nil {
+		return err
+	}
+	return b.index.bleveIndex.Batch(batch)
 }
 
 func (b *Backend) DocCount() (uint64, error) {
 	return b.index.DocCount()
+}
+
+// Optimize merges all segments into one while the index stays in use
+func (b *Backend) Optimize(ctx context.Context) error {
+	// scorch refuses a second merge with an error only its message tells apart
+	if !b.optimizeMu.TryLock() {
+		return search.ErrOptimizeInProgress
+	}
+	defer b.optimizeMu.Unlock()
+
+	advanced, err := b.index.Advanced()
+	if err != nil {
+		return err
+	}
+	s, ok := advanced.(*scorch.Scorch)
+	if !ok {
+		return fmt.Errorf("%w: %T", search.ErrOptimizeUnsupported, advanced)
+	}
+	// a nil plan merges into a single segment. a failing merge is retried by
+	// scorch without end and never returns, only cancelling ctx ends the wait
+	err = s.ForceMerge(ctx, nil)
+	if err != nil {
+		return err
+	}
+	// scorch reports a cancelled merge as done, and so a closed index
+	return ctx.Err()
 }
 
 func (b *Backend) Upsert(id string, r search.Resource) error {

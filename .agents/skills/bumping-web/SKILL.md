@@ -90,12 +90,18 @@ Show the user the diff of both files and the target branch, and ask them to conf
 - PR title: `[full-ci] chore: bump web to v7.0.0` (the commit message prefixed with `[full-ci] `).
 - PR base: the branch chosen in step 5.
 - PR body: the trimmed changelog from step 3.
-- Add the label `Type:Dependencies`.
+- Add exactly one `Type:*` label, picked from what the bump brings in (the changelog sections from step 3), the first that applies:
+  1. `Type:Security` if it contains a security fix
+  2. `Type:Enhancement` if it contains a feature or an enhancement
+  3. `Type:Bug` if it contains a bug fix
+  4. `Type:Dependencies` if it has nothing users or admins notice (only dependency updates, tests, documentation)
+
+  The label decides the changelog section of the OpenCloud release and its version bump (see `release-config.ts`), so the web changes show up in the OpenCloud changelog. Don't label every bump `Type:Dependencies`: its section is left out of the release description on GitHub and only bumps the patch version, even when web brings in features.
 
 ```bash
 gh pr create --base <target-branch> \
   --title "[full-ci] chore: bump web to $VERSION" \
-  --label "Type:Dependencies" \
+  --label "$TYPE_LABEL" \
   --body-file <changelog-file>
 ```
 
@@ -115,4 +121,5 @@ gh api "repos/opencloud-eu/web/contents/CHANGELOG.md?ref=$VERSION" --jq '.conten
 - Reading `WEB_COMMITID` or the changelog from web `main` instead of from the version tag (`?ref=$VERSION`). Always pin to the tag.
 - Leaving `WEB_ASSETS_BRANCH`/`WEB_BRANCH` on `main` for a patch that belongs on a stable line.
 - Forgetting `[full-ci] ` in the PR title or adding a commit body.
+- Labelling the PR `Type:Dependencies` although web brings in features, enhancements, bug or security fixes (step 7): the web changes then don't appear in the OpenCloud release notes.
 - Committing before the user confirms the diff and target branch.

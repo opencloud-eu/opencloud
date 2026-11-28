@@ -1,27 +1,29 @@
 package search
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/conversions"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/conversions"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/grants"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
@@ -35,10 +37,40 @@ const SchemaVersion = 5
 // the scope clause is removed together with the boolean operator that joins it to the rest of the query.
 var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
+// ErrResourceNotFound is returned when the index holds no document with the requested id
+var ErrResourceNotFound = errors.New("resource not found")
+
+// ErrOptimizeUnsupported is returned by an engine that leaves merging its
+// segments to the engine itself
+var ErrOptimizeUnsupported = errors.New("the search engine merges its index on its own")
+
+// ErrOptimizeInProgress is returned while another optimization of the index runs
+var ErrOptimizeInProgress = errors.New("the index is being optimized already")
+
+// IndexQuery is one search against the index.
+type IndexQuery struct {
+	Query              string
+	Ref                *searchmsg.Reference
+	PageSize           *int32
+	Aggregations       []*searchsvc.AggregationOption
+	AggregationFilters []*searchsvc.AggregationFilter
+}
+
+// IndexResult is what the engine answers: the matches of one space and how
+// many there are in total.
+type IndexResult struct {
+	Matches      []*searchmsg.Match
+	TotalMatches int32
+	Aggregations []*searchsvc.AggregationResult
+}
+
 // Engine is the interface to the search engine
 type Engine interface {
-	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
+	Search(ctx context.Context, req *IndexQuery) (*IndexResult, error)
 	DocCount() (uint64, error)
+	// Optimize merges the segments of the index, ErrOptimizeUnsupported if the
+	// engine merges on its own
+	Optimize(ctx context.Context) error
 
 	Upsert(id string, r Resource) error
 	Move(id string, parentID string, targetPath string) error
@@ -46,8 +78,19 @@ type Engine interface {
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error
 	PurgeSpace(rootID string) error
+	Get(ctx context.Context, id string) (*Resource, error)
+	// Update rewrites the fields u carries on the indexed document and keeps the
+	// rest, ErrResourceNotFound if the index holds no document with that id
+	Update(ctx context.Context, id string, u MetadataUpdate) error
 
 	NewBatch(batchSize int) (BatchOperator, error)
+}
+
+// MetadataUpdate holds the fields a tag or label change rewrites. Both come from
+// the stat, so the extracted content stays and tika is not asked again.
+type MetadataUpdate struct {
+	Tags      []string
+	Favorites []string
 }
 
 type BatchOperator interface {
@@ -71,6 +114,21 @@ type Resource struct {
 	Type     uint64 `json:"Type"`
 	Deleted  bool   `json:"Deleted"`
 	Hidden   bool   `json:"Hidden"`
+	// ExtractionFailure is set while the content of this version could not be
+	// parsed, nil means extracted; entries from before the field count as extracted
+	ExtractionFailure *ExtractionFailure `json:"ExtractionFailure,omitempty"`
+}
+
+// ExtractionFailure is the indexer's own bookkeeping, not derived from the
+// storage: losing it with the index costs retries, never data. Two walks failing
+// at once may count one failure, that buys one more attempt.
+type ExtractionFailure struct {
+	// Count is the number of parse failures of the indexed version, 0 when only
+	// tika or the file was unreachable and every walk retries it
+	Count int `json:"Count"`
+	// RetryAt is the earliest next attempt, nil for an immediate retry or once
+	// the attempts are used up
+	RetryAt *time.Time `json:"RetryAt,omitempty"`
 }
 
 // resourceFieldOverrides is built once (it never changes) and reused on hot
@@ -80,16 +138,22 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 	return map[string]mapping.FieldOpts{
 		// every keyword field searches case-insensitively and by word (name,
 		// title, the facets) unless opted out: ids are opaque, paths are POSIX,
-		// the mime type is normalized already, a tag is one label
-		"ID":                  {CaseInsensitive: &False, NoWordBreaker: &True},
-		"RootID":              {CaseInsensitive: &False, NoWordBreaker: &True},
-		"ParentID":            {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Path":                {Type: mapping.TypePath, CaseInsensitive: &False},
+		// the mime type is normalized already, a tag is one label.
+		// Internal fields are no driveItem property: ids, flags, the content,
+		// and Favorites, which would list who favorited what.
+		"ID":                  {CaseInsensitive: &False, NoWordBreaker: &True, Internal: true},
+		"RootID":              {CaseInsensitive: &False, NoWordBreaker: &True, Internal: true},
+		"ParentID":            {CaseInsensitive: &False, NoWordBreaker: &True, Internal: true},
+		"Path":                {Type: mapping.TypePath, CaseInsensitive: &False, Internal: true},
 		"MimeType":            {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Content":             {Type: mapping.TypeFulltext},
+		"Content":             {Type: mapping.TypeFulltext, Internal: true},
+		"Title":               {Internal: true},
+		"Type":                {Internal: true},
+		"Deleted":             {Internal: true},
+		"Hidden":              {Internal: true},
 		"Tags":                {NoWordBreaker: &True, IncludeInAll: &False},
-		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
-		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                       // opaque pairing uuid
+		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False, Internal: true}, // opaque user ids
+		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                                       // opaque pairing uuid
 		"location":            {Type: mapping.TypeGeopoint},
 	}
 })
@@ -136,8 +200,20 @@ func (ma matchArray) Len() int {
 func (ma matchArray) Swap(i, j int) {
 	ma[i], ma[j] = ma[j], ma[i]
 }
+
+// Less orders by score and breaks ties by id: without that, matches with the
+// same score change places between requests and pages overlap. The engines
+// order their pages the same way.
 func (ma matchArray) Less(i, j int) bool {
-	return ma[i].GetScore() > ma[j].GetScore()
+	if ma[i].GetScore() != ma[j].GetScore() {
+		return ma[i].GetScore() > ma[j].GetScore()
+	}
+	a, b := ma[i].GetEntity().GetId(), ma[j].GetEntity().GetId()
+	return cmp.Or(
+		cmp.Compare(a.GetStorageId(), b.GetStorageId()),
+		cmp.Compare(a.GetSpaceId(), b.GetSpaceId()),
+		cmp.Compare(a.GetOpaqueId(), b.GetOpaqueId()),
+	) < 0
 }
 
 func logDocCount(engine Engine, logger log.Logger) {

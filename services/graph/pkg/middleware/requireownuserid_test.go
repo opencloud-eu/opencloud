@@ -9,7 +9,7 @@ import (
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 )
 
 func TestRequireOwnUserID(t *testing.T) {

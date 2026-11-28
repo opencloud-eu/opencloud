@@ -143,15 +143,22 @@ func DefaultConfig() *config.Config {
 			Database: "cache-roles",
 			TTL:      time.Hour * 24,
 		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Events: config.Events{
 			DisabledConsumer: false,
 			Endpoint:         "127.0.0.1:9233",
 			Cluster:          "opencloud-cluster",
 			EnableTLS:        false,
 		},
-		MaxConcurrency: 20,
+		MaxConcurrency:            20,
+		ReceivedSharesStatTimeout: 10 * time.Second,
 		UnifiedRoles: config.UnifiedRoles{
 			AvailableRoles: nil, // will be populated with defaults in EnsureDefaults
+		},
+		Validation: config.Validation{
+			MaxTagLength: ocdefaults.MaxTagLength,
 		},
 		Metadata: config.Metadata{
 			GatewayAddress: "eu.opencloud.api.storage-system",

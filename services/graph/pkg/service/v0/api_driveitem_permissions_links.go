@@ -16,8 +16,8 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 )
 
 func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID *storageprovider.ResourceId, createLink libregraph.DriveItemCreateLink) (libregraph.Permission, error) {
@@ -62,7 +62,7 @@ func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID
 	}
 	expirationDate, isSet := createLink.GetExpirationDateTimeOk()
 	if isSet {
-		expireTime := parseAndFillUpTime(expirationDate)
+		expireTime := timePointerToTS(expirationDate)
 		if expireTime == nil {
 			s.logger.Debug().Interface("createLink", createLink).Send()
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid expiration date")
@@ -86,7 +86,7 @@ func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID
 		return libregraph.Permission{}, errorcode.New(cs3StatusToErrCode(statusCode), createResp.Status.Message)
 	}
 	link := createResp.GetShare()
-	perm, err := s.libreGraphPermissionFromCS3PublicShare(link)
+	perm, err := s.libreGraphPermissionFromCS3PublicShare(ctx, link)
 	if err != nil {
 		return libregraph.Permission{}, errorcode.New(errorcode.GeneralException, err.Error())
 	}
@@ -307,7 +307,7 @@ func (s DriveItemPermissionsService) updatePublicLinkPermission(ctx context.Cont
 		expirationDate := newPermission.GetExpirationDateTime()
 		update := &link.UpdatePublicShareRequest_Update{
 			Type:  link.UpdatePublicShareRequest_Update_TYPE_EXPIRATION,
-			Grant: &link.Grant{Expiration: parseAndFillUpTime(&expirationDate)},
+			Grant: &link.Grant{Expiration: timePointerToTS(&expirationDate)},
 		}
 		perm, err = s.updatePublicLink(ctx, permissionID, update)
 		if err != nil {
@@ -384,7 +384,7 @@ func (s DriveItemPermissionsService) updatePublicLinkPassword(ctx context.Contex
 	if err := errorcode.FromCS3Status(changeLinkRes.GetStatus(), err); err != nil {
 		return nil, err
 	}
-	permission, err := s.libreGraphPermissionFromCS3PublicShare(changeLinkRes.GetShare())
+	permission, err := s.libreGraphPermissionFromCS3PublicShare(ctx, changeLinkRes.GetShare())
 	if err != nil {
 		return nil, err
 	}
@@ -412,26 +412,16 @@ func (s DriveItemPermissionsService) updatePublicLink(ctx context.Context, permi
 		return nil, err
 	}
 
-	permission, err := s.libreGraphPermissionFromCS3PublicShare(changeLinkRes.GetShare())
+	permission, err := s.libreGraphPermissionFromCS3PublicShare(ctx, changeLinkRes.GetShare())
 	if err != nil {
 		return nil, err
 	}
 	return permission, nil
 }
 
-func parseAndFillUpTime(t *time.Time) *types.Timestamp {
+func timePointerToTS(t *time.Time) *types.Timestamp {
 	if t == nil || t.IsZero() {
 		return nil
 	}
-
-	// the link needs to be valid for the whole day
-	tLink := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-	tLink = tLink.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-
-	final := tLink.UnixNano()
-
-	return &types.Timestamp{
-		Seconds: uint64(final / 1000000000),
-		Nanos:   uint32(final % 1000000000),
-	}
+	return utils.TimeToTS(*t)
 }

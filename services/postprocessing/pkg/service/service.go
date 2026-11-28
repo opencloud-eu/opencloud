@@ -15,11 +15,11 @@ import (
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/postprocessing"
-	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -267,6 +267,9 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		})
 	case events.UploadReady:
 		pps.log.Debug().Str("UploadID", e.ID).Str("filename", ev.Filename).Msg("processing UploadReady")
+		if ev.UploadID == "" {
+			return nil
+		}
 		// the upload failed - let's keep it around for a while - but mark it as finished
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {

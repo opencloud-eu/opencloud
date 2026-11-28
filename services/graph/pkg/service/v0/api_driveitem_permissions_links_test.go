@@ -19,10 +19,10 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
+	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -121,6 +121,41 @@ var _ = Describe("createLinkTests", func() {
 			expected, err := libregraph.NewSharingLinkTypeFromValue("view")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(&respLinkType).To(Equal(expected))
+			Expect(perm.HasInvitation()).To(BeFalse())
+		})
+
+		It("returns the creator of the link as the inviter", func() {
+			createLinkResponse.Share.Creator = &userpb.UserId{OpaqueId: "creator", Type: userpb.UserType_USER_TYPE_PRIMARY}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("CreatePublicShare", mock.Anything, mock.Anything).Return(createLinkResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&userpb.GetUserResponse{
+				Status: status.NewOK(ctx),
+				User: &userpb.User{
+					Id:          &userpb.UserId{OpaqueId: "creator"},
+					DisplayName: "Link Creator",
+				},
+			}, nil)
+
+			perm, err := svc.CreateLink(context.Background(), driveItemId, driveItemCreateLink)
+			Expect(err).ToNot(HaveOccurred())
+			inviter := perm.GetInvitation().InvitedBy.GetUser()
+			Expect(inviter.GetId()).To(Equal("creator"))
+			Expect(inviter.GetDisplayName()).To(Equal("Link Creator"))
+		})
+
+		It("returns the id of a creator that can't be looked up", func() {
+			createLinkResponse.Share.Creator = &userpb.UserId{OpaqueId: "deleted", Type: userpb.UserType_USER_TYPE_PRIMARY}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("CreatePublicShare", mock.Anything, mock.Anything).Return(createLinkResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&userpb.GetUserResponse{
+				Status: status.NewNotFound(ctx, "user not found"),
+			}, nil)
+
+			perm, err := svc.CreateLink(context.Background(), driveItemId, driveItemCreateLink)
+			Expect(err).ToNot(HaveOccurred())
+			inviter := perm.GetInvitation().InvitedBy.GetUser()
+			Expect(inviter.GetId()).To(Equal("deleted"))
+			Expect(inviter.GetDisplayName()).To(BeEmpty())
 		})
 
 		It("handles a failing CreateLink", func() {
@@ -205,7 +240,41 @@ var _ = Describe("createLinkTests", func() {
 			Expect(libreGraphActions[1]).To(Equal("libre.graph/driveItem/upload/create"))
 			Expect(libreGraphActions[2]).To(Equal("libre.graph/driveItem/path/update"))
 		})
+
+		It("does not alter the provided expiration timestamp", func() {
+			// prepare test timestamp
+			providedExp := time.Date(2025, 5, 12, 7, 37, 0, 0, time.UTC)
+			driveItemCreateLink.ExpirationDateTime = libregraph.PtrTime(providedExp)
+
+			// prepare expected permissions for response
+			permissions, err := linktype.CS3ResourcePermissionsFromSharingLink(driveItemCreateLink, provider.ResourceType_RESOURCE_TYPE_CONTAINER)
+			Expect(err).ToNot(HaveOccurred())
+
+			// mock Stat
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+
+			// assert that the CreatePublicShare request contains EXACT expiration time (no end-of-day adjustment)
+			gatewayClient.On("CreatePublicShare", mock.Anything, mock.MatchedBy(func(req *link.CreatePublicShareRequest) bool {
+				exp := utils.TSToTime(req.GetGrant().GetExpiration())
+				return exp.Equal(providedExp)
+			})).Return(&link.CreatePublicShareResponse{
+				Status: status.NewOK(ctx),
+				Share: &link.PublicShare{
+					Id:          &link.PublicShareId{OpaqueId: "expTest"},
+					Expiration:  utils.TimeToTS(providedExp),
+					DisplayName: ViewerLinkString,
+					Token:       "token",
+					Permissions: &link.PublicSharePermissions{Permissions: permissions},
+				},
+			}, nil)
+
+			perm, err := svc.CreateLink(context.Background(), driveItemId, driveItemCreateLink)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(perm.GetId()).To(Equal("expTest"))
+			Expect(perm.GetExpirationDateTime().Equal(providedExp)).To(BeTrue())
+		})
 	})
+
 	Describe("SetLinPassword", func() {
 		var (
 			updatePublicShareMockResponse link.UpdatePublicShareResponse

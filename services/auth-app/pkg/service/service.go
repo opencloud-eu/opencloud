@@ -18,15 +18,18 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/config"
 	settings "github.com/opencloud-eu/opencloud/services/settings/pkg/service/v0"
-	"github.com/opencloud-eu/reva/v2/pkg/appctx"
-	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
-	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/appctx"
+	"github.com/opencloud-eu/reva/v3/pkg/auth/scope"
+	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/grpc/metadata"
 )
 
-var ErrBadRequest = errors.New("bad request")
+var (
+	ErrBadRequest   = errors.New("bad request")
+	ErrUserNotFound = errors.New("user not found")
+)
 
 // AuthAppToken represents an app token.
 type AuthAppToken struct {
@@ -128,6 +131,10 @@ func (a *AuthAppService) HandleCreate(w http.ResponseWriter, r *http.Request) {
 			sublog.Error().Err(err).Msg("error authenticating user")
 			if errors.Is(err, ErrBadRequest) {
 				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if errors.Is(err, ErrUserNotFound) {
+				http.Error(w, err.Error(), http.StatusNotFound)
 				return
 			}
 			w.WriteHeader(http.StatusInternalServerError)
@@ -262,6 +269,10 @@ func (a *AuthAppService) authenticateUser(userID, userName string, gwc gateway.G
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if authRes.GetStatus().GetCode() == rpc.Code_CODE_NOT_FOUND {
+		return nil, ErrUserNotFound
 	}
 
 	if authRes.GetStatus().GetCode() != rpc.Code_CODE_OK {

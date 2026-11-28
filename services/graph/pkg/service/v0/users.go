@@ -25,10 +25,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go/jetstream"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -147,13 +147,15 @@ func (g Graph) GetUserDrive(w http.ResponseWriter, r *http.Request) {
 
 	log = log.With().Str("userID", userID).Logger()
 
-	_, expandPermissions, err := parseDriveRequest(r)
+	odataReq, expandPermissions, err := parseDriveRequest(r)
 	if err != nil {
 		log.Debug().Err(err).Msg("could not get drives: error parsing odata request")
 		errorcode.RenderError(w, r, err)
 		return
 	}
 
+	// Empty {user-id} is the current user (/me/drive); a non-empty one may be
+	// an id or a name, so resolve it to the opaque id the filter expects.
 	if userID == "" {
 		u, ok := revactx.ContextGetUser(ctx)
 		if !ok {
@@ -162,6 +164,19 @@ func (g Graph) GetUserDrive(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userID = u.GetId().GetOpaqueId()
+	} else {
+		user, err := g.identityBackend.GetUser(ctx, userID, odataReq)
+		switch {
+		case err == nil:
+			userID = user.GetId()
+		case errorcode.IsErrorCode(err, errorcode.ItemNotFound):
+			// a user deleted in an external identity provider keeps the personal space until it is cleaned up
+			log.Debug().Err(err).Msg("could not resolve user, looking up the drive with the given id")
+		default:
+			log.Debug().Err(err).Msg("could not get user drive: failed to resolve user")
+			errorcode.RenderError(w, r, err)
+			return
+		}
 	}
 
 	log.Debug().Msg("calling list storage spaces with user and personal filter")
@@ -300,23 +315,8 @@ func (g Graph) GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the user isn't admin, we'll show just the minimum user attibutes
-	if !ctxHasFullPerms {
-		finalUsers := make([]*libregraph.User, len(users))
-		for i, u := range users {
-			finalUsers[i] = &libregraph.User{
-				Id:                       u.Id,
-				DisplayName:              u.DisplayName,
-				UserType:                 u.UserType,
-				Identities:               u.Identities,
-				OnPremisesSamAccountName: u.OnPremisesSamAccountName,
-			}
-
-			if g.config.API.ShowUserEmailInResults {
-				finalUsers[i].Mail = u.Mail
-			}
-		}
-		users = finalUsers
+	for i, u := range users {
+		users[i] = g.filterOutPrivateUserAttrs(r.Context(), u, ctxHasFullPerms)
 	}
 
 	exp, err := odata.GetExpandValues(odataReq.Query)
@@ -529,14 +529,14 @@ func (g Graph) GetUser(w http.ResponseWriter, r *http.Request) {
 			// transport error, needs to be fixed by admin
 			logger.Error().Err(err).Interface("query", r.URL.Query()).Msg("error getting storages: transport error")
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, user)
+			render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 			return
 		}
 		if lspr.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
 			logger.Debug().Str("grpc", lspr.GetStatus().GetMessage()).Msg("could not list drives for user")
 			// in case of NOT_OK, we can just return the user object with empty drives
 			render.Status(r, status.HTTPStatusFromCode(http.StatusOK))
-			render.JSON(w, r, user)
+			render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 			return
 		}
 		if listDrives {
@@ -584,13 +584,8 @@ func (g Graph) GetUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctxHasFullPerms := g.contextUserHasFullAccountPerms(r.Context())
-	if !ctxHasFullPerms && !g.config.API.ShowUserEmailInResults {
-		user.Mail = nil
-	}
-
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, user)
+	render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
 }
 
 // getUserLanguage returns the language of the user in the context.
@@ -1074,7 +1069,33 @@ func (g *Graph) patchUserResponse(w http.ResponseWriter, r *http.Request, user *
 	g.publishEvent(r.Context(), e)
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, user)
+	render.JSON(w, r, g.filterOutPrivateUserAttrs(r.Context(), user, g.contextUserHasFullAccountPerms(r.Context())))
+}
+
+// filterOutPrivateUserAttrs returns the attributes of user that the user in ctx may see.
+// Users with full account management permissions and the user themselves get a copy of all
+// attributes. Everybody else only gets the public ones: the id, the display name, the user
+// name, the user type and the identities, plus the mail if mails are shown in results.
+func (g Graph) filterOutPrivateUserAttrs(ctx context.Context, user *libregraph.User, ctxHasFullPerms bool) *libregraph.User {
+	currentUser, ok := revactx.ContextGetUser(ctx)
+	isSameUser := ok && currentUser.GetId().GetOpaqueId() != "" && currentUser.GetId().GetOpaqueId() == user.GetId()
+
+	if ctxHasFullPerms || isSameUser {
+		finalUser := *user
+		return &finalUser
+	}
+
+	finalUser := &libregraph.User{
+		Id:                       user.Id,
+		DisplayName:              user.DisplayName,
+		OnPremisesSamAccountName: user.OnPremisesSamAccountName,
+		UserType:                 user.UserType,
+		Identities:               user.Identities,
+	}
+	if g.config.API.ShowUserEmailInResults {
+		finalUser.Mail = user.Mail
+	}
+	return finalUser
 }
 
 const (

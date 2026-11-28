@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -16,14 +15,13 @@ import (
 	storageUsersParser "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/spaceidindex"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/lookup"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/registry"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/spaceidindex"
 
 	"github.com/pkg/xattr"
 	"github.com/spf13/cobra"
@@ -124,11 +122,14 @@ the command is aborted with an error before performing any scanning.`,
 			}
 
 			var scan func(path string) error = nil
-			var internal []string
+			var ignorer *ignore.Ignorer
 			{
 				// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
 				drivers := revaconfig.StorageProviderDrivers(cfg)
 				drivers["posix"] = revaconfig.Posix(cfg, false, false)
+				// Clean up revisions without background workers: the command could exit before
+				// they are done, and stop the cleanup of a file midway.
+				drivers["posix"].(map[string]any)["revisions_cleanup_async"] = false
 				opts, err := options.New(drivers["posix"].(map[string]any))
 				if err != nil {
 					return err
@@ -141,7 +142,7 @@ the command is aborted with an error before performing any scanning.`,
 					os.Exit(1)
 				}
 				log := logger("posixfs")
-				internal = internalDirs(opts)
+				ignorer = ignore.NewIgnorer(opts, &log)
 
 				f, ok := registry.NewFuncs["posix"]
 				if !ok {
@@ -170,7 +171,7 @@ the command is aborted with an error before performing any scanning.`,
 				}
 			}
 
-			errors := processPosixFsResources(paths, internal, !haltOnError,
+			errors := processPosixFsResources(paths, ignorer, !haltOnError,
 				func(path string) error {
 					fmt.Printf("Scanning space '%s'...\n", path)
 					return scan(path)
@@ -401,7 +402,6 @@ The provided arguments determines the scope of the check:
 			checker := &consistencyChecker{
 				cfg:                  cfg,
 				ignorer:              ignorer,
-				internalDirs:         internalDirs(opts),
 				recalculateChecksums: recalculateChecksums,
 			}
 
@@ -447,13 +447,18 @@ func isStorageRoot(dir string) bool {
 	return err != nil || len(id) == 0
 }
 
-// internalDirs returns the directories of a storage that hold no spaces.
-func internalDirs(opts *options.Options) []string {
-	return []string{
-		filepath.Join(opts.Root, lookup.IndexesDir),
-		filepath.Join(opts.Root, propagator.ChangesDir),
-		filepath.Clean(opts.UploadDirectory),
-	}
+// isStorageInternal reports whether dir is one of the internal directories of
+// the storage that hold no spaces. The ignorer owns that list, so ask it.
+func isStorageInternal(ignorer *ignore.Ignorer, dir string) bool {
+	return ignorer.IsIndex(dir) || ignorer.IsChanges(dir) || ignorer.IsUpload(dir)
+}
+
+// isPurgeTombstone reports whether dir is a space root that was renamed to be
+// purged. It is about to be deleted, so there is nothing to scan or fix in it.
+// IsPurging only knows the default template base directories, so check the
+// name as well to cover spaces wherever the templates put them.
+func isPurgeTombstone(ignorer *ignore.Ignorer, dir string) bool {
+	return strings.HasPrefix(filepath.Base(dir), lookup.PurgeDirPrefix) || ignorer.IsPurging(dir)
 }
 
 // checkStorageRoot returns an error if a path is not inside the configured
@@ -499,7 +504,7 @@ func isSpaceRoot(path string) bool {
 // subsequent paths, and then returns a slice of errors at the end (or an empty slice
 // if no errors occured)
 func processPosixFsResources(paths []string,
-	internal []string,
+	ignorer *ignore.Ignorer,
 	keepGoing bool,
 	spaceRoot func(string) error,
 	entity func(string) error,
@@ -548,7 +553,7 @@ func processPosixFsResources(paths []string,
 				if !d.IsDir() {
 					return nil
 				}
-				if slices.Contains(internal, p) {
+				if p != walkRoot && (isStorageInternal(ignorer, p) || isPurgeTombstone(ignorer, p)) {
 					return filepath.SkipDir
 				}
 				if isSpaceRoot(p) {

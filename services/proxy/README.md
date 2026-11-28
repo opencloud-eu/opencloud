@@ -304,7 +304,7 @@ Check `PROXY_TRUSTED_PROXIES` as described in [Trusted Reverse Proxies](#trusted
 
 ### Trusted Reverse Proxies
 
-Behind a reverse proxy, the proxy service sees the address of the reverse proxy, the address of the client comes in the `X-Forwarded-For` header. Any client can send this header, so the proxy service only uses it when the request comes from a trusted reverse proxy. The client address is used in the access log.
+Behind a reverse proxy, the proxy service sees the address of the reverse proxy, the address of the client comes in the `X-Forwarded-For` header. Any client can send this header, so the proxy service only uses it when the request comes from a trusted reverse proxy. The client address is used in the access log and in the audit log.
 
 `PROXY_TRUSTED_PROXIES` takes a list of IP addresses and CIDR ranges. The default trusts the loopback and the private network ranges: `127.0.0.0/8`, `::1/128`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `fc00::/7`. This works for a reverse proxy in the same Docker network or a Kubernetes ingress.
 
@@ -325,7 +325,7 @@ The proxy service passes the client address on to the other services in `X-Forwa
 
 For OpenCloud, external resources like an IDP (e.g. Keycloak) or when using web office documents or web apps, require defining a CSP. If not defined, the referenced services will not work.
 
-To create a Content Security Policy (CSP), you need to create a yaml file containing the CSP definitions. To activate the settings, reference the file as value in the `PROXY_CSP_CONFIG_FILE_LOCATION` environment variable. For each change, a restart of the OpenCloud deployment or the proxy service is required.
+To create a Content Security Policy (CSP), you need to create a yaml file containing the CSP definitions. To activate the settings, reference the file as value in the `PROXY_CSP_CONFIG_FILE_LOCATION` environment variable. The value can also be a comma-separated list, where each element is either a path or a glob pattern, for example `/etc/opencloud/csp.yaml,/web/apps/*/csp.yaml`. In the yaml config, use a yaml list instead. All matching files are merged into the default CSP in the given order, with the matches of a pattern sorted by name. A pattern without matches is ignored, while a path to a file that does not exist prevents the proxy from starting. This allows each web app to ship its own CSP file. Be aware that a pattern like `/web/apps/*/csp.yaml` hands control of the CSP to whoever can write into the matching directories: merging only adds sources, so every file found there can loosen the policy, for example by extending `script-src`. Only use patterns for directories whose content you trust. To replace the default CSP instead of extending it, use `PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION`. It accepts the same list syntax, the files are merged with each other in the given order, at least one of them needs to exist, and `PROXY_CSP_CONFIG_FILE_LOCATION` is ignored. For each change, a restart of the OpenCloud deployment or the proxy service is required.
 
 A working example for a CSP can be found in a sub path of the `config` directory of the [opencloud-compose](https://github.com/opencloud-eu/opencloud-compose/tree/main/config) deployment example.
 

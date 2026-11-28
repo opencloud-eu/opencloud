@@ -1,4 +1,4 @@
-@skipOnReva @issue-1328 @issues-1289
+@skipOnReva @issue-1328 @issue-1289
 Feature: sharing
 
   Background:
@@ -11,7 +11,7 @@ Feature: sharing
     And user "Brian" has been added to group "grp1"
     And user "Brian" has disabled auto-accepting
 
-  @smokeTest
+
   Scenario: merging shares for recipient when shared from outside with group and member
     Given user "Alice" has created folder "/merge-test-outside"
     When user "Alice" shares folder "/merge-test-outside" with group "grp1" using the sharing API

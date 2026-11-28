@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,11 +20,12 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/client"
@@ -41,12 +43,69 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
 
 type userList struct {
 	Value []*libregraph.User
+}
+
+var (
+	// publicUserAttributes are the user attributes everybody may see
+	publicUserAttributes = []string{"id", "displayName", "onPremisesSamAccountName", "userType", "identities"}
+	// allUserAttributes are the attributes set by newUserWithPrivateAttributes
+	allUserAttributes = append([]string{"mail", "givenName", "surname", "accountEnabled", "signInActivity", "memberOf"}, publicUserAttributes...)
+)
+
+// newUserWithPrivateAttributes returns a user that has all attributes of allUserAttributes set
+func newUserWithPrivateAttributes(id string) *libregraph.User {
+	lastSignIn := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	user := libregraph.NewUser("Display Name "+id, "username-"+id)
+	user.SetId(id)
+	user.SetMail(id + "@example.com")
+	user.SetGivenName("Given")
+	user.SetSurname("Surname")
+	user.SetAccountEnabled(true)
+	user.SetUserType("Member")
+	user.SetIdentities([]libregraph.ObjectIdentity{{
+		Issuer:           libregraph.PtrString("idp.example.com"),
+		IssuerAssignedId: libregraph.PtrString(id),
+	}})
+	user.SetSignInActivity(libregraph.SignInActivity{LastSuccessfulSignInDateTime: &lastSignIn})
+	user.SetMemberOf([]libregraph.Group{{Id: libregraph.PtrString("group1")}})
+	return user
+}
+
+// decodeJSONObject decodes the JSON object in body into a map, to check which attributes were rendered
+func decodeJSONObject(body io.Reader) map[string]any {
+	object := map[string]any{}
+	Expect(json.NewDecoder(body).Decode(&object)).To(Succeed())
+	return object
+}
+
+// HaveExactKeys succeeds if the actual map has exactly the given keys
+func HaveExactKeys(keys ...string) types.GomegaMatcher {
+	return WithTransform(func(m map[string]any) []string {
+		actual := make([]string, 0, len(m))
+		for k := range m {
+			actual = append(actual, k)
+		}
+		return actual
+	}, ConsistOf(keys))
+}
+
+func noAccountPermissions() *settings.GetPermissionByIDResponse {
+	return &settings.GetPermissionByIDResponse{}
+}
+
+func fullAccountPermissions() *settings.GetPermissionByIDResponse {
+	return &settings.GetPermissionByIDResponse{
+		Permission: &settingsmsg.Permission{
+			Constraint: settingsmsg.Permission_CONSTRAINT_ALL,
+		},
+	}
 }
 
 var _ = Describe("Users", func() {
@@ -121,6 +180,92 @@ var _ = Describe("Users", func() {
 				service.WithNatsKeyValue(natsKeyValueMock),
 			)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Describe("GetUserDrive", func() {
+			It("resolves the user by name before looking up the personal space", func() {
+				user := &libregraph.User{}
+				user.SetId("user1")
+
+				// A name in the path must be resolved to the user id via the
+				// identity backend before the storage space filter runs.
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				identityBackend.On("GetUser", mock.Anything, "alice", mock.Anything).Return(user, nil)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+						},
+					},
+				}, nil)
+				gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+					Status:     status.NewOK(ctx),
+					TotalBytes: 10,
+				}, nil)
+				valueService.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything).
+					Return(&settings.GetValueResponse{}, nil)
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/alice/drive", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", "alice")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.GetUserDrive(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				identityBackend.AssertCalled(GinkgoT(), "GetUser", mock.Anything, "alice", mock.Anything)
+			})
+
+			It("looks up the personal space with the given id when the user is unknown", func() {
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				identityBackend.On("GetUser", mock.Anything, "deleted-user-id", mock.Anything).Return(nil, identity.ErrNotFound)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.MatchedBy(func(req *provider.ListStorageSpacesRequest) bool {
+					for _, f := range req.GetFilters() {
+						if f.GetUser().GetOpaqueId() == "deleted-user-id" {
+							return true
+						}
+					}
+					return false
+				}), mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+						},
+					},
+				}, nil)
+				gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+					Status:     status.NewOK(ctx),
+					TotalBytes: 10,
+				}, nil)
+				valueService.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything).
+					Return(&settings.GetValueResponse{}, nil)
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/deleted-user-id/drive", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", "deleted-user-id")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.GetUserDrive(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
+
+			It("fails when the user cannot be resolved for another reason", func() {
+				identityBackend.On("GetUser", mock.Anything, "alice", mock.Anything).Return(nil, errors.New("backend down"))
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/alice/drive", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", "alice")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.GetUserDrive(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything)
+			})
 		})
 
 		Describe("GetMe", func() {
@@ -379,6 +524,30 @@ var _ = Describe("Users", func() {
 				for k := range userMap {
 					Expect(k).Should(BeElementOf([]string{"displayName", "onPremisesSamAccountName", "mail", "id", "userType"}))
 				}
+			})
+
+			It("returns all attributes of the own user to unprivileged users", func() {
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+				users := []*libregraph.User{
+					newUserWithPrivateAttributes(currentUser.GetId().GetOpaqueId()),
+					newUserWithPrivateAttributes("user1"),
+				}
+				identityBackend.On("GetUsers", mock.Anything, mock.Anything, mock.Anything).Return(users, nil)
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users?$search=abc", nil)
+				r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+				svc.GetUsers(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				res := decodeJSONObject(rr.Body)
+				Expect(res).To(HaveKey("value"))
+				values, ok := res["value"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(values).To(HaveLen(2))
+				Expect(values[0]).To(HaveKeyWithValue("id", currentUser.GetId().GetOpaqueId()))
+				Expect(values[0]).To(HaveExactKeys(allUserAttributes...))
+				Expect(values[1]).To(HaveKeyWithValue("id", "user1"))
+				Expect(values[1]).To(HaveExactKeys(publicUserAttributes...))
 			})
 
 			It("sorts", func() {
@@ -674,7 +843,12 @@ var _ = Describe("Users", func() {
 				user := &libregraph.User{}
 				user.SetId("user1")
 
-				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				// the drives and the appRoleAssignments of other users are only visible to privileged users
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{
+					Permission: &settingsmsg.Permission{
+						Constraint: settingsmsg.Permission_CONSTRAINT_ALL,
+					},
+				}, nil)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(user, nil)
 				gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
 					Status:     status.NewOK(ctx),
@@ -734,7 +908,12 @@ var _ = Describe("Users", func() {
 				user := &libregraph.User{}
 				user.SetId("user1")
 
-				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				// the drives and the appRoleAssignments of other users are only visible to privileged users
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{
+					Permission: &settingsmsg.Permission{
+						Constraint: settingsmsg.Permission_CONSTRAINT_ALL,
+					},
+				}, nil)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(user, nil)
 				gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
 					Status:     status.NewOK(ctx),
@@ -787,7 +966,12 @@ var _ = Describe("Users", func() {
 				user := &libregraph.User{}
 				user.SetId("user1")
 
-				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				// the drives and the appRoleAssignments of other users are only visible to privileged users
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{
+					Permission: &settingsmsg.Permission{
+						Constraint: settingsmsg.Permission_CONSTRAINT_ALL,
+					},
+				}, nil)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(user, nil)
 
 				assignments := []*settingsmsg.UserRoleAssignment{
@@ -837,6 +1021,91 @@ var _ = Describe("Users", func() {
 				Expect(responseUser.GetAppRoleAssignments()[0].GetAppRoleId()).To(Equal("some-appRole-ID"))
 				Expect(responseUser.GetAppRoleAssignments()[0].GetPrincipalId()).To(Equal("user1"))
 				Expect(responseUser.GetAppRoleAssignments()[0].GetResourceId()).To(Equal("some-application-ID"))
+			})
+
+			Context("with private attributes", func() {
+				requestUser := func(userID, query string) {
+					r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/"+userID+query, nil)
+					rctx := chi.NewRouteContext()
+					rctx.URLParams.Add("userID", userID)
+					r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+					svc.GetUser(rr, r)
+				}
+				getUser := func(userID, query string) map[string]any {
+					requestUser(userID, query)
+					Expect(rr.Code).To(Equal(http.StatusOK))
+					return decodeJSONObject(rr.Body)
+				}
+
+				It("returns only the public attributes of another user to unprivileged users", func() {
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+					identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(newUserWithPrivateAttributes("user1"), nil)
+
+					Expect(getUser("user1", "")).To(HaveExactKeys(publicUserAttributes...))
+				})
+
+				It("includes the mail of another user for unprivileged users if mails are shown in results", func() {
+					cfg.API.ShowUserEmailInResults = true
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+					identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(newUserWithPrivateAttributes("user1"), nil)
+
+					responseUser := getUser("user1", "")
+					Expect(responseUser).To(HaveExactKeys(append([]string{"mail"}, publicUserAttributes...)...))
+					Expect(responseUser).To(HaveKeyWithValue("mail", "user1@example.com"))
+				})
+
+				It("returns all attributes of the own user to unprivileged users", func() {
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+					identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(newUserWithPrivateAttributes(currentUser.GetId().GetOpaqueId()), nil)
+
+					Expect(getUser(currentUser.GetId().GetOpaqueId(), "")).To(HaveExactKeys(allUserAttributes...))
+				})
+
+				It("returns all attributes of another user to privileged users", func() {
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(fullAccountPermissions(), nil)
+					identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(newUserWithPrivateAttributes("user1"), nil)
+
+					Expect(getUser("user1", "")).To(HaveExactKeys(allUserAttributes...))
+				})
+
+				It("does not include the drives of another user for unprivileged users", func() {
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+					identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(newUserWithPrivateAttributes("user1"), nil)
+					gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+						Status:     status.NewOK(ctx),
+						TotalBytes: 10,
+					}, nil)
+					gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+						Status: status.NewOK(ctx),
+						StorageSpaces: []*provider.StorageSpace{
+							{
+								Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+								Root:      &provider.ResourceId{SpaceId: "space", OpaqueId: "space"},
+								SpaceType: "project",
+							},
+							{
+								Id:        &provider.StorageSpaceId{OpaqueId: "personal"},
+								Owner:     &userv1beta1.User{Id: &userv1beta1.UserId{OpaqueId: "user1"}},
+								Root:      &provider.ResourceId{SpaceId: "personal", OpaqueId: "personal"},
+								SpaceType: "personal",
+							},
+						},
+					}, nil)
+
+					Expect(getUser("user1", "?$expand=drive,drives")).To(HaveExactKeys(publicUserAttributes...))
+				})
+
+				It("returns only the public attributes of another user to unprivileged users if the drives cannot be listed", func() {
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+					identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(newUserWithPrivateAttributes("user1"), nil)
+					gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+						Status: status.NewNotFound(ctx, "no spaces"),
+					}, nil)
+
+					// only the rendered attributes matter here, not the status code
+					requestUser("user1", "?$expand=drives")
+					Expect(decodeJSONObject(rr.Body)).To(HaveExactKeys(publicUserAttributes...))
+				})
 			})
 		})
 
@@ -1436,6 +1705,7 @@ var _ = Describe("Users", func() {
 
 				expectedUser.SetMail("mail@mail.test")
 				expectedUser.SetDisplayName("New Display Name")
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(fullAccountPermissions(), nil)
 				identityBackend.On("UpdateUser", mock.Anything, user.GetId(), mock.Anything).Return(expectedUser, nil)
 
 				data, err := json.Marshal(userUpdate)
@@ -1456,6 +1726,24 @@ var _ = Describe("Users", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unmarshaledUser.GetMail()).To(Equal("mail@mail.test"))
 				Expect(unmarshaledUser.GetDisplayName()).To(Equal("New Display Name"))
+			})
+
+			It("returns only the public attributes of the updated user to users without full account permissions", func() {
+				userUpdate.SetDisplayName("New Display Name")
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
+				identityBackend.On("UpdateUser", mock.Anything, user.GetId(), mock.Anything).Return(newUserWithPrivateAttributes("user1"), nil)
+
+				data, err := json.Marshal(userUpdate)
+				Expect(err).ToNot(HaveOccurred())
+
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/users/user1", bytes.NewBuffer(data))
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", user.GetId())
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.PatchUser(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				Expect(decodeJSONObject(rr.Body)).To(HaveExactKeys(publicUserAttributes...))
 			})
 		})
 
@@ -1527,6 +1815,7 @@ var _ = Describe("Users", func() {
 
 				userUpdate.SetGivenName("New Given Name")
 				expectedUser.SetGivenName("New Given Name")
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(noAccountPermissions(), nil)
 				identityBackend.On("UpdateUser", mock.Anything, user.GetId(), mock.Anything).Return(expectedUser, nil)
 
 				data, err := json.Marshal(userUpdate)
@@ -1537,6 +1826,10 @@ var _ = Describe("Users", func() {
 				svc.PatchMe(rr, r)
 
 				Expect(rr.Code).To(Equal(http.StatusOK))
+				// users always see all their own attributes
+				responseUser := decodeJSONObject(rr.Body)
+				Expect(responseUser).To(HaveKeyWithValue("mail", "mail@mail.test"))
+				Expect(responseUser).To(HaveKeyWithValue("givenName", "New Given Name"))
 			})
 		})
 	})

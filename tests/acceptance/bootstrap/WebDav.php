@@ -2372,6 +2372,36 @@ trait WebDav {
 	}
 
 	/**
+	 *
+	 * @param string $user
+	 * @param string|null $content
+	 * @param string $mtime e.g. "-60 days", anything DateTime accepts
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[Given('user :user has uploaded a file with content :content and mtime :mtime to :destination')]
+	public function userHasUploadedAFileWithContentAndMtimeTo(
+		string $user,
+		?string $content,
+		string $mtime,
+		string $destination
+	): void {
+		$user = $this->getActualUsername($user);
+		$mtime = new DateTime($mtime);
+		$mtime = $mtime->format('U');
+		$response = $this->makeDavRequest(
+			$user,
+			"PUT",
+			$destination,
+			["X-OC-Mtime" => $mtime],
+			$content
+		);
+		$this->theHTTPStatusCodeShouldBe(["201", "204"], "", $response);
+	}
+
+	/**
 	 * @param string $user
 	 * @param string $checksum
 	 * @param string|null $content
@@ -2531,6 +2561,7 @@ trait WebDav {
 	 * @return void
 	 */
 	#[When('user :user deletes file :filename from space :space using file-id :fileId')]
+	#[When('user :user deletes folder :filename from space :space using file-id :fileId')]
 	public function userDeletesFileFromSpaceUsingFileIdPath(
 		string $user,
 		string $filename,
@@ -3594,9 +3625,8 @@ trait WebDav {
 		} else {
 			$response = $this->downloadPreviews($user, $path, null, $width, $height);
 		}
-		$this->setResponse($response);
 		$this->theHTTPStatusCodeShouldBe(200, '', $response);
-		$this->checkImageDimensions($width, $height);
+		$this->checkImageDimensions($width, $height, $response);
 		$response->getBody()->rewind();
 		// save response to user response dictionary for further comparisons
 		$this->setFilePreviewContent($user, $response->getBody()->getContents());
@@ -3623,9 +3653,8 @@ trait WebDav {
 		} else {
 			$response = $this->downloadPreviews($user, $path, null, $width, $height);
 		}
-		$this->setResponse($response);
 		$this->theHTTPStatusCodeShouldBe(200, '', $response);
-		$newResponseBodyContents = $this->response->getBody()->getContents();
+		$newResponseBodyContents = $response->getBody()->getContents();
 		Assert::assertNotEquals(
 			$newResponseBodyContents,
 			// different users can download files before and after an update is made to a file
@@ -3898,11 +3927,12 @@ trait WebDav {
 	 * @param string $user
 	 * @param string $path
 	 *
-	 * @return void
+	 * @return string|null
 	 */
 	#[Given('/^user "([^"]*)" has stored id of (?:file|folder) "([^"]*)"$/')]
-	public function userStoresFileIdForPath(string $user, string $path): void {
+	public function userStoresFileIdForPath(string $user, string $path): ?string {
 		$this->storedFileID = $this->getFileIdForPath($user, $path);
+		return $this->storedFileID;
 	}
 
 	/**
@@ -3952,6 +3982,7 @@ trait WebDav {
 	 * @param string|null $method
 	 * @param string|null $folderpath
 	 * @param string|null $spaceId
+	 * @param ResponseInterface|null $response PROPFIND response to check, defaults to the last response
 	 *
 	 * @return void
 	 * @throws GuzzleException
@@ -3962,7 +3993,8 @@ trait WebDav {
 		?string $user = null,
 		?string $method = 'REPORT',
 		?string $folderpath = '',
-		?string $spaceId = null
+		?string $spaceId = null,
+		?ResponseInterface $response = null
 	): void {
 		$folderpath = \trim($folderpath, "/");
 		$this->verifyTableNodeColumnsCount($expectedFiles, 1);
@@ -3989,7 +4021,8 @@ trait WebDav {
 					$user,
 					"files",
 					$folderpath,
-					$spaceId
+					$spaceId,
+					$response
 				);
 			}
 			if ($should) {
@@ -4320,13 +4353,15 @@ trait WebDav {
 	 * and returns multistatus data from the response
 	 *
 	 * @param string|null $user
+	 * @param ResponseInterface|null $response defaults to the last response
 	 *
 	 * @return array
 	 */
 	public function getMultiStatusResultFromPropfindResult(
-		?string $user = null
+		?string $user = null,
+		?ResponseInterface $response = null
 	): array {
-		$responseXmlArray = HttpRequestHelper::parseResponseAsXml($this->response);
+		$responseXmlArray = HttpRequestHelper::parseResponseAsXml($response ?? $this->response);
 
 		Assert::assertNotEmpty($responseXmlArray, __METHOD__ . ' Response is empty');
 		if ($user === null) {
@@ -4371,6 +4406,7 @@ trait WebDav {
 	 * @param string $type
 	 * @param string $folderPath
 	 * @param string|null $spaceId
+	 * @param ResponseInterface|null $response defaults to the last response
 	 *
 	 * @return string|array|boolean
 	 *
@@ -4385,7 +4421,8 @@ trait WebDav {
 		?string $user = null,
 		string $type = "files",
 		string $folderPath = '',
-		?string $spaceId = null
+		?string $spaceId = null,
+		?ResponseInterface $response = null
 	) {
 		$trimmedEntryNameToSearch = '';
 		// trim any leading "/" passed by the caller, we can just match the "raw" name
@@ -4406,7 +4443,7 @@ trait WebDav {
 				throw new Exception("error");
 		}
 
-		$multistatusResults = $this->getMultiStatusResultFromPropfindResult($user);
+		$multistatusResults = $this->getMultiStatusResultFromPropfindResult($user, $response);
 
 		$results = [];
 		foreach ($multistatusResults as $multistatusResult) {

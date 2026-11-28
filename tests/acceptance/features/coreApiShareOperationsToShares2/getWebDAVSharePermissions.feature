@@ -11,7 +11,7 @@ Feature: sharing
       | Alice    |
       | Brian    |
 
-  @smokeTest
+
   Scenario Outline: check webdav share-permissions for owned file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "foo" to "/tmp.txt"

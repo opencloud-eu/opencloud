@@ -9,10 +9,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -110,6 +110,8 @@ func queryGroups() []queryGroup {
 		stressGroup(),
 		everythingGroup(),
 		rangeGroup(),
+		photoGroup(),
+		extractionGroup(),
 		scopeGroup(),
 		invalidGroup(),
 		quotingGroup(),
@@ -122,7 +124,7 @@ type responseCase struct {
 	after string
 	query string
 	reads string
-	read  func(*searchService.SearchIndexResponse) []string
+	read  func(*search.IndexResult) []string
 	want  []string
 
 	engineOverrides map[string]override
@@ -286,7 +288,10 @@ var _ = Describe("Queries", func() {
 								Skip(e.unavailable)
 							}
 
-							request := &searchService.SearchIndexRequest{Query: c.query, PageSize: c.limit, Ref: c.ref}
+							request := &search.IndexQuery{Query: c.query, Ref: c.ref}
+							if c.limit != 0 {
+								request.PageSize = conversions.ToPointer(c.limit)
+							}
 
 							expected := override{want: c.want, wantCount: c.wantCount, wantBadRequest: c.wantBadRequest}
 							_, overridden := c.engineOverrides[name]
@@ -367,7 +372,7 @@ var _ = Describe("Operations", func() {
 							answers := make([][]string, len(c.expect))
 							errs := make([]error, len(c.expect))
 							for i, expect := range c.expect {
-								answers[i], errs[i] = ask(e.backend, &searchService.SearchIndexRequest{Query: expect.query})
+								answers[i], errs[i] = ask(e.backend, &search.IndexQuery{Query: expect.query})
 								recordAnswer(rows[i], name, answers[i])
 							}
 
@@ -444,7 +449,7 @@ var _ = Describe("Response", func() {
 								e.settle()
 							}
 
-							resp, err := e.backend.Search(context.Background(), &searchService.SearchIndexRequest{Query: c.query})
+							resp, err := e.backend.Search(context.Background(), &search.IndexQuery{Query: c.query})
 							if err != nil {
 								recordAnswer(row, name, []string{"error"})
 							}

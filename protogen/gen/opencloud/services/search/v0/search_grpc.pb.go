@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SearchProvider_Search_FullMethodName     = "/opencloud.services.search.v0.SearchProvider/Search"
-	SearchProvider_IndexSpace_FullMethodName = "/opencloud.services.search.v0.SearchProvider/IndexSpace"
+	SearchProvider_Search_FullMethodName        = "/opencloud.services.search.v0.SearchProvider/Search"
+	SearchProvider_IndexSpace_FullMethodName    = "/opencloud.services.search.v0.SearchProvider/IndexSpace"
+	SearchProvider_OptimizeIndex_FullMethodName = "/opencloud.services.search.v0.SearchProvider/OptimizeIndex"
 )
 
 // SearchProviderClient is the client API for SearchProvider service.
@@ -31,6 +32,9 @@ type SearchProviderClient interface {
 	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
 	// progress information after each space has been indexed.
 	IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[IndexSpaceResponse], error)
+	// OptimizeIndex merges the segments of the index into one, without indexing
+	// anything again. It answers once the merge is done.
+	OptimizeIndex(ctx context.Context, in *OptimizeIndexRequest, opts ...grpc.CallOption) (*OptimizeIndexResponse, error)
 }
 
 type searchProviderClient struct {
@@ -70,6 +74,16 @@ func (c *searchProviderClient) IndexSpace(ctx context.Context, in *IndexSpaceReq
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SearchProvider_IndexSpaceClient = grpc.ServerStreamingClient[IndexSpaceResponse]
 
+func (c *searchProviderClient) OptimizeIndex(ctx context.Context, in *OptimizeIndexRequest, opts ...grpc.CallOption) (*OptimizeIndexResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OptimizeIndexResponse)
+	err := c.cc.Invoke(ctx, SearchProvider_OptimizeIndex_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SearchProviderServer is the server API for SearchProvider service.
 // All implementations must embed UnimplementedSearchProviderServer
 // for forward compatibility.
@@ -78,6 +92,9 @@ type SearchProviderServer interface {
 	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
 	// progress information after each space has been indexed.
 	IndexSpace(*IndexSpaceRequest, grpc.ServerStreamingServer[IndexSpaceResponse]) error
+	// OptimizeIndex merges the segments of the index into one, without indexing
+	// anything again. It answers once the merge is done.
+	OptimizeIndex(context.Context, *OptimizeIndexRequest) (*OptimizeIndexResponse, error)
 	mustEmbedUnimplementedSearchProviderServer()
 }
 
@@ -93,6 +110,9 @@ func (UnimplementedSearchProviderServer) Search(context.Context, *SearchRequest)
 }
 func (UnimplementedSearchProviderServer) IndexSpace(*IndexSpaceRequest, grpc.ServerStreamingServer[IndexSpaceResponse]) error {
 	return status.Error(codes.Unimplemented, "method IndexSpace not implemented")
+}
+func (UnimplementedSearchProviderServer) OptimizeIndex(context.Context, *OptimizeIndexRequest) (*OptimizeIndexResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OptimizeIndex not implemented")
 }
 func (UnimplementedSearchProviderServer) mustEmbedUnimplementedSearchProviderServer() {}
 func (UnimplementedSearchProviderServer) testEmbeddedByValue()                        {}
@@ -144,6 +164,24 @@ func _SearchProvider_IndexSpace_Handler(srv interface{}, stream grpc.ServerStrea
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SearchProvider_IndexSpaceServer = grpc.ServerStreamingServer[IndexSpaceResponse]
 
+func _SearchProvider_OptimizeIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OptimizeIndexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SearchProviderServer).OptimizeIndex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SearchProvider_OptimizeIndex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SearchProviderServer).OptimizeIndex(ctx, req.(*OptimizeIndexRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SearchProvider_ServiceDesc is the grpc.ServiceDesc for SearchProvider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -155,6 +193,10 @@ var SearchProvider_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Search",
 			Handler:    _SearchProvider_Search_Handler,
 		},
+		{
+			MethodName: "OptimizeIndex",
+			Handler:    _SearchProvider_OptimizeIndex_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -163,107 +205,5 @@ var SearchProvider_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "opencloud/services/search/v0/search.proto",
-}
-
-const (
-	IndexProvider_Search_FullMethodName = "/opencloud.services.search.v0.IndexProvider/Search"
-)
-
-// IndexProviderClient is the client API for IndexProvider service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type IndexProviderClient interface {
-	Search(ctx context.Context, in *SearchIndexRequest, opts ...grpc.CallOption) (*SearchIndexResponse, error)
-}
-
-type indexProviderClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewIndexProviderClient(cc grpc.ClientConnInterface) IndexProviderClient {
-	return &indexProviderClient{cc}
-}
-
-func (c *indexProviderClient) Search(ctx context.Context, in *SearchIndexRequest, opts ...grpc.CallOption) (*SearchIndexResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SearchIndexResponse)
-	err := c.cc.Invoke(ctx, IndexProvider_Search_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// IndexProviderServer is the server API for IndexProvider service.
-// All implementations must embed UnimplementedIndexProviderServer
-// for forward compatibility.
-type IndexProviderServer interface {
-	Search(context.Context, *SearchIndexRequest) (*SearchIndexResponse, error)
-	mustEmbedUnimplementedIndexProviderServer()
-}
-
-// UnimplementedIndexProviderServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedIndexProviderServer struct{}
-
-func (UnimplementedIndexProviderServer) Search(context.Context, *SearchIndexRequest) (*SearchIndexResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Search not implemented")
-}
-func (UnimplementedIndexProviderServer) mustEmbedUnimplementedIndexProviderServer() {}
-func (UnimplementedIndexProviderServer) testEmbeddedByValue()                       {}
-
-// UnsafeIndexProviderServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to IndexProviderServer will
-// result in compilation errors.
-type UnsafeIndexProviderServer interface {
-	mustEmbedUnimplementedIndexProviderServer()
-}
-
-func RegisterIndexProviderServer(s grpc.ServiceRegistrar, srv IndexProviderServer) {
-	// If the following call panics, it indicates UnimplementedIndexProviderServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&IndexProvider_ServiceDesc, srv)
-}
-
-func _IndexProvider_Search_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SearchIndexRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(IndexProviderServer).Search(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: IndexProvider_Search_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IndexProviderServer).Search(ctx, req.(*SearchIndexRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// IndexProvider_ServiceDesc is the grpc.ServiceDesc for IndexProvider service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var IndexProvider_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "opencloud.services.search.v0.IndexProvider",
-	HandlerType: (*IndexProviderServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Search",
-			Handler:    _IndexProvider_Search_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "opencloud/services/search/v0/search.proto",
 }

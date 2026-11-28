@@ -9,7 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	svc "github.com/opencloud-eu/opencloud/services/ocs/pkg/service/v0"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 	"go-micro.dev/v4"
 	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"

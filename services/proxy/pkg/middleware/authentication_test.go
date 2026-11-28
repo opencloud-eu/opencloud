@@ -21,9 +21,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend/mocks"
 	userrolesmocks "github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles/mocks"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/signedurl"
 	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/store"
 	"google.golang.org/grpc"
@@ -40,6 +40,10 @@ var _ = Describe("authentication helpers", func() {
 		Entry("token info path", "/ocs/v1.php/apps/files_sharing/api/v1/tokeninfo/unprotected", true),
 		Entry("token info path", "/ocs/v2.php/apps/files_sharing/api/v1/tokeninfo/unprotected", true),
 		Entry("capabilities", "/ocs/v1.php/cloud/capabilities", true),
+		// a public link token carries the link owner as user, so the signing key
+		// endpoint must never be public or link visitors could sign urls as the owner
+		Entry("signing-key v1 must not be public", "/ocs/v1.php/cloud/user/signing-key", false),
+		Entry("signing-key v2 must not be public", "/ocs/v2.php/cloud/user/signing-key", false),
 	)
 })
 

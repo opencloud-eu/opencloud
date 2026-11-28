@@ -8,7 +8,7 @@ Feature: files and folders exist in the trashbin after being deleted
     Given user "Alice" has been created with default attributes
     And user "Alice" has uploaded file with content "to delete" to "/textfile0.txt"
 
-  @smokeTest
+
   Scenario Outline: deleting a file moves it to trashbin
     Given using <dav-path-version> DAV path
     When user "Alice" deletes file "/textfile0.txt" using the WebDAV API
@@ -20,7 +20,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: deleting a folder moves it to trashbin
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/tmp"
@@ -158,7 +158,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @issue-3561 @smokeTest
+  @issue-3561
   Scenario Outline: listing other user's trashbin is prohibited with multiple files on trashbin
     Given using <dav-path-version> DAV path
     And user "testtrashbin101" has been created with default attributes
@@ -225,7 +225,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: get trashbin content with wrong password
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/textfile0.txt"
@@ -240,7 +240,7 @@ Feature: files and folders exist in the trashbin after being deleted
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: get trashbin content without password
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/textfile.txt" to "/textfile0.txt"

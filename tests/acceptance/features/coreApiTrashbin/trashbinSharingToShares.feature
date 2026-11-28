@@ -8,7 +8,7 @@ Feature: using trashbin together with sharing
     Given user "Alice" has been created with default attributes
     And user "Alice" has uploaded file with content "file to delete" to "/textfile0.txt"
 
-  @smokeTest @issue-7555
+  @issue-7555
   Scenario Outline: deleting a received folder doesn't move it to trashbin
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

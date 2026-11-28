@@ -15,7 +15,7 @@ import (
 	"github.com/jellydator/ttlcache/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"

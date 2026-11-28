@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -12,20 +12,20 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/jellydator/ttlcache/v2"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/token"
-	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/token"
+	"github.com/opencloud-eu/reva/v3/pkg/token/manager/jwt"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
 	"golang.org/x/sync/errgroup"
 	grpcmetadata "google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -100,15 +100,11 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 	}
 	ctx = revactx.ContextSetUser(ctx, u)
 
-	key := cacheKey(in.Query, in.PageSize, in.Ref, u)
+	key := cacheKey(in, u)
 	res, ok := s.FromCache(key)
 	if !ok {
 		var err error
-		res, err = s.searcher.Search(ctx, &searchsvc.SearchRequest{
-			Query:    in.Query,
-			PageSize: in.PageSize,
-			Ref:      in.Ref,
-		})
+		res, err = s.searcher.Search(ctx, in)
 		if err != nil {
 			switch err.(type) {
 			case errtypes.BadRequest:
@@ -124,6 +120,7 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 	out.Matches = res.Matches
 	out.TotalMatches = res.TotalMatches
 	out.NextPageToken = res.NextPageToken
+	out.Aggregations = res.Aggregations
 	return nil
 }
 
@@ -248,6 +245,28 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 	return g.Wait()
 }
 
+// OptimizeIndex merges the segments of the index and answers once that is done
+func (s Service) OptimizeIndex(ctx context.Context, _ *searchsvc.OptimizeIndexRequest, out *searchsvc.OptimizeIndexResponse) error {
+	t := time.Now()
+	err := s.searcher.OptimizeIndex(ctx)
+	switch {
+	case errors.Is(err, context.Canceled):
+		// the client hung up, nobody waits for the answer
+		return err
+	case errors.Is(err, search.ErrOptimizeUnsupported):
+		// the wrapped error names the go type of the index, which stays in the log
+		s.log.Info().Err(err).Msg("refused to optimize the index")
+		return merrors.New(s.id, search.ErrOptimizeUnsupported.Error(), http.StatusNotImplemented)
+	case errors.Is(err, search.ErrOptimizeInProgress):
+		return merrors.New(s.id, err.Error(), http.StatusPreconditionFailed)
+	case err != nil:
+		s.log.Error().Err(err).Msg("failed to optimize the index")
+		return merrors.InternalServerError(s.id, "failed to optimize the index")
+	}
+	out.Duration = durationpb.New(time.Since(t))
+	return nil
+}
+
 // FromCache pulls a search result from cache
 func (s Service) FromCache(key string) (*searchsvc.SearchResponse, bool) {
 	v, err := s.cache.Get(key)
@@ -265,6 +284,11 @@ func (s Service) Cache(key string, res *searchsvc.SearchResponse) {
 	_ = s.cache.Set(key, res)
 }
 
-func cacheKey(query string, pagesize int32, ref *v0.Reference, user *user.User) string {
-	return fmt.Sprintf("%s|%d|%s$%s!%s/%s|%s", query, pagesize, ref.GetResourceId().GetStorageId(), ref.GetResourceId().GetSpaceId(), ref.GetResourceId().GetOpaqueId(), ref.GetPath(), user.GetId().GetOpaqueId())
+// cacheKey is the request as the searcher sees it, per user. An absent page
+// size is the default, both share an entry.
+func cacheKey(req *searchsvc.SearchRequest, user *user.User) string {
+	keyed := proto.Clone(req).(*searchsvc.SearchRequest)
+	keyed.PageSize = proto.Int32(search.PageSizeOrDefault(req.PageSize))
+	b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(keyed)
+	return user.GetId().GetOpaqueId() + "|" + string(b)
 }

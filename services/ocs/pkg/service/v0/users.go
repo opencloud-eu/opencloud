@@ -6,9 +6,11 @@ import (
 	"errors"
 	"net/http"
 
+	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/opencloud/services/ocs/pkg/service/v0/data"
 	"github.com/opencloud-eu/opencloud/services/ocs/pkg/service/v0/response"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"go-micro.dev/v4/store"
 )
 
@@ -20,6 +22,14 @@ func (o Ocs) GetSigningKey(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		//o.logger.Error().Msg("missing user in context")
 		o.mustRender(w, r, response.ErrRender(data.MetaBadRequest.StatusCode, "missing user in context"))
+		return
+	}
+
+	// A public link token carries the link owner as user. Never hand out the owner's
+	// signing key to guests or link visitors, it would let them sign urls for
+	// everything the owner can access.
+	if u.GetId().GetType() == cs3user.UserType_USER_TYPE_GUEST || utils.ExistsInOpaque(u.GetOpaque(), "public-share-role") {
+		o.mustRender(w, r, response.ErrRender(data.MetaUnauthorized.StatusCode, "unauthorized"))
 		return
 	}
 

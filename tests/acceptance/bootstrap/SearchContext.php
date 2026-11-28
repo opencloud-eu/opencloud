@@ -177,9 +177,12 @@ class SearchContext implements Context {
 		string    $user,
 		TableNode $properties
 	): void {
-		$assert = fn () => $this->assertFileOrFolderInSearchResultContainsProperties($path, $user, $properties);
-		$this->retrySearchUntilSatisfied($assert);
-		$assert();
+		// retry only until the entry is indexed: once it is found, its properties
+		// are complete, and a wrong property fails right away
+		$this->retrySearchUntilSatisfied(
+			fn () => Assert::assertNotFalse($this->featureContext->findEntryFromSearchResponse($path))
+		);
+		$this->assertFileOrFolderInSearchResultContainsProperties($path, $user, $properties);
 	}
 
 	/**

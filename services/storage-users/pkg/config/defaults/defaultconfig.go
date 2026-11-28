@@ -157,6 +157,9 @@ func DefaultConfig() *config.Config {
 				InotifyStatsFrequency:      5 * time.Minute,
 			},
 		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Events: config.Events{
 			Addr:      "127.0.0.1:9233",
 			ClusterID: "opencloud-cluster",
@@ -172,6 +175,12 @@ func DefaultConfig() *config.Config {
 			Store:    "nats-js-kv",
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "ids-storage-users",
+		},
+		RevisionsCleanup: config.RevisionsCleanup{
+			Strategy:              "disabled",
+			Async:                 true,
+			AsyncQueueFull:        "drop",
+			AsyncQueueFullTimeout: 5 * time.Second,
 		},
 		Tasks: config.Tasks{
 			PurgeTrashBin: config.PurgeTrashBin{

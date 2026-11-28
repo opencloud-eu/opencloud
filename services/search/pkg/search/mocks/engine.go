@@ -7,7 +7,6 @@ package mocks
 import (
 	"context"
 
-	"github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -143,6 +142,74 @@ func (_c *Engine_DocCount_Call) RunAndReturn(run func() (uint64, error)) *Engine
 	return _c
 }
 
+// Get provides a mock function for the type Engine
+func (_mock *Engine) Get(ctx context.Context, id string) (*search.Resource, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Get")
+	}
+
+	var r0 *search.Resource
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*search.Resource, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *search.Resource); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*search.Resource)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Engine_Get_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Get'
+type Engine_Get_Call struct {
+	*mock.Call
+}
+
+// Get is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *Engine_Expecter) Get(ctx any, id any) *Engine_Get_Call {
+	return &Engine_Get_Call{Call: _e.mock.On("Get", ctx, id)}
+}
+
+func (_c *Engine_Get_Call) Run(run func(ctx context.Context, id string)) *Engine_Get_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_Get_Call) Return(resource *search.Resource, err error) *Engine_Get_Call {
+	_c.Call.Return(resource, err)
+	return _c
+}
+
+func (_c *Engine_Get_Call) RunAndReturn(run func(ctx context.Context, id string) (*search.Resource, error)) *Engine_Get_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Move provides a mock function for the type Engine
 func (_mock *Engine) Move(id string, parentID string, targetPath string) error {
 	ret := _mock.Called(id, parentID, targetPath)
@@ -264,6 +331,57 @@ func (_c *Engine_NewBatch_Call) Return(batchOperator search.BatchOperator, err e
 }
 
 func (_c *Engine_NewBatch_Call) RunAndReturn(run func(batchSize int) (search.BatchOperator, error)) *Engine_NewBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Optimize provides a mock function for the type Engine
+func (_mock *Engine) Optimize(ctx context.Context) error {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Optimize")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_Optimize_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Optimize'
+type Engine_Optimize_Call struct {
+	*mock.Call
+}
+
+// Optimize is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Engine_Expecter) Optimize(ctx any) *Engine_Optimize_Call {
+	return &Engine_Optimize_Call{Call: _e.mock.On("Optimize", ctx)}
+}
+
+func (_c *Engine_Optimize_Call) Run(run func(ctx context.Context)) *Engine_Optimize_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_Optimize_Call) Return(err error) *Engine_Optimize_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_Optimize_Call) RunAndReturn(run func(ctx context.Context) error) *Engine_Optimize_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -428,26 +546,26 @@ func (_c *Engine_Restore_Call) RunAndReturn(run func(id string) error) *Engine_R
 }
 
 // Search provides a mock function for the type Engine
-func (_mock *Engine) Search(ctx context.Context, req *v0.SearchIndexRequest) (*v0.SearchIndexResponse, error) {
+func (_mock *Engine) Search(ctx context.Context, req *search.IndexQuery) (*search.IndexResult, error) {
 	ret := _mock.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Search")
 	}
 
-	var r0 *v0.SearchIndexResponse
+	var r0 *search.IndexResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.SearchIndexRequest) (*v0.SearchIndexResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *search.IndexQuery) (*search.IndexResult, error)); ok {
 		return returnFunc(ctx, req)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.SearchIndexRequest) *v0.SearchIndexResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *search.IndexQuery) *search.IndexResult); ok {
 		r0 = returnFunc(ctx, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v0.SearchIndexResponse)
+			r0 = ret.Get(0).(*search.IndexResult)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v0.SearchIndexRequest) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *search.IndexQuery) error); ok {
 		r1 = returnFunc(ctx, req)
 	} else {
 		r1 = ret.Error(1)
@@ -462,20 +580,20 @@ type Engine_Search_Call struct {
 
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
-//   - req *v0.SearchIndexRequest
+//   - req *search.IndexQuery
 func (_e *Engine_Expecter) Search(ctx any, req any) *Engine_Search_Call {
 	return &Engine_Search_Call{Call: _e.mock.On("Search", ctx, req)}
 }
 
-func (_c *Engine_Search_Call) Run(run func(ctx context.Context, req *v0.SearchIndexRequest)) *Engine_Search_Call {
+func (_c *Engine_Search_Call) Run(run func(ctx context.Context, req *search.IndexQuery)) *Engine_Search_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *v0.SearchIndexRequest
+		var arg1 *search.IndexQuery
 		if args[1] != nil {
-			arg1 = args[1].(*v0.SearchIndexRequest)
+			arg1 = args[1].(*search.IndexQuery)
 		}
 		run(
 			arg0,
@@ -485,12 +603,75 @@ func (_c *Engine_Search_Call) Run(run func(ctx context.Context, req *v0.SearchIn
 	return _c
 }
 
-func (_c *Engine_Search_Call) Return(searchIndexResponse *v0.SearchIndexResponse, err error) *Engine_Search_Call {
-	_c.Call.Return(searchIndexResponse, err)
+func (_c *Engine_Search_Call) Return(indexResult *search.IndexResult, err error) *Engine_Search_Call {
+	_c.Call.Return(indexResult, err)
 	return _c
 }
 
-func (_c *Engine_Search_Call) RunAndReturn(run func(ctx context.Context, req *v0.SearchIndexRequest) (*v0.SearchIndexResponse, error)) *Engine_Search_Call {
+func (_c *Engine_Search_Call) RunAndReturn(run func(ctx context.Context, req *search.IndexQuery) (*search.IndexResult, error)) *Engine_Search_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Update provides a mock function for the type Engine
+func (_mock *Engine) Update(ctx context.Context, id string, u search.MetadataUpdate) error {
+	ret := _mock.Called(ctx, id, u)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, search.MetadataUpdate) error); ok {
+		r0 = returnFunc(ctx, id, u)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type Engine_Update_Call struct {
+	*mock.Call
+}
+
+// Update is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+//   - u search.MetadataUpdate
+func (_e *Engine_Expecter) Update(ctx any, id any, u any) *Engine_Update_Call {
+	return &Engine_Update_Call{Call: _e.mock.On("Update", ctx, id, u)}
+}
+
+func (_c *Engine_Update_Call) Run(run func(ctx context.Context, id string, u search.MetadataUpdate)) *Engine_Update_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 search.MetadataUpdate
+		if args[2] != nil {
+			arg2 = args[2].(search.MetadataUpdate)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_Update_Call) Return(err error) *Engine_Update_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_Update_Call) RunAndReturn(run func(ctx context.Context, id string, u search.MetadataUpdate) error) *Engine_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

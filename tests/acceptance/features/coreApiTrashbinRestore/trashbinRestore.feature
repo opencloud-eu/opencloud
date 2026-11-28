@@ -8,7 +8,7 @@ Feature: restore deleted files/folders
     Given user "Alice" has been created with default attributes
     And user "Alice" has uploaded file with content "file to delete" to "/textfile0.txt"
 
-  @smokeTest
+
   Scenario Outline: deleted file can be restored
     Given using <dav-path-version> DAV path
     And user "Alice" has created folder "/FOLDER"
@@ -130,7 +130,7 @@ Feature: restore deleted files/folders
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: deleted file cannot be restored by a different user
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -145,7 +145,7 @@ Feature: restore deleted files/folders
       | new              | 404              |
       | spaces           | 400              |
 
-  @smokeTest
+
   Scenario Outline: deleted file cannot be restored with invalid password
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
@@ -160,7 +160,7 @@ Feature: restore deleted files/folders
       | new              |
       | spaces           |
 
-  @smokeTest
+
   Scenario Outline: deleted file cannot be restored without using a password
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes

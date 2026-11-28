@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storage"
+	"github.com/opencloud-eu/reva/v3/pkg/storage"
 	"github.com/test-go/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 )
 
 // short identifiers for audit actions
@@ -166,9 +166,9 @@ func MessageSpaceEnabled(executant, spaceID string) string {
 }
 
 // MessageSpaceDeleted returns the human-readable string that describes the action
-func MessageSpaceDeleted(executant, spaceID string) string {
+func MessageSpaceDeleted(executant, spaceID, name string) string {
 	storagID, spaceID := storagespace.SplitStorageID(spaceID)
-	return fmt.Sprintf("user '%s' deleted the space '%s' (storage: '%s')", executant, spaceID, storagID)
+	return fmt.Sprintf("user '%s' deleted the space '%s' with name '%s' (storage: '%s')", executant, spaceID, name, storagID)
 }
 
 // MessageSpaceShared returns the human-readable string that describes the action

@@ -13,10 +13,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
-	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
-	decomposedbs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposed/blobstore"
-	s3bs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposeds3/blobstore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v3/pkg/bytesize"
+	decomposedbs "github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposed/blobstore"
+	s3bs "github.com/opencloud-eu/reva/v3/pkg/storage/fs/decomposeds3/blobstore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/node"
 	"github.com/spf13/cobra"
 )
 

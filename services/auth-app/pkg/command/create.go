@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	authpb "github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
+	"github.com/opencloud-eu/reva/v3/pkg/auth/scope"
 	"github.com/spf13/cobra"
 
 	"time"
@@ -15,8 +15,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-app/pkg/config/parser"
-	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	ctxpkg "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 
 	applicationsv1beta1 "github.com/cs3org/go-cs3apis/cs3/auth/applications/v1beta1"
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"

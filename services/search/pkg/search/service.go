@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"math"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -19,22 +20,25 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/golang-jwt/jwt/v5"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/auth"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/walker"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/opencloud-eu/reva/v3/pkg/auth"
+	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	sdk "github.com/opencloud-eu/reva/v3/pkg/sdk/common"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/walker"
+	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
@@ -60,10 +64,11 @@ type Searcher interface {
 	IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error
 	PurgeSpace(spaceID *provider.StorageSpaceId) error
 	PurgeDeleted(spaceID *provider.StorageSpaceId) error
+	OptimizeIndex(ctx context.Context) error
 
 	TrashItem(resourceID *provider.ResourceId)
 	PurgeItem(ref *provider.Reference)
-	UpsertItem(ref *provider.Reference)
+	UpdateMetadata(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
 }
@@ -75,6 +80,7 @@ type Service struct {
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	engine          Engine
 	extractor       content.Extractor
+	basic           *content.Basic
 	metrics         *metrics.Metrics
 
 	serviceAccountID     string
@@ -87,13 +93,33 @@ type Service struct {
 
 var errSkipSpace error
 
+// a parse failure is retried after these delays, then given up until the file
+// changes; ocr and image tools also fail under load, so the spacing outlasts a
+// burst of uploads instead of spending every attempt inside it
+var extractionRetryDelays = []time.Duration{time.Hour, 24 * time.Hour}
+
+// a restarting tika answers again within seconds, so a space walk retries an
+// extraction that could not reach tika or the file before indexing it by name
+var (
+	unreachableRetries    = 5
+	unreachableRetryDelay = time.Second
+)
+
+// this many files in a row out of reach after their retries means tika is down,
+// not that one file is gone
+const unreachableStreakLimit = 5
+
 // NewService creates a new Provider instance.
 func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
+	// NewBasicExtractor has no failure path
+	basic, _ := content.NewBasicExtractor(logger)
+
 	var s = &Service{
 		gatewaySelector: gatewaySelector,
 		engine:          eng,
 		logger:          logger,
 		extractor:       extractor,
+		basic:           basic,
 		metrics:         metrics,
 
 		serviceAccountID:     cfg.ServiceAccount.ServiceAccountID,
@@ -129,6 +155,15 @@ func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) s
 
 // Search processes a search request and passes it down to the engine.
 func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+	if PageSizeOrDefault(req.PageSize) < -1 {
+		return nil, errtypes.BadRequest("page size must be -1, 0 or positive")
+	}
+	if err := aggregation.ValidateOptions(req.GetAggregations(), AggregatableFieldType); err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	if err := aggregation.ValidateFilters(req.GetAggregationFilters(), AggregatableFieldType); err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 	s.logger.Debug().Str("query", req.Query).Msg("performing a search")
 
 	// collect metrics
@@ -168,6 +203,8 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, err
 	}
 	req.Query = query
+
+	var scopeRoot *provider.ResourceId
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
 		if err != nil {
@@ -192,6 +229,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			return nil, err
 		}
 
+		scopeRoot = statRes.GetInfo().GetId()
 		req.Ref = &searchmsg.Reference{
 			ResourceId: &searchmsg.ResourceID{
 				StorageId: statRes.GetInfo().GetSpace().GetRoot().GetStorageId(),
@@ -265,7 +303,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 
 	errg, ctx := errgroup.WithContext(ctx)
 	work := make(chan *provider.StorageSpace, len(spaces))
-	results := make(chan *searchsvc.SearchIndexResponse, len(spaces))
+	results := make(chan *IndexResult, len(spaces))
 
 	// Distribute work
 	errg.Go(func() error {
@@ -288,7 +326,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	for i := 0; i < numWorkers; i++ {
 		errg.Go(func() error {
 			for space := range work {
-				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId])
+				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId], scopeRoot)
 				if err != nil && err != errSkipSpace {
 					return err
 				}
@@ -309,7 +347,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		close(results)
 	}()
 
-	responses := make([]*searchsvc.SearchIndexResponse, len(spaces))
+	responses := make([]*IndexResult, len(spaces))
 	i := 0
 	for r := range results {
 		responses[i] = r
@@ -320,6 +358,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, err
 	}
 
+	aggregations := aggregation.Empty(req.GetAggregations())
 	for _, res := range responses {
 		if res == nil {
 			continue
@@ -328,15 +367,24 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		for _, match := range res.Matches {
 			matches = append(matches, match)
 		}
+		aggregations = aggregation.Merge(req.GetAggregations(), aggregations, res.Aggregations)
+	}
+	aggregation.Finalize(req.GetAggregations(), aggregations)
+	if err := aggregation.CheckBuckets(aggregations); err != nil {
+		return nil, errtypes.BadRequest(err.Error())
 	}
 
-	// compile one sorted list of matches from all spaces and apply the limit if needed
+	// compile one sorted list of matches from all spaces and apply from/limit if needed
 	sort.Sort(matches)
-	limit := req.PageSize
-	if limit == 0 {
-		limit = 200
+	limit := PageSizeOrDefault(req.PageSize)
+	if from := int(req.GetFrom()); from > 0 {
+		if from < len(matches) {
+			matches = matches[from:]
+		} else {
+			matches = nil
+		}
 	}
-	if int32(len(matches)) > limit && limit != -1 {
+	if limit != -1 && int32(len(matches)) > limit {
 		matches = matches[0:limit]
 	}
 
@@ -344,10 +392,42 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	return &searchsvc.SearchResponse{
 		Matches:      matches,
 		TotalMatches: total,
+		Aggregations: aggregations,
 	}, nil
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (res *searchsvc.SearchIndexResponse, err error) {
+// PageSizeOrDefault reads an absent page size as 200; -1 is no limit.
+func PageSizeOrDefault(pageSize *int32) int32 {
+	if pageSize != nil {
+		return *pageSize
+	}
+	return 200
+}
+
+// EnginePageSize is the page an engine fetches: the default for an absent
+// size, unlimited for -1.
+func EnginePageSize(pageSize *int32, unlimited int) int {
+	size := PageSizeOrDefault(pageSize)
+	if size == -1 {
+		return unlimited
+	}
+	return int(size)
+}
+
+// engineFetchSize: the global offset cannot be distributed across spaces, so
+// every space must return the full prefix up to from+limit for the merge.
+func engineFetchSize(from int32, pageSize *int32) int32 {
+	limit := PageSizeOrDefault(pageSize)
+	if limit <= 0 || from <= 0 {
+		return limit
+	}
+	if total := int64(from) + int64(limit); total <= math.MaxInt32 {
+		return int32(total)
+	}
+	return math.MaxInt32
+}
+
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string, scopeRoot *provider.ResourceId) (res *IndexResult, err error) {
 	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
 	defer func() {
 		if r := recover(); r != nil {
@@ -451,19 +531,32 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		permissions = space.GetRootInfo().GetPermissionSet()
 	}
 
-	searchRequest := &searchsvc.SearchIndexRequest{
-		Query: ExpandQueryTemplate(s.queryTemplate, req.Query, space),
+	query := ExpandQueryTemplate(s.queryTemplate, req.Query, space)
+	if scopeRoot != nil {
+		// the path filter of the engines matches the scope folder as well
+		query = fmt.Sprintf(`(%s) AND NOT id:"%s"`, query, storagespace.FormatResourceID(scopeRoot))
+	}
+
+	searchRequest := &IndexQuery{
+		Query:              query,
+		Aggregations:       req.GetAggregations(),
+		AggregationFilters: req.GetAggregationFilters(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,
 		},
-		PageSize: req.PageSize,
+		// not GetPageSize(): the getter collapses nil (default) and explicit 0
+		PageSize: conversions.ToPointer(engineFetchSize(req.GetFrom(), req.PageSize)),
 	}
 	start := time.Now()
 	res, err = s.engine.Search(ctx, searchRequest)
 	duration := time.Since(start)
 	if err != nil {
-		s.logger.Error().Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
+		level := s.logger.Error()
+		if _, ok := err.(errtypes.BadRequest); ok {
+			level = s.logger.Debug()
+		}
+		level.Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
 		return nil, err
 	}
 	if duration > _slowQueryDuration {
@@ -489,10 +582,9 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		isMountpoint := isShared && match.GetEntity().GetRef().GetPath() == "."
 		isDir := match.GetEntity().GetMimeType() == "httpd/unix-directory"
 		match.Entity.Permissions = convertToWebDAVPermissions(isShared, isMountpoint, isDir, permissions)
-
-		if req.Ref != nil && searchPathPrefix == "/"+match.Entity.Name {
-			continue
-		}
+		// allowedValues is the same effective permission set the WebDAV report's
+		// oc:permissions string projects, in libregraph action notation.
+		match.Entity.PermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(permissions)
 
 		matches = append(matches, match)
 	}
@@ -539,6 +631,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 	}()
 
 	w := walker.NewWalker(s.gatewaySelector)
+	unreachable := &unreachableExtractions{}
 	batch, err := s.engine.NewBatch(s.batchSize)
 	if err != nil {
 		return err
@@ -573,28 +666,26 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
 
 		if forceRescan {
-			s.doUpsertItem(session.Ctx(), ref, batch)
+			s.doUpsertItem(session.Ctx(), ref, batch, unreachable)
 			return nil
 		}
 
-		searchRes, err := s.engine.Search(session.Ctx(), &searchsvc.SearchIndexRequest{
-			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),
-		})
-
-		if err == nil && len(searchRes.Matches) >= 1 {
-			if info.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
-				s.logger.Debug().Str("path", ref.Path).Msg("subtree hasn't changed. Skipping.")
-				return filepath.SkipDir
-			}
+		// an unchanged folder is still descended into: its mtime only follows its direct
+		// children, so files below it that an interrupted run left unindexed would be skipped forever
+		if s.isIndexed(session.Ctx(), info) {
 			s.logger.Debug().Str("path", ref.Path).Msg("element hasn't changed. Skipping.")
 			return nil
 		}
 
-		s.doUpsertItem(session.Ctx(), ref, batch)
+		s.doUpsertItem(session.Ctx(), ref, batch, unreachable)
 
 		return nil
 	})
 
+	if err != nil {
+		return err
+	}
+	err = unreachable.err()
 	if err != nil {
 		return err
 	}
@@ -676,119 +767,40 @@ func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
 	return nil
 }
 
-// UpsertItem indexes or stores Resource data fields.
-func (s *Service) UpsertItem(ref *provider.Reference) {
+// OptimizeIndex merges the segments of the index, the documents stay as they are
+func (s *Service) OptimizeIndex(ctx context.Context) error {
+	return s.engine.Optimize(ctx)
+}
+
+// UpdateMetadata rewrites the tags and favorites of an indexed resource without
+// extracting its content again, a resource not indexed yet is upserted in full.
+func (s *Service) UpdateMetadata(ref *provider.Reference) {
 	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to get auth context")
 		return
 	}
-	s.doUpsertItem(ctx, ref, nil)
-}
 
-// doUpsertItem indexes or stores Resource data fields.
-func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator) {
 	stat, path := s.resInfo(ctx, ref)
 	if stat == nil || path == "" {
 		return
 	}
 
-	if utils.IsProcessing(stat.Info) {
-		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
-		return
-	}
-
-	doc, err := s.extractor.Extract(ctx, stat.Info)
+	doc, err := s.basic.Extract(ctx, stat.GetInfo())
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to extract resource content")
+		s.logger.Error().Err(err).Msg("failed to read the resource metadata")
 		return
 	}
 
-	r := Resource{
-		ID: storagespace.FormatResourceID(stat.Info.Id),
-		RootID: storagespace.FormatResourceID(&provider.ResourceId{
-			StorageId: stat.Info.Id.StorageId,
-			OpaqueId:  stat.Info.Id.SpaceId,
-			SpaceId:   stat.Info.Id.SpaceId,
-		}),
-		Path:     utils.MakeRelativePath(path),
-		Type:     uint64(stat.Info.Type),
-		Document: doc,
-	}
-	r.Hidden = IsHidden(r.Path)
-
-	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
-		r.ParentID = storagespace.FormatResourceID(parentID)
-	}
-
-	if batch != nil {
-		err = batch.Upsert(r.ID, r)
-	} else {
-		err = s.engine.Upsert(r.ID, r)
-	}
-	if err != nil {
-		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
-	} else {
-		logDocCount(s.engine, s.logger)
-	}
-
-	// determine if metadata needs to be stored in storage as well
-	metadata := map[string]string{}
-	facetToMetadata(metadata, doc.Audio, facetKeyPrefix+"audio.")
-	facetToMetadata(metadata, doc.Image, facetKeyPrefix+"image.")
-	facetToMetadata(metadata, doc.Location, facetKeyPrefix+"location.")
-	facetToMetadata(metadata, doc.Photo, facetKeyPrefix+"photo.")
-	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
-	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
-	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
-
-	// the facet keys are ours, so the ones this extraction did not produce
-	// describe content the resource no longer has
-	var stale []string
-	for k, stored := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
-		value, ok := metadata[k]
-		switch {
-		case ok && value == stored:
-			delete(metadata, k)
-		case !ok && strings.HasPrefix(k, facetKeyPrefix):
-			stale = append(stale, k)
-		}
-	}
-	if len(metadata) == 0 && len(stale) == 0 {
-		return
-	}
-
-	gatewayClient, err := s.gatewaySelector.Next()
-	if err != nil {
-		s.logger.Error().Err(err).Msg("could not retrieve client to store metadata")
-		return
-	}
-
-	if len(metadata) > 0 {
-		s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
-
-		resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
-			Ref: ref,
-			ArbitraryMetadata: &provider.ArbitraryMetadata{
-				Metadata: metadata,
-			},
-		})
-		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
-			return
-		}
-	}
-
-	if len(stale) > 0 {
-		s.logger.Trace().Str("name", doc.Name).Strs("keys", stale).Msg("Removing stale metadata")
-
-		resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
-			Ref:                   ref,
-			ArbitraryMetadataKeys: stale,
-		})
-		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
-		}
+	err = s.engine.Update(ctx, storagespace.FormatResourceID(stat.GetInfo().GetId()), MetadataUpdate{
+		Tags:      doc.Tags,
+		Favorites: doc.Favorites,
+	})
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+		s.upsertResource(ctx, ref, stat, path, nil, nil)
+	case err != nil:
+		s.logger.Error().Err(err).Interface("id", stat.GetInfo().GetId()).Msg("failed to update the resource metadata in the index")
 	}
 }
 
@@ -901,6 +913,241 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	}
 }
 
+// doUpsertItem indexes or stores Resource data fields.
+func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator, unreachable *unreachableExtractions) {
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
+		return
+	}
+	s.upsertResource(ctx, ref, stat, path, batch, unreachable)
+}
+
+// upsertResource extracts and indexes the resource stat describes, a space walk
+// passes unreachable to retry extractions that could not reach tika or the file
+func (s *Service) upsertResource(ctx context.Context, ref *provider.Reference, stat *provider.StatResponse, path string, batch BatchOperator, unreachable *unreachableExtractions) {
+	if utils.IsProcessing(stat.GetInfo()) {
+		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
+		return
+	}
+
+	// a failed extraction still yields the name, path and tags, the resource
+	// stays findable and a later space walk retries it
+	doc, err := s.extract(ctx, stat.GetInfo(), unreachable)
+	extractionFailed := err != nil
+	if err != nil {
+		s.logger.Error().Err(err).Str("path", path).Msg("failed to extract resource content")
+	}
+
+	r := Resource{
+		ID: storagespace.FormatResourceID(stat.GetInfo().GetId()),
+		RootID: storagespace.FormatResourceID(&provider.ResourceId{
+			StorageId: stat.GetInfo().GetId().GetStorageId(),
+			OpaqueId:  stat.GetInfo().GetId().GetSpaceId(),
+			SpaceId:   stat.GetInfo().GetId().GetSpaceId(),
+		}),
+		Path:     utils.MakeRelativePath(path),
+		Type:     uint64(stat.GetInfo().GetType()), //nolint:gosec // proto enum values are never negative
+		Document: doc,
+	}
+	r.Hidden = IsHidden(r.Path)
+	if extractionFailed {
+		var write bool
+		r.ExtractionFailure, write = s.nextExtractionFailure(ctx, r.ID, stat.GetInfo(), path, !isUnreachable(err))
+		if !write {
+			return
+		}
+	}
+
+	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
+		r.ParentID = storagespace.FormatResourceID(parentID)
+	}
+
+	if batch != nil {
+		err = batch.Upsert(r.ID, r)
+	} else {
+		err = s.engine.Upsert(r.ID, r)
+	}
+	if err != nil {
+		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
+	} else {
+		logDocCount(s.engine, s.logger)
+	}
+
+	// without an extraction the facets are unknown, not gone
+	if extractionFailed {
+		return
+	}
+
+	// determine if metadata needs to be stored in storage as well
+	metadata := map[string]string{}
+	facetToMetadata(metadata, doc.Audio, facetKeyPrefix+"audio.")
+	facetToMetadata(metadata, doc.Image, facetKeyPrefix+"image.")
+	facetToMetadata(metadata, doc.Location, facetKeyPrefix+"location.")
+	facetToMetadata(metadata, doc.Photo, facetKeyPrefix+"photo.")
+	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
+	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
+	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
+
+	// the facet keys are ours, so the ones this extraction did not produce
+	// describe content the resource no longer has
+	var stale []string
+	for k, stored := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
+		value, ok := metadata[k]
+		switch {
+		case ok && value == stored:
+			delete(metadata, k)
+		case !ok && strings.HasPrefix(k, facetKeyPrefix):
+			stale = append(stale, k)
+		}
+	}
+	if len(metadata) == 0 && len(stale) == 0 {
+		return
+	}
+
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		s.logger.Error().Err(err).Msg("could not retrieve client to store metadata")
+		return
+	}
+
+	if len(metadata) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
+
+		resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
+			Ref: ref,
+			ArbitraryMetadata: &provider.ArbitraryMetadata{
+				Metadata: metadata,
+			},
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
+			return
+		}
+	}
+
+	if len(stale) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Strs("keys", stale).Msg("Removing stale metadata")
+
+		resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
+			Ref:                   ref,
+			ArbitraryMetadataKeys: stale,
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
+		}
+	}
+}
+
+// extract runs the content extraction and retries it while tika or the file is
+// out of reach, unless unreachable is nil or says tika is down. A resource the
+// extractor does not send to tika leaves the count alone, it says nothing about tika.
+func (s *Service) extract(ctx context.Context, info *provider.ResourceInfo, unreachable *unreachableExtractions) (content.Document, error) {
+	remote, ok := s.extractor.(content.RemoteExtractor)
+	if unreachable == nil || (ok && !remote.Remote(info)) {
+		return s.extractor.Extract(ctx, info)
+	}
+	doc, err := s.extractOnce(ctx, info, unreachable.streak > 0)
+	for retry := 0; retry < unreachableRetries && !unreachable.down && isUnreachable(err); retry++ {
+		select {
+		case <-ctx.Done():
+			return doc, err
+		case <-time.After(unreachableRetryDelay):
+		}
+		doc, err = s.extractOnce(ctx, info, true)
+	}
+	if !isUnreachable(err) {
+		unreachable.streak, unreachable.down = 0, false
+		return doc, err
+	}
+
+	unreachable.streak++
+	unreachable.files++
+	unreachable.last = err
+	if unreachable.streak == unreachableStreakLimit {
+		unreachable.down, unreachable.tripped = true, true
+		s.logger.Warn().Err(err).Int("files", unreachable.streak).Msg("tika or the files stay out of reach, the remaining files are indexed by name without retries until an extraction succeeds")
+	}
+	return doc, err
+}
+
+// extractOnce runs one extraction. With probe set, after tika could not be
+// reached, it first asks tika cheaply whether it answers again and skips the
+// extraction if not, a hanging tika would cost the full timeout per file.
+func (s *Service) extractOnce(ctx context.Context, info *provider.ResourceInfo, probe bool) (content.Document, error) {
+	remote, ok := s.extractor.(content.RemoteExtractor)
+	if !probe || !ok {
+		return s.extractor.Extract(ctx, info)
+	}
+	probeErr := remote.Probe(ctx)
+	if probeErr == nil {
+		return s.extractor.Extract(ctx, info)
+	}
+	doc, err := s.basic.Extract(ctx, info)
+	if err != nil {
+		return doc, err
+	}
+	return doc, probeErr
+}
+
+// isIndexed reports whether the index holds a live document for info that is at least as new
+func (s *Service) isIndexed(ctx context.Context, info *provider.ResourceInfo) bool {
+	r, err := s.engine.Get(ctx, storagespace.FormatResourceID(info.GetId()))
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+		return false
+	case err != nil:
+		s.logger.Error().Err(err).Interface("id", info.GetId()).Msg("failed to look up the indexed resource, indexing it again")
+		return false
+	}
+	if r.Deleted || r.Mtime == nil || r.Mtime.Before(utils.TSToTime(info.GetMtime())) {
+		return false
+	}
+	f := r.ExtractionFailure
+	return f == nil || f.Count > len(extractionRetryDelays) || (f.RetryAt != nil && time.Now().Before(*f.RetryAt))
+}
+
+// nextExtractionFailure counts a failure on top of the ones the indexed entry
+// holds for the same version, a new version starts over. A failure to reach tika
+// or the file (not counted) says nothing about the file: it leaves a current
+// entry alone and is retried by every walk. write is false when the indexed
+// entry has to stay as it is.
+func (s *Service) nextExtractionFailure(ctx context.Context, id string, info *provider.ResourceInfo, path string, counted bool) (f *ExtractionFailure, write bool) {
+	var previous *Resource
+	r, err := s.engine.Get(ctx, id)
+	switch {
+	case errors.Is(err, ErrResourceNotFound):
+	case err != nil:
+		s.logger.Error().Err(err).Str("id", id).Msg("failed to look up the previous extraction failures")
+		if !counted {
+			// without knowing the entry, a name-only document could replace extracted content
+			return nil, false
+		}
+	case r.Mtime != nil && !r.Mtime.Before(utils.TSToTime(info.GetMtime())):
+		previous = r
+	}
+
+	if !counted {
+		if previous != nil && !previous.Deleted {
+			return nil, false
+		}
+		return &ExtractionFailure{}, true
+	}
+
+	count := 1
+	if previous != nil && previous.ExtractionFailure != nil {
+		count = previous.ExtractionFailure.Count + 1
+	}
+
+	f = &ExtractionFailure{Count: count}
+	if count > len(extractionRetryDelays) {
+		s.logger.Warn().Str("path", path).Int("failures", count).Msg("giving up on extracting the resource content until it changes, opencloud search index --force-rescan tries again")
+		return f, true
+	}
+	retryAt := time.Now().Add(extractionRetryDelays[count-1])
+	f.RetryAt = &retryAt
+	return f, true
+}
+
 func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {
 	statRes, err := statResource(ctx, ref, s.gatewaySelector, s.logger)
 	if err != nil {
@@ -954,4 +1201,28 @@ func tokenExpiry(ctx context.Context) (time.Time, error) {
 		return time.Time{}, errors.New("token has no expiry")
 	}
 	return claims.ExpiresAt.Time, nil
+}
+
+// unreachableExtractions follows the extractions of one space walk that could
+// not reach tika or the file. The walk does not stop when tika is down: the
+// files are indexed by name, and IndexSpace reports the outage at the end.
+type unreachableExtractions struct {
+	streak  int
+	down    bool
+	tripped bool
+	files   int
+	last    error
+}
+
+func (u *unreachableExtractions) err() error {
+	if !u.tripped {
+		return nil
+	}
+	return fmt.Errorf("tika or the files were out of reach, %d files indexed by name only: %w", u.files, u.last)
+}
+
+// isUnreachable tells a failure worth retrying from one the next attempt runs
+// into as well, a file tika cannot parse or a download the storage refuses
+func isUnreachable(err error) bool {
+	return errors.Is(err, content.ErrUnreachable)
 }

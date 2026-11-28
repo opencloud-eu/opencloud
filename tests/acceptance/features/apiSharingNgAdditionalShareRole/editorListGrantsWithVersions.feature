@@ -529,7 +529,7 @@ Feature: an user shares resources
                 "type": "object",
                 "required": ["driveId", "driveType"],
                 "properties": {
-                  "driveId": { "pattern": "^%file_id_pattern%$" },
+                  "driveId": { "pattern": "^%space_id_pattern%$" },
                   "driveType": { "const": "personal" }
                 }
               },
@@ -636,7 +636,7 @@ Feature: an user shares resources
                 "type": "object",
                 "required": ["driveId", "driveType"],
                 "properties": {
-                  "driveId": { "pattern": "^%file_id_pattern%$" },
+                  "driveId": { "pattern": "^%space_id_pattern%$" },
                   "driveType": { "const": "personal" }
                 }
               },
@@ -750,7 +750,7 @@ Feature: an user shares resources
                 "type": "object",
                 "required": ["driveId", "driveType"],
                 "properties": {
-                  "driveId": { "pattern": "^%file_id_pattern%$" },
+                  "driveId": { "pattern": "^%space_id_pattern%$" },
                   "driveType": { "const": "project" }
                 }
               },
@@ -843,7 +843,7 @@ Feature: an user shares resources
                 "type": "object",
                 "required": ["driveId", "driveType"],
                 "properties": {
-                  "driveId": { "pattern": "^%file_id_pattern%$" },
+                  "driveId": { "pattern": "^%space_id_pattern%$" },
                   "driveType": { "const": "project" }
                 }
               },

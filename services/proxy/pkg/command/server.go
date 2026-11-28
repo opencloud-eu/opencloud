@@ -11,12 +11,15 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/justinas/alice"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/audit"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/signedurl"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 
+	"github.com/opencloud-eu/opencloud/pkg/auditemitter"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -192,6 +195,21 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
+			auditEmitter, err := auditemitter.New(cfg.Context, cfg.Service.Name, auditemitter.Settings(cfg.Audit), raw.Config{
+				Endpoint:             cfg.Events.Endpoint,
+				Cluster:              cfg.Events.Cluster,
+				TLSInsecure:          cfg.Events.TLSInsecure,
+				TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+				EnableTLS:            cfg.Events.EnableTLS,
+				AuthUsername:         cfg.Events.AuthUsername,
+				AuthPassword:         cfg.Events.AuthPassword,
+			}, logger)
+			if err != nil {
+				logger.Error().Err(err).Msg("Error initializing the audit emitter")
+				return err
+			}
+			defer audit.CloseEmitter(auditEmitter)
+
 			lh := staticroutes.StaticRouteHandler{
 				Prefix:          cfg.HTTP.Root,
 				UserInfoCache:   userInfoCache,
@@ -201,6 +219,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				OidcHttpClient:  oidcHTTPClient,
 				Proxy:           rp,
 				EventsPublisher: publisher,
+				AuditEmitter:    auditEmitter,
 				UserProvider:    userProvider,
 			}
 			if err != nil {
@@ -209,7 +228,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 			{
-				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
+				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, auditEmitter, gatewaySelector, serviceSelector)
 				if err != nil {
 					return err
 				}
@@ -261,7 +280,7 @@ func Server(cfg *config.Config) *cobra.Command {
 	}
 }
 
-func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, httpClient *http.Client) (*middleware.OIDCAuthenticator, error) {
+func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, httpClient *http.Client, auditEmitter audit.Emitter) (*middleware.OIDCAuthenticator, error) {
 	oidcClient, err := oidc.NewOIDCClient(
 		oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		oidc.WithAccessTokenAudiences(cfg.OIDC.Audiences),
@@ -278,22 +297,48 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 		logger.Warn().Msg("OIDC access token audience validation is disabled. Configure PROXY_OIDC_AUDIENCES to enable it; this is recommended for production.")
 	}
 
+	var loginStore microstore.Store
+	if cfg.Audit.Enabled {
+		loginStore = auditLoginStore(cfg)
+	}
+
 	return middleware.NewOIDCAuthenticator(
 		middleware.Logger(logger),
 		middleware.UserInfoCache(userInfoCache),
+		middleware.AuditLoginStore(loginStore),
 		middleware.DefaultAccessTokenTTL(cfg.OIDC.UserinfoCache.TTL),
 		middleware.HTTPClient(httpClient),
 		middleware.OIDCIss(cfg.OIDC.Issuer),
 		middleware.AccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		middleware.OIDCClient(oidcClient),
 		middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
+		middleware.AuditEmitter(auditEmitter),
 	), nil
+}
+
+// auditLoginStore keeps the OIDC sessions already recorded as logins in the
+// audit log. It uses the store of the userinfo cache, but a database of its
+// own: nats-js-kv only supports a TTL per database (bucket), and the one of the
+// userinfo cache is far shorter than a session.
+func auditLoginStore(cfg *config.Config) microstore.Store {
+	c := cfg.OIDC.UserinfoCache
+	return store.Create(
+		store.Store(c.Store),
+		store.TTL(middleware.AuditLoginTTL),
+		microstore.Nodes(c.Nodes...),
+		microstore.Database("audit-logins"),
+		store.DisablePersistence(c.DisablePersistence),
+		store.Authentication(c.AuthUsername, c.AuthPassword),
+		store.TLSEnabled(c.EnableTLS),
+		store.TLSInsecure(c.TLSInsecure),
+		store.TLSRootCA(c.TLSRootCACertificate),
+	)
 }
 
 func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	userInfoCache, signingKeyStore microstore.Store,
 	traceProvider trace.TracerProvider, metrics metrics.Metrics,
-	userProvider backend.UserBackend, publisher events.Publisher,
+	userProvider backend.UserBackend, publisher events.Publisher, auditEmitter audit.Emitter,
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector) (alice.Chain, error) {
 
 	rolesClient := settingssvc.NewRoleService("eu.opencloud.api.settings", cfg.GrpcClient)
@@ -348,7 +393,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			UserRoleAssigner:    roleAssigner,
 		})
 	}
-	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient)
+	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient, auditEmitter)
 	if err != nil {
 		return alice.Chain{}, err
 	}
@@ -393,6 +438,11 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		logger.Fatal().Err(err).Msg("Failed to load CSP configuration.")
 	}
 
+	var baseURL string
+	if cfg.Commons != nil {
+		baseURL = cfg.Commons.OpenCloudURL
+	}
+
 	return alice.New(
 		pkgmiddleware.ClientIP(trustedProxies, cfg.ClientIP.Header),
 		chimiddleware.RequestID,
@@ -408,7 +458,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		pkgmiddleware.TraceContext,
 		middleware.AccessLog(logger),
 		middleware.ContextLogger(logger),
-		middleware.HTTPSRedirect, // redirect to https if enabled
+		middleware.HTTPSRedirect(logger, baseURL), // redirect to https if enabled
 
 		// 2. Rewrite datagateway url tokens to dataprovider endpoint and
 		// rewrite Location headers in TUS responses to signed datagateway urls
@@ -426,7 +476,10 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.OIDCIss(cfg.OIDC.Issuer),
 			middleware.EnableBasicAuth(cfg.EnableBasicAuth || cfg.AuthMiddleware.AllowAppAuth),
 			middleware.TraceProvider(traceProvider),
+			middleware.AuditEmitter(auditEmitter),
 		),
+		// after Authentication: needs the auth method and the OIDC claims
+		middleware.AuditContext,
 		middleware.AccountResolver(
 			middleware.Logger(logger),
 			middleware.TraceProvider(traceProvider),
@@ -442,6 +495,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.AutoprovisionAccounts(cfg.AutoprovisionAccounts),
 			middleware.MultiTenantEnabled(cfg.Commons.MultiTenantEnabled),
 			middleware.EventsPublisher(publisher),
+			middleware.AuditEmitter(auditEmitter),
 		),
 		middleware.SelectorCookie(
 			middleware.Logger(logger),

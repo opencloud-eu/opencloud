@@ -9,6 +9,16 @@
       "Deleted": {
         "type": "boolean"
       },
+      "ExtractionFailure": {
+        "properties": {
+          "Count": {
+            "type": "long"
+          },
+          "RetryAt": {
+            "type": "date"
+          }
+        }
+      },
       "Favorites": {
         "type": "keyword"
       },

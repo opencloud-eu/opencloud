@@ -14,7 +14,7 @@ services:
       USE_BEARER_TOKEN: ${USE_BEARER_TOKEN:-false}
       # email
       EMAIL_HOST: email
-      EMAIL_PORT: 9000
+      EMAIL_PORT: 8025
     env_file:
       - ../../../../.woodpecker.env
     extra_hosts:

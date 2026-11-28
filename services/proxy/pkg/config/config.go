@@ -48,9 +48,10 @@ type Config struct {
 	BackendHTTPSCACert            string              `yaml:"backend_https_cacert" env:"PROXY_HTTPS_CACERT" desc:"Path/File for the root CA certificate used to validate the server’s TLS certificate for https enabled backend services." introductionVersion:"1.0.0"`
 	AuthMiddleware                AuthMiddleware      `yaml:"auth_middleware"`
 	PoliciesMiddleware            PoliciesMiddleware  `yaml:"policies_middleware"`
-	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
-	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
+	CSPConfigFileLocation         []string            `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"A comma-separated list of CSP configuration files, which are merged into the default CSP in the given order. Each element can be a path or a glob pattern like '/web/apps/*/csp.yaml'. A pattern without matches is ignored, a path to a missing file is an error." introductionVersion:"1.0.0"`
+	CSPConfigFileOverrideLocation []string            `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"A comma-separated list of CSP configuration files, which replace the default CSP and are merged in the given order. Each element can be a path or a glob pattern like '/web/apps/*/csp.yaml'. A pattern without matches is ignored, a path to a missing file is an error. At least one file needs to exist. If set, PROXY_CSP_CONFIG_FILE_LOCATION is ignored." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
+	Audit                         Audit               `yaml:"audit"`
 	GuestLinkAuth                 GuestLinkAuth       `yaml:"guest_link_auth"`
 
 	Context context.Context `json:"-" yaml:"-"`
@@ -241,6 +242,12 @@ type RegexRuleConf struct {
 type ServiceAccount struct {
 	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;PROXY_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0"`
 	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;PROXY_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
+}
+
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;PROXY_AUDIT_ENABLED" desc:"Emit audit events for logins and failed logins, public link access and backchannel logouts to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;PROXY_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort', the only mode for now, never blocks a request and counts dropped events." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.

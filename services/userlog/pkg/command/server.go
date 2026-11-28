@@ -25,10 +25,10 @@ import (
 	consumerSvc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service/consumer"
 	httpSvc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service/http"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
+	"github.com/opencloud-eu/reva/v3/pkg/events"
+	"github.com/opencloud-eu/reva/v3/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v3/pkg/store"
 	"github.com/spf13/cobra"
 	microstore "go-micro.dev/v4/store"
 )

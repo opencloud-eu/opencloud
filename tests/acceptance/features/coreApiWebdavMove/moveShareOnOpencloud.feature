@@ -255,7 +255,7 @@ Feature: move (rename) file
       | spaces           | Editor           |
 
 
-  Scenario Outline: sharee moves a file within a shared folder (change/all permissions)
+  Scenario Outline: sharee moves a file within a shared folder (Editor permissions)
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
     And user "Brian" has created folder "testshare"
@@ -276,26 +276,23 @@ Feature: move (rename) file
     And as "Brian" file "/testshare/testfile.txt" should not exist
     Examples:
       | dav-path-version | permissions-role |
-      | old              | Uploader         |
       | old              | Editor           |
-      | new              | Uploader         |
       | new              | Editor           |
-      | spaces           | Uploader         |
       | spaces           | Editor           |
 
 
-  Scenario Outline: sharee tries to move a file within a shared folder (read permissions)
+  Scenario Outline: sharee tries to move a file within a shared folder (Viewer/Uploader permissions)
     Given using <dav-path-version> DAV path
     And user "Brian" has been created with default attributes
     And user "Brian" has created folder "testshare"
     And user "Brian" has created folder "testshare/child"
     And user "Brian" has uploaded file with content "test data" to "testshare/testfile.txt"
     And user "Brian" has sent the following resource share invitation:
-      | resource        | testshare |
-      | space           | Personal  |
-      | sharee          | Alice     |
-      | shareType       | user      |
-      | permissionsRole | Viewer    |
+      | resource        | testshare          |
+      | space           | Personal           |
+      | sharee          | Alice              |
+      | shareType       | user               |
+      | permissionsRole | <permissions-role> |
     And user "Alice" has a share "testshare" synced
     When user "Alice" moves folder "Shares/testshare/testfile.txt" to "Shares/testshare/child/testfile.txt" using the WebDAV API
     Then the HTTP status code should be "403"
@@ -304,10 +301,13 @@ Feature: move (rename) file
     And as "Alice" file "/Shares/testshare/testfile.txt" should exist
     And as "Brian" file "/testshare/testfile.txt" should exist
     Examples:
-      | dav-path-version |
-      | old              |
-      | new              |
-      | spaces           |
+      | dav-path-version | permissions-role |
+      | old              | Viewer           |
+      | new              | Viewer           |
+      | spaces           | Viewer           |
+      | old              | Uploader         |
+      | new              | Uploader         |
+      | spaces           | Uploader         |
 
   @issue-1976
   Scenario Outline: sharee tries to move a file into same shared folder with same name
