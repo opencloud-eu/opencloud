@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -179,6 +181,18 @@ var _ = Describe("sharedbyme", func() {
 				Info: &provider.ResourceInfo{
 					Id: publicShare.ResourceId,
 				},
+			}, nil)
+		gatewayClient.On("Stat",
+			mock.Anything,
+			mock.MatchedBy(
+				func(req *provider.StatRequest) bool {
+					return strings.HasPrefix(req.GetRef().GetResourceId().GetOpaqueId(), "race-resource-")
+				})).
+			Return(func(_ context.Context, req *provider.StatRequest, _ ...grpc.CallOption) *provider.StatResponse {
+				return &provider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   &provider.ResourceInfo{Id: req.GetRef().GetResourceId(), Type: provider.ResourceType_RESOURCE_TYPE_FILE},
+				}
 			}, nil)
 		gatewayClient.On("Stat",
 			mock.Anything,
@@ -798,6 +812,39 @@ var _ = Describe("sharedbyme", func() {
 			link, ok := perm[0].GetLinkOk()
 			Expect(ok).To(BeTrue())
 			Expect(link.GetWebUrl()).To(Equal("https://localhost:9200/s/" + publicShare.GetToken()))
+		})
+
+		// Public shares on different resources are converted by concurrent workers. They must not read
+		// the driveItems map while the results are written into it. Run with -race to see the problem.
+		It("returns one driveItem per resource for many public shares (no concurrent map access)", func() {
+			emptyListSharesMock()
+			const n = 40
+			shares := make([]*link.PublicShare, 0, n)
+			for i := 0; i < n; i++ {
+				shares = append(shares, &link.PublicShare{
+					Id:          &link.PublicShareId{OpaqueId: "race-share-" + strconv.Itoa(i)},
+					Token:       "race-token-" + strconv.Itoa(i),
+					ResourceId:  &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "race-resource-" + strconv.Itoa(i)},
+					Permissions: publicShare.GetPermissions(),
+				})
+			}
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(
+				&link.ListPublicSharesResponse{Status: status.NewOK(ctx), Share: shares},
+				nil,
+			)
+
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil)
+			svc.GetSharedByMe(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusOK))
+
+			data, err := io.ReadAll(rr.Body)
+			Expect(err).ToNot(HaveOccurred())
+			res := itemsList{}
+			Expect(json.Unmarshal(data, &res)).To(Succeed())
+			Expect(len(res.Value)).To(Equal(n))
+			for _, di := range res.Value {
+				Expect(di.GetPermissions()).To(HaveLen(1))
+			}
 		})
 
 	})

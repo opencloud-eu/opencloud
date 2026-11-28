@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"path"
 	"time"
@@ -373,6 +374,9 @@ func (g BaseGraphService) listPublicShares(ctx context.Context, filters []*link.
 
 func (g BaseGraphService) cs3UserSharesToDriveItems(ctx context.Context, shares []*collaboration.Share, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	errg, ctx := errgroup.WithContext(ctx)
+	// The workers only read items that existed before this call. Give them a snapshot,
+	// because the results loop below writes to driveItems while they are running.
+	existingItems := maps.Clone(driveItems)
 
 	// group shares by resource id
 	sharesByResource := make(map[string][]*collaboration.Share)
@@ -412,7 +416,7 @@ func (g BaseGraphService) cs3UserSharesToDriveItems(ctx context.Context, shares 
 			for sharesByResource := range work {
 				resIDStr := storagespace.FormatResourceID(sharesByResource.ResourceID)
 				// check if we already have the drive item in the map
-				item, ok := driveItems[resIDStr]
+				item, ok := existingItems[resIDStr]
 				if !ok {
 					itemptr, err := g.getDriveItem(ctx, &storageprovider.Reference{ResourceId: sharesByResource.ResourceID})
 					if err != nil {
@@ -475,6 +479,9 @@ func (g BaseGraphService) cs3UserSharesToDriveItems(ctx context.Context, shares 
 
 func (g BaseGraphService) cs3OCMSharesToDriveItems(ctx context.Context, shares []*ocm.Share, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	errg, ctx := errgroup.WithContext(ctx)
+	// The workers only read items that existed before this call. Give them a snapshot,
+	// because the results loop below writes to driveItems while they are running.
+	existingItems := maps.Clone(driveItems)
 
 	// group shares by resource id
 	sharesByResource := make(map[string][]*ocm.Share)
@@ -513,7 +520,7 @@ func (g BaseGraphService) cs3OCMSharesToDriveItems(ctx context.Context, shares [
 		errg.Go(func() error {
 			for sharesByResource := range work {
 				resIDStr := storagespace.FormatResourceID(sharesByResource.ResourceID)
-				item, ok := driveItems[resIDStr]
+				item, ok := existingItems[resIDStr]
 				if !ok {
 					itemptr, err := g.getDriveItem(ctx, &storageprovider.Reference{ResourceId: sharesByResource.ResourceID})
 					if err != nil {
@@ -734,6 +741,9 @@ func (g BaseGraphService) cs3OCMShareToPermission(ctx context.Context, share *oc
 
 func (g BaseGraphService) cs3PublicSharesToDriveItems(ctx context.Context, shares []*link.PublicShare, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	errg, ctx := errgroup.WithContext(ctx)
+	// The workers only read items that existed before this call. Give them a snapshot,
+	// because the results loop below writes to driveItems while they are running.
+	existingItems := maps.Clone(driveItems)
 
 	// group shares by resource id
 	sharesByResource := make(map[string][]*link.PublicShare)
@@ -772,7 +782,7 @@ func (g BaseGraphService) cs3PublicSharesToDriveItems(ctx context.Context, share
 		errg.Go(func() error {
 			for sharesByResource := range work {
 				resIDStr := storagespace.FormatResourceID(sharesByResource.ResourceID)
-				item, ok := driveItems[resIDStr]
+				item, ok := existingItems[resIDStr]
 				if !ok {
 					itemptr, err := g.getDriveItem(ctx, &storageprovider.Reference{ResourceId: sharesByResource.ResourceID})
 					if err != nil {
