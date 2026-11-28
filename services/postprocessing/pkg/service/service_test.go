@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"reflect"
@@ -13,10 +14,13 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/postprocessing/pkg/postprocessing"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v3/pkg/store"
+	"github.com/rs/zerolog"
 	microevents "go-micro.dev/v4/events"
+	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
@@ -49,6 +53,19 @@ func (p *testPublisher) stats() (attempts int, accepted []any) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.attempts, p.accepted
+}
+
+// errStoreRead is a store failure that is not "not found", e.g. a lost connection.
+var errStoreRead = errors.New("store: connection lost")
+
+// failingStore fails every Read with err.
+type failingStore struct {
+	microstore.Store
+	err error
+}
+
+func (s failingStore) Read(string, ...microstore.ReadOption) ([]*microstore.Record, error) {
+	return nil, s.err
 }
 
 var _ = Describe("PostprocessingService", func() {
@@ -225,6 +242,74 @@ var _ = Describe("PostprocessingService", func() {
 			err := pps.processEvent(uploadReady("upload-" + uuid.New().String()))
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrEvent)).To(BeTrue())
+		})
+	})
+
+	Describe("acking events when the store read fails", func() {
+		var logs *bytes.Buffer
+
+		// The events in these tests carry no jetstream message, so Ack() fails and the
+		// service logs "unable to ack event". That log line is how we see an ack attempt.
+		acked := func() bool { return bytes.Contains(logs.Bytes(), []byte("unable to ack event")) }
+
+		withStore := func(sto microstore.Store) {
+			// the global level can be raised by other packages and would hide the log line
+			prev := zerolog.GlobalLevel()
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+			DeferCleanup(zerolog.SetGlobalLevel, prev)
+
+			logs = &bytes.Buffer{}
+			pps = newService()
+			pps.log = log.Logger{Logger: zerolog.New(logs)}
+			pps.store = sto
+		}
+
+		mk := func(ev any) raw.Event {
+			return raw.Event{Event: events.Event{
+				ID:    uuid.New().String(),
+				Type:  reflect.TypeOf(ev).String(),
+				Event: ev,
+			}}
+		}
+
+		cases := map[string]func() raw.Event{
+			"PostprocessingStepFinished": func() raw.Event {
+				return mk(events.PostprocessingStepFinished{UploadID: "up-1", FinishedStep: events.PPStepAntivirus, Outcome: events.PPOutcomeContinue})
+			},
+			"StartPostprocessingStep": func() raw.Event {
+				return mk(events.StartPostprocessingStep{UploadID: "up-1", StepToStart: events.PPStepDelay})
+			},
+			"UploadReady": func() raw.Event {
+				return mk(events.UploadReady{UploadID: "up-1", Filename: "test.txt"})
+			},
+		}
+
+		for name, newEvent := range cases {
+			It("does not ack "+name+" when the store read fails", func() {
+				withStore(failingStore{Store: store.Create(), err: errStoreRead})
+
+				err := pps.processEvent(newEvent())
+				Expect(errors.Is(err, ErrEvent)).To(BeTrue())
+				Expect(acked()).To(BeFalse())
+				_, accepted := pub.stats()
+				Expect(accepted).To(BeEmpty())
+			})
+
+			It("still acks "+name+" when the upload is not in the store", func() {
+				withStore(store.Create())
+
+				err := pps.processEvent(newEvent())
+				Expect(errors.Is(err, ErrEvent)).To(BeTrue())
+				Expect(acked()).To(BeTrue())
+			})
+		}
+
+		It("acks UploadReady when the upload is read normally", func() {
+			withStore(store.Create())
+			Expect(storePP(pps.store, &postprocessing.Postprocessing{ID: "up-1"})).To(Succeed())
+
+			Expect(pps.processEvent(mk(events.UploadReady{UploadID: "up-1", Filename: "test.txt"}))).To(Succeed())
+			Expect(acked()).To(BeTrue())
 		})
 	})
 })

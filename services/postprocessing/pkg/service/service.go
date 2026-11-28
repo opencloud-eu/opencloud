@@ -219,6 +219,9 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
 			pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot get upload")
+			// An unknown upload will not show up on a redelivery, so ack it. Any other read
+			// error is probably transient: leave the event unacked so jetstream redelivers it.
+			ackEvent = errors.Is(err, ErrNotFound)
 			return fmt.Errorf("%w: cannot get upload", ErrEvent)
 		}
 		next = pp.NextStep(ev)
@@ -258,6 +261,9 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
 			pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot get upload")
+			// An unknown upload will not show up on a redelivery, so ack it. Any other read
+			// error is probably transient: leave the event unacked so jetstream redelivers it.
+			ackEvent = errors.Is(err, ErrNotFound)
 			return fmt.Errorf("%w: cannot get upload", ErrEvent)
 		}
 		pp.Delay(func(next any) {
@@ -274,6 +280,9 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
 			pps.log.Error().Str("uploadID", ev.UploadID).Err(err).Msg("cannot get upload")
+			// An unknown upload will not show up on a redelivery, so ack it. Any other read
+			// error is probably transient: leave the event unacked so jetstream redelivers it.
+			ackEvent = errors.Is(err, ErrNotFound)
 			return fmt.Errorf("%w: cannot get upload", ErrEvent)
 		}
 
