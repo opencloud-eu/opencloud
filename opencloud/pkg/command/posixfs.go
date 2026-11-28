@@ -17,6 +17,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
 	"github.com/opencloud-eu/reva/v3/pkg/events"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/pkg/decomposedfs/metadata/prefixes"
@@ -110,13 +111,18 @@ the command is aborted with an error before performing any scanning.`,
 							path = v
 						}
 					}
-					// not ensuring whether the path is under the storage root here, will be done when iterating over them
+					// checkStorageRoot below makes sure the path is in the configured storage
 					path = filepath.Clean(path)
 					paths = append(paths, path)
 				}
 			}
 
+			if err := checkStorageRoot(storageRoot, paths); err != nil {
+				return err
+			}
+
 			var scan func(path string) error = nil
+			var ignorer *ignore.Ignorer
 			{
 				// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
 				drivers := revaconfig.StorageProviderDrivers(cfg)
@@ -124,15 +130,19 @@ the command is aborted with an error before performing any scanning.`,
 				// Clean up revisions without background workers: the command could exit before
 				// they are done, and stop the cleanup of a file midway.
 				drivers["posix"].(map[string]any)["revisions_cleanup_async"] = false
+				opts, err := options.New(drivers["posix"].(map[string]any))
+				if err != nil {
+					return err
+				}
 
 				var fsStream events.Stream
-				var err error
 				fsStream, err = event.NewStream(cfg)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
 					os.Exit(1)
 				}
 				log := logger("posixfs")
+				ignorer = ignore.NewIgnorer(opts, &log)
 
 				f, ok := registry.NewFuncs["posix"]
 				if !ok {
@@ -161,15 +171,7 @@ the command is aborted with an error before performing any scanning.`,
 				}
 			}
 
-			errors := processPosixFsResources(paths, !haltOnError,
-				func(path string) error {
-					fmt.Println("Scanning personal spaces...")
-					return scan(path)
-				},
-				func(path string) error {
-					fmt.Println("Scanning project spaces...")
-					return scan(path)
-				},
+			errors := processPosixFsResources(paths, ignorer, !haltOnError,
 				func(path string) error {
 					fmt.Printf("Scanning space '%s'...\n", path)
 					return scan(path)
@@ -373,6 +375,16 @@ The provided arguments determines the scope of the check:
 			if len(args) == 0 {
 				args = []string{cfg.Drivers.Posix.Root}
 			}
+			for i, arg := range args {
+				abs, err := filepath.Abs(arg)
+				if err != nil {
+					return fmt.Errorf("failed to make the path %q absolute: %w", arg, err)
+				}
+				args[i] = abs
+			}
+			if err := checkStorageRoot(cfg.Drivers.Posix.Root, args); err != nil {
+				return err
+			}
 			log := logger("posixfs")
 			recalculateChecksums, err := cmd.Flags().GetBool("fix-checksums")
 			if err != nil {
@@ -414,11 +426,8 @@ func logFailure(message string, args ...any) {
 func findStorageRoot(path string) (string, error) {
 	current := path
 	for {
-		indexesPath := filepath.Join(current, "indexes")
-		if info, err := os.Stat(indexesPath); err == nil && info.IsDir() {
-			if id, err := xattr.Get(indexesPath, prefixes.IDAttr); err != nil || len(id) == 0 {
-				return current, nil
-			}
+		if isStorageRoot(current) {
+			return current, nil
 		}
 
 		parent := filepath.Dir(current)
@@ -427,6 +436,58 @@ func findStorageRoot(path string) (string, error) {
 		}
 		current = parent
 	}
+}
+
+func isStorageRoot(dir string) bool {
+	indexesPath := filepath.Join(dir, "indexes")
+	if info, err := os.Stat(indexesPath); err != nil || !info.IsDir() {
+		return false
+	}
+	id, err := xattr.Get(indexesPath, prefixes.IDAttr)
+	return err != nil || len(id) == 0
+}
+
+// isStorageInternal reports whether dir is one of the internal directories of
+// the storage that hold no spaces. The ignorer owns that list, so ask it.
+func isStorageInternal(ignorer *ignore.Ignorer, dir string) bool {
+	return ignorer.IsIndex(dir) || ignorer.IsChanges(dir) || ignorer.IsUpload(dir)
+}
+
+// isPurgeTombstone reports whether dir is a space root that was renamed to be
+// purged. It is about to be deleted, so there is nothing to scan or fix in it.
+// IsPurging only knows the default template base directories, so check the
+// name as well to cover spaces wherever the templates put them.
+func isPurgeTombstone(ignorer *ignore.Ignorer, dir string) bool {
+	return strings.HasPrefix(filepath.Base(dir), lookup.PurgeDirPrefix) || ignorer.IsPurging(dir)
+}
+
+// checkStorageRoot returns an error if a path is not inside the configured
+// posixfs storage, spelled the way the configuration spells it. The commands
+// build their ignore rules and the driver from the configured root, and those
+// compare plain path strings. A path in another storage, or one reached through
+// a symlink, would not have its internal directories (.Trash, .oc-nodes,
+// .oc-tmp) recognised, and node attributes would be written onto them. Paths
+// must be absolute. Paths outside any storage are left to the caller, which
+// reports them.
+func checkStorageRoot(configured string, paths []string) error {
+	if _, err := os.Stat(configured); err != nil {
+		return fmt.Errorf("the configured posixfs root '%s' is not accessible: %w", configured, err)
+	}
+	configured = filepath.Clean(configured)
+	for _, path := range paths {
+		if !filepath.IsAbs(path) {
+			return fmt.Errorf("'%s' is not an absolute path", path)
+		}
+		root, err := findStorageRoot(path)
+		if err != nil {
+			continue
+		}
+		if filepath.Clean(root) != configured {
+			return fmt.Errorf("'%s' is not under the configured posixfs root '%s' (it looks like part of a storage at '%s'). "+
+				"Pass a path under '%s', or set STORAGE_USERS_POSIX_ROOT to the storage you mean", path, configured, root, configured)
+		}
+	}
+	return nil
 }
 
 // isSpaceRoot reports whether the given path is a space root, which is
@@ -443,9 +504,8 @@ func isSpaceRoot(path string) bool {
 // subsequent paths, and then returns a slice of errors at the end (or an empty slice
 // if no errors occured)
 func processPosixFsResources(paths []string,
+	ignorer *ignore.Ignorer,
 	keepGoing bool,
-	personalSpaceDir func(string) error,
-	projectSpaceDir func(string) error,
 	spaceRoot func(string) error,
 	entity func(string) error,
 ) []error {
@@ -477,17 +537,54 @@ func processPosixFsResources(paths []string,
 
 		switch {
 		case path == rootPath:
-			if err := personalSpaceDir(filepath.Join(path, "users")); err != nil {
-				errors = append(errors, err)
-				if !keepGoing {
-					return errors
+			// the path templates decide where the spaces are, so look for them
+			// instead of assuming the default users/ and projects/ directories.
+			// The trailing separator makes WalkDir follow a symlinked root.
+			walkRoot := path + string(filepath.Separator)
+			err := filepath.WalkDir(walkRoot, func(p string, d os.DirEntry, err error) error {
+				if err != nil {
+					logFailure("error reading '%s': %v", p, err)
+					errors = append(errors, err)
+					if !keepGoing {
+						return err
+					}
+					return nil
 				}
-			}
-			if err := projectSpaceDir(filepath.Join(path, "projects")); err != nil {
-				errors = append(errors, err)
-				if !keepGoing {
-					return errors
+				if !d.IsDir() {
+					return nil
 				}
+				if p != walkRoot && (isStorageInternal(ignorer, p) || isPurgeTombstone(ignorer, p)) {
+					return filepath.SkipDir
+				}
+				if isSpaceRoot(p) {
+					if err := spaceRoot(p); err != nil {
+						errors = append(errors, err)
+						if !keepGoing {
+							return err
+						}
+					}
+					return filepath.SkipDir
+				}
+				// a space can contain a directory named indexes, so look for
+				// nested storages only outside of spaces
+				if p != walkRoot && isStorageRoot(p) {
+					return filepath.SkipDir
+				}
+				// every space keeps its metadata in this directory, so this
+				// is a space that lost its space ID
+				if info, err := os.Stat(filepath.Join(p, lookup.MetadataDir)); err == nil && info.IsDir() {
+					err := fmt.Errorf("the directory '%s' looks like a space root, but it is missing the '%s' attribute", p, prefixes.SpaceIDAttr)
+					logFailure(err.Error())
+					errors = append(errors, err)
+					if !keepGoing {
+						return err
+					}
+					return filepath.SkipDir
+				}
+				return nil
+			})
+			if err != nil {
+				return errors
 			}
 		case isSpaceRoot(path):
 			if err := spaceRoot(path); err != nil {
